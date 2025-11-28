@@ -1,0 +1,48 @@
+{
+  "newProject": {
+    "title": "New Project",
+    "width": "Width (px)",
+    "height": "Height (px)",
+    "presets": "Presets",
+    "square": "Square (1:1)",
+    "fhd": "FHD (16:9)",
+    "mobile": "Mobile (9:16)",
+    "background": "Background",
+    "transparent": "Transparent",
+    "color": "Color",
+    "create": "Create Project"
+  },
+  "welcome": {
+    "title": "Welcome to Nebula",
+    "subtitle": "AI-Powered Creative Studio. Design, Edit, and Generate with the power of Gemini.",
+    "createNew": "Create New Project",
+    "openExisting": "Open Existing Project",
+    "version": "v1.0.0 • Powered by Gemini Flash 2.5"
+  },
+  "fileMenu": {
+    "newProject": "New Project",
+    "openProject": "Open Project",
+    "saveProject": "Save Project"
+  },
+  "contextMenu": {
+    "copy": "Copy",
+    "paste": "Paste",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "bringToFront": "Bring to Front",
+    "sendToBack": "Send to Back",
+    "group": "Group Layers",
+    "ungroup": "Ungroup",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "aiBlend": "AI Blend with Below"
+  },
+  "recovery": {
+    "title": "Recover Unsaved Project",
+    "message": "An unsaved project was detected. Would you like to recover it?",
+    "timestamp": "Saved at",
+    "recover": "Recover",
+    "dismiss": "Dismiss"
+  }
+}
+

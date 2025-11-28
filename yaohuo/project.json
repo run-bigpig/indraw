@@ -1,0 +1,13 @@
+{
+  "name": "yaohuo",
+  "path": "E:\\ai\\indraw\\yaohuo",
+  "version": "1.0",
+  "createdAt": 1764324674,
+  "updatedAt": 1764324674,
+  "canvasConfig": {
+    "width": 1080,
+    "height": 1920,
+    "background": "transparent",
+    "backgroundColor": "#ffffff"
+  }
+}

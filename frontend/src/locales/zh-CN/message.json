@@ -1,0 +1,35 @@
+{
+  "success": {
+    "projectSaved": "项目已保存",
+    "projectLoaded": "项目已加载",
+    "layerDeleted": "图层已删除",
+    "imageGenerated": "图像生成成功",
+    "backgroundRemoved": "背景已移除",
+    "imageBlended": "图像混合成功",
+    "layerCopied": "图层已复制",
+    "layerPasted": "图层已粘贴"
+  },
+  "error": {
+    "generateFailed": "生成失败，请重试",
+    "loadFailed": "加载失败",
+    "saveFailed": "保存失败",
+    "noApiKey": "请配置 Gemini API Key",
+    "invalidFile": "无效的文件格式",
+    "uploadFailed": "上传失败",
+    "processingFailed": "处理失败"
+  },
+  "shortcuts": {
+    "multiSelect": "CLICK TO MULTI-SELECT",
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Shift+Z)"
+  },
+  "zoom": {
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fitToScreen": "适应屏幕"
+  },
+  "autoSave": {
+    "lastSaved": "自动保存"
+  }
+}
+

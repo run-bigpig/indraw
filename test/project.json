@@ -1,0 +1,13 @@
+{
+  "name": "test",
+  "path": "E:\\ai\\indraw\\test",
+  "version": "1.0",
+  "createdAt": 1764324484,
+  "updatedAt": 1764324484,
+  "canvasConfig": {
+    "width": 1080,
+    "height": 1080,
+    "background": "transparent",
+    "backgroundColor": "#ffffff"
+  }
+}

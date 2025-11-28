@@ -1,0 +1,12 @@
+{
+  "shapesPanel": "Shapes Panel",
+  "showShapes": "Show Shapes Panel",
+  "rectangle": "Rectangle",
+  "circle": "Circle",
+  "ellipse": "Ellipse",
+  "triangle": "Triangle",
+  "star": "Star",
+  "pentagon": "Pentagon",
+  "hexagon": "Hexagon",
+  "disabledTooltip": "Please create a project first"
+}

@@ -1,0 +1,72 @@
+{
+  "title": "Settings",
+  "tabs": {
+    "ai": "AI Service",
+    "canvas": "Canvas",
+    "tools": "Tools",
+    "app": "Application"
+  },
+  "ai": {
+    "provider": "Service Provider",
+    "providerHint": "Select AI service provider",
+    "providerGemini": "Google Gemini",
+    "providerOpenai": "OpenAI Compatible",
+    "apiKey": "API Key",
+    "apiKeyHint": "Used to call Google Gemini API, please keep it safe",
+    "apiKeyPlaceholder": "Enter your API Key",
+    "textModel": "Text Model",
+    "textModelHint": "Used for text generation and understanding",
+    "imageModel": "Image Model",
+    "imageModelHint": "Used for image generation and editing",
+    "openaiApiKey": "API Key",
+    "openaiApiKeyHint": "Used to call OpenAI compatible API, please keep it safe",
+    "openaiApiKeyPlaceholder": "Enter your API Key",
+    "openaiImageApiKey": "Image API Key (Optional)",
+    "openaiImageApiKeyHint": "Leave empty to use general API Key",
+    "openaiImageApiKeyPlaceholder": "Leave empty to use general API Key",
+    "openaiBaseUrl": "API Base URL",
+    "openaiBaseUrlHint": "Can be customized for third-party compatible services",
+    "openaiImageBaseUrl": "Image API Base URL (Optional)",
+    "openaiImageBaseUrlHint": "Leave empty to use general Base URL",
+    "openaiImageBaseUrlPlaceholder": "Leave empty to use general Base URL",
+    "openaiTextModel": "Text Model",
+    "openaiTextModelHint": "e.g. gpt-4o, gpt-3.5-turbo",
+    "openaiImageModel": "Image Model",
+    "openaiImageModelHint": "e.g. dall-e-3, dall-e-2",
+    "openaiCompatNote": "ℹ️ OpenAI Compatible Service Note",
+    "openaiCompatDesc": "Requires /images/edits endpoint compatible services for image editing, blending, and background removal features."
+  },
+  "canvas": {
+    "width": "Default Width",
+    "height": "Default Height",
+    "background": "Default Background",
+    "transparent": "Transparent",
+    "color": "Solid Color",
+    "backgroundColor": "Background Color"
+  },
+  "tools": {
+    "brush": "Brush",
+    "brushSize": "Default Size",
+    "brushColor": "Default Color",
+    "brushOpacity": "Default Opacity",
+    "eraser": "Eraser",
+    "eraserSize": "Default Size",
+    "text": "Text",
+    "textSize": "Default Font Size",
+    "textColor": "Default Color"
+  },
+  "app": {
+    "language": "Interface Language",
+    "autoSave": "Auto Save",
+    "autoSaveInterval": "Auto Save Interval (seconds)"
+  },
+  "export": "Export",
+  "import": "Import",
+  "reset": "Reset",
+  "exportSuccess": "Settings exported",
+  "importSuccess": "Settings imported",
+  "importError": "Import failed, invalid file format",
+  "resetConfirm": "Are you sure you want to reset all settings? This action cannot be undone.",
+  "resetSuccess": "Settings have been reset to defaults"
+}
+

@@ -1,0 +1,35 @@
+{
+  "success": {
+    "projectSaved": "Project saved",
+    "projectLoaded": "Project loaded",
+    "layerDeleted": "Layer deleted",
+    "imageGenerated": "Image generated successfully",
+    "backgroundRemoved": "Background removed",
+    "imageBlended": "Image blended successfully",
+    "layerCopied": "Layer copied",
+    "layerPasted": "Layer pasted"
+  },
+  "error": {
+    "generateFailed": "Generation failed, please try again",
+    "loadFailed": "Load failed",
+    "saveFailed": "Save failed",
+    "noApiKey": "Please configure Gemini API Key",
+    "invalidFile": "Invalid file format",
+    "uploadFailed": "Upload failed",
+    "processingFailed": "Processing failed"
+  },
+  "shortcuts": {
+    "multiSelect": "+ CLICK TO MULTI-SELECT",
+    "undo": "Undo (Ctrl+Z)",
+    "redo": "Redo (Ctrl+Shift+Z)"
+  },
+  "zoom": {
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "fitToScreen": "Fit to Screen"
+  },
+  "autoSave": {
+    "lastSaved": "Auto saved"
+  }
+}
+

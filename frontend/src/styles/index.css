@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* 基础样式 - 适配桌面端 */
+  html, body {
+    @apply bg-tech-900 text-gray-200;
+    /* 防止桌面端出现意外滚动 */
+    overflow: hidden;
+    /* 确保填满整个窗口 */
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 根容器 */
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* 禁用文本选择（桌面应用体验） */
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* 允许输入框和文本区域选择文本 */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* 禁用拖拽（避免意外拖拽图片等） */
+  img, a {
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
+}
+
+/* Custom scrollbar for tech feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0E14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E2433;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #06B6D4;
+}
+
+@layer base {
+  /* Remove default focus outlines / inner borders from buttons to avoid white border flicker */
+  button:focus,
+  button:focus-visible {
+    outline: none !important;
+    box-shadow: none;
+  }
+
+  button::-moz-focus-inner {
+    border: 0;
+  }
+}
+
+/* 桌面端特定样式修复 */
+@layer utilities {
+  /* 确保 flex 容器正确填充 */
+  .h-screen {
+    height: 100vh;
+    height: 100dvh; /* 动态视口高度，更好地适配桌面端 */
+  }
+
+  /* 修复可能的布局问题 */
+  .min-w-0 {
+    min-width: 0;
+  }
+
+  /* 确保模态框正确居中 */
+  .fixed.inset-0 {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+}
+
+/* 动画优化 - 减少桌面端动画卡顿 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

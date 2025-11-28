@@ -1,0 +1,48 @@
+{
+  "newProject": {
+    "title": "新建项目",
+    "width": "宽度 (px)",
+    "height": "高度 (px)",
+    "presets": "预设",
+    "square": "正方形 (1:1)",
+    "fhd": "全高清 (16:9)",
+    "mobile": "移动端 (9:16)",
+    "background": "背景",
+    "transparent": "透明",
+    "color": "颜色",
+    "create": "创建项目"
+  },
+  "welcome": {
+    "title": "欢迎使用 Nebula",
+    "subtitle": "AI 驱动的创意工作室。使用 Gemini 的力量进行设计、编辑和生成。",
+    "createNew": "创建新项目",
+    "openExisting": "打开现有项目",
+    "version": "v1.0.0 • 由 Gemini Flash 2.5 驱动"
+  },
+  "fileMenu": {
+    "newProject": "新建项目",
+    "openProject": "打开项目",
+    "saveProject": "保存项目"
+  },
+  "contextMenu": {
+    "copy": "复制",
+    "paste": "粘贴",
+    "duplicate": "复制图层",
+    "delete": "删除",
+    "bringToFront": "置于顶层",
+    "sendToBack": "置于底层",
+    "group": "图层成组",
+    "ungroup": "取消成组",
+    "lock": "锁定",
+    "unlock": "解锁",
+    "aiBlend": "与下层 AI 混合"
+  },
+  "recovery": {
+    "title": "恢复未保存的项目",
+    "message": "检测到上次未保存的项目，是否恢复？",
+    "timestamp": "保存时间",
+    "recover": "恢复",
+    "dismiss": "忽略"
+  }
+}
+

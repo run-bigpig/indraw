@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konva Mask Studio - 形状蒙版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Konva JS -->
+    <script src="https://unpkg.com/konva@9.3.3/konva.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* 自定义滑块样式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            margin-top: -6px;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #4b5563;
+            border-radius: 2px;
+        }
+        /* 棋盘格背景 */
+        .checkerboard-bg {
+            background-color: #1a1a1a;
+            background-image: 
+                linear-gradient(45deg, #2d2d2d 25%, transparent 25%), 
+                linear-gradient(-45deg, #2d2d2d 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #2d2d2d 75%), 
+                linear-gradient(-45deg, transparent 75%, #2d2d2d 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        /* 工具按钮激活状态 */
+        .tool-btn.active {
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- 顶部工具栏 -->
+    <header class="flex flex-col gap-2 px-6 py-3 bg-gray-800 border-b border-gray-700 shadow-md z-10 shrink-0">
+        <!-- 上层：标题和文件操作 -->
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg shadow-lg">
+                    <i data-lucide="layers" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">Konva Mask Studio</h1>
+                    <p class="text-xs text-gray-400">高级蒙版工具</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <label class="flex items-center px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-sm text-white rounded cursor-pointer transition-colors border border-gray-600">
+                    <i data-lucide="image" size="16" class="mr-2"></i>
+                    <span>换图</span>
+                    <input type="file" id="fileInput" accept="image/*" class="hidden" />
+                </label>
+                <button id="btnExport" class="flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-500 text-sm text-white rounded font-medium transition-colors shadow-sm">
+                    <i data-lucide="download" size="16" class="mr-2"></i>
+                    <span>导出</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 下层：工具和设置 -->
+        <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-700">
+            <!-- 工具选择器 -->
+            <div class="flex items-center space-x-1 bg-gray-900 p-1 rounded-lg border border-gray-700">
+                <!-- 新增：选择/移动工具 -->
+                <button class="tool-btn p-2 rounded hover:bg-gray-700 transition-colors" data-tool="select" title="选择/移动工具 (选中图形进行调整)">
+                    <i data-lucide="mouse-pointer-2" size="18"></i>
+                </button>
+                <div class="w-px h-6 bg-gray-700 mx-1"></div>
+                
+                <button class="tool-btn active p-2 rounded hover:bg-gray-700 transition-colors" data-tool="brush" title="画笔 (自由擦除)">
+                    <i data-lucide="brush" size="18"></i>
+                </button>
+                <button class="tool-btn p-2 rounded hover:bg-gray-700 transition-colors" data-tool="rect" title="矩形/正方形">
+                    <i data-lucide="square" size="18"></i>
+                </button>
+                <button class="tool-btn p-2 rounded hover:bg-gray-700 transition-colors" data-tool="circle" title="圆形">
+                    <i data-lucide="circle" size="18"></i>
+                </button>
+                <button class="tool-btn p-2 rounded hover:bg-gray-700 transition-colors" data-tool="ellipse" title="椭圆">
+                    <span class="block w-4 h-3 rounded-full border-2 border-current"></span>
+                </button>
+                <button class="tool-btn p-2 rounded hover:bg-gray-700 transition-colors" data-tool="star" title="五角星">
+                    <i data-lucide="star" size="18"></i>
+                </button>
+            </div>
+
+            <!-- 模式和属性 -->
+            <div class="flex items-center space-x-4">
+                
+                <!-- 蒙版模式选择 -->
+                <div class="flex items-center space-x-2 bg-gray-700 px-3 py-1.5 rounded-lg">
+                    <span class="text-xs text-gray-400 uppercase font-bold">模式</span>
+                    <select id="modeSelect" class="bg-gray-900 text-white text-sm border-none rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none">
+                        <option value="destination-out">擦除 (挖空)</option>
+                        <option value="destination-in">裁剪 (保留形状)</option>
+                    </select>
+                </div>
+
+                <!-- 笔刷大小 (仅画笔模式显示) -->
+                <div id="brushControls" class="flex items-center space-x-2 bg-gray-700 px-3 py-1.5 rounded-lg">
+                    <span class="text-xs text-gray-400">大小</span>
+                    <input id="brushSize" type="range" min="5" max="100" value="30" class="w-24">
+                    <span id="brushSizeVal" class="text-xs w-6 text-right font-mono">30</span>
+                </div>
+
+                <!-- 撤销/重置 -->
+                <div class="flex space-x-1">
+                    <button id="btnUndo" class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition" title="撤销">
+                        <i data-lucide="undo" size="18"></i>
+                    </button>
+                    <button id="btnReset" class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition" title="重置">
+                        <i data-lucide="refresh-ccw" size="18"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主画布区域 -->
+    <main class="flex-1 relative overflow-hidden bg-gray-900 flex justify-center items-center p-4">
+        <div id="canvas-container" class="checkerboard-bg relative w-full h-full rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+            <!-- 加载提示 -->
+            <div id="loading-text" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 pointer-events-none z-0">
+                <i data-lucide="loader-2" class="w-12 h-12 mb-4 opacity-50 animate-spin"></i>
+                <p>准备画布中...</p>
+            </div>
+            <!-- Konva 挂载点 -->
+            <div id="container" class="absolute inset-0 z-10 cursor-crosshair"></div>
+        </div>
+    </main>
+
+    <!-- 底部状态栏 -->
+    <footer class="px-6 py-2 bg-gray-800 border-t border-gray-700 text-xs text-gray-400 flex justify-between shrink-0">
+        <div class="flex space-x-4">
+            <span id="statusText">当前: <strong class="text-blue-400">画笔工具</strong> (按住拖动绘制)</span>
+        </div>
+        <div>
+           Tip: 想要移动形状？请切换到左侧第一个 <strong>"选择工具"</strong>
+        </div>
+    </footer>
+
+    <script>
+        // 初始化 Lucide 图标
+        lucide.createIcons();
+
+        // 核心变量
+        let stage, layer, imageGroup;
+        let konvaImage;
+        let transformer; // 变换工具
+        let isDrawing = false;
+        let currentShape = null;
+        let startPos = { x: 0, y: 0 };
+        
+        // 状态管理
+        const state = {
+            tool: 'brush', // select, brush, rect, circle, ellipse, star
+            mode: 'destination-out', // destination-out (erase), destination-in (clip)
+            brushSize: 30
+        };
+
+        // DOM 元素
+        const containerEl = document.getElementById('canvas-container');
+        const loadingEl = document.getElementById('loading-text');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeVal = document.getElementById('brushSizeVal');
+        const brushControls = document.getElementById('brushControls');
+        const modeSelect = document.getElementById('modeSelect');
+        const statusText = document.getElementById('statusText');
+        const toolBtns = document.querySelectorAll('.tool-btn');
+        const containerDiv = document.getElementById('container');
+
+        // 初始化 Konva
+        function initKonva() {
+            const width = containerEl.clientWidth;
+            const height = containerEl.clientHeight;
+
+            stage = new Konva.Stage({
+                container: 'container',
+                width: width,
+                height: height
+            });
+
+            layer = new Konva.Layer();
+            stage.add(layer);
+
+            // 核心组：包含图片和所有的蒙版形状
+            imageGroup = new Konva.Group();
+            layer.add(imageGroup);
+
+            // 变换工具 (Transformer) - 用于调整大小和旋转
+            transformer = new Konva.Transformer({
+                nodes: [],
+                centeredScaling: false,
+                rotationSnaps: [0, 90, 180, 270],
+                borderStroke: '#3b82f6', // 蓝色边框
+                anchorStroke: '#3b82f6',
+                anchorFill: '#ffffff',
+                anchorSize: 10,
+            });
+            layer.add(transformer);
+
+            // 绑定交互事件
+            stage.on('mousedown touchstart', handleMouseDown);
+            stage.on('mousemove touchmove', handleMouseMove);
+            stage.on('mouseup touchend', handleMouseUp);
+
+            // 窗口自适应
+            window.addEventListener('resize', fitStageToContainer);
+        }
+
+        function fitStageToContainer() {
+            const newWidth = containerEl.clientWidth;
+            const newHeight = containerEl.clientHeight;
+            stage.width(newWidth);
+            stage.height(newHeight);
+        }
+
+        function loadImage(src) {
+            loadingEl.style.display = 'flex';
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = src;
+            img.onload = function() {
+                loadingEl.style.display = 'none';
+                renderImage(img);
+            };
+            img.onerror = function() {
+                loadingEl.innerHTML = "<p class='text-red-500'>图片加载失败</p>";
+            }
+        }
+
+        function renderImage(imgObj) {
+            imageGroup.destroyChildren(); 
+            transformer.nodes([]); // 清空选择
+
+            const dims = calculateCenter(imgObj.width, imgObj.height);
+            konvaImage = new Konva.Image({
+                image: imgObj,
+                x: dims.x,
+                y: dims.y,
+                width: dims.width,
+                height: dims.height,
+                originalImageObj: imgObj,
+                listening: true // 允许被点击
+            });
+
+            imageGroup.add(konvaImage);
+            layer.batchDraw();
+        }
+
+        function calculateCenter(imgW, imgH) {
+            const stageW = stage.width();
+            const stageH = stage.height();
+            const padding = 40;
+            const scale = Math.min((stageW - padding) / imgW, (stageH - padding) / imgH);
+            const w = imgW * scale;
+            const h = imgH * scale;
+            return { x: (stageW - w) / 2, y: (stageH - h) / 2, width: w, height: h };
+        }
+
+        // --- 核心交互逻辑 ---
+
+        function handleMouseDown(e) {
+            if (!konvaImage) return;
+
+            // 1. 选择工具逻辑
+            if (state.tool === 'select') {
+                // 如果点击到空白处或背景图，取消选择
+                if (e.target === stage || e.target === konvaImage) {
+                    transformer.nodes([]);
+                    return;
+                }
+                
+                // 如果点击到形状（且不是 Transformer 自己的锚点）
+                const clickedShape = e.target;
+                if (clickedShape.getParent() === imageGroup) {
+                    transformer.nodes([clickedShape]);
+                }
+                return; // 选择模式下不进行绘图
+            }
+
+            // 2. 绘图工具逻辑
+            // 每次开始绘图前，先取消当前的选择，避免视觉干扰
+            transformer.nodes([]); 
+            
+            isDrawing = true;
+            const pos = stage.getPointerPosition();
+            startPos = { x: pos.x, y: pos.y };
+
+            if (state.tool === 'brush') {
+                currentShape = new Konva.Line({
+                    stroke: 'black',
+                    strokeWidth: state.brushSize,
+                    globalCompositeOperation: state.mode,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    points: [pos.x, pos.y],
+                    tension: 0.5,
+                    draggable: false, // 初始不可拖动
+                    name: 'mask-shape' // 标记为蒙版形状
+                });
+                imageGroup.add(currentShape);
+            } else {
+                const commonProps = {
+                    fill: 'black',
+                    globalCompositeOperation: state.mode,
+                    x: pos.x,
+                    y: pos.y,
+                    draggable: false, // 初始不可拖动
+                    name: 'mask-shape'
+                };
+
+                switch (state.tool) {
+                    case 'rect':
+                        currentShape = new Konva.Rect({ ...commonProps, width: 0, height: 0 });
+                        break;
+                    case 'circle':
+                        currentShape = new Konva.Circle({ ...commonProps, radius: 0 });
+                        break;
+                    case 'ellipse':
+                        currentShape = new Konva.Ellipse({ ...commonProps, radiusX: 0, radiusY: 0 });
+                        break;
+                    case 'star':
+                        currentShape = new Konva.Star({ 
+                            ...commonProps, 
+                            numPoints: 5, 
+                            innerRadius: 0, 
+                            outerRadius: 0,
+                            rotation: 180
+                        });
+                        break;
+                }
+                if (currentShape) imageGroup.add(currentShape);
+            }
+        }
+
+        function handleMouseMove(e) {
+            if (!isDrawing || !currentShape) return;
+            e.evt.preventDefault();
+            
+            const pos = stage.getPointerPosition();
+
+            if (state.tool === 'brush') {
+                const newPoints = currentShape.points().concat([pos.x, pos.y]);
+                currentShape.points(newPoints);
+            } else {
+                const dx = pos.x - startPos.x;
+                const dy = pos.y - startPos.y;
+
+                switch (state.tool) {
+                    case 'rect':
+                        currentShape.width(dx);
+                        currentShape.height(dy);
+                        break;
+                    case 'circle':
+                        const radius = Math.sqrt(dx*dx + dy*dy);
+                        currentShape.radius(radius);
+                        break;
+                    case 'ellipse':
+                        currentShape.radiusX(Math.abs(dx));
+                        currentShape.radiusY(Math.abs(dy));
+                        break;
+                    case 'star':
+                        const r = Math.sqrt(dx*dx + dy*dy);
+                        currentShape.outerRadius(r);
+                        currentShape.innerRadius(r / 2);
+                        break;
+                }
+            }
+            layer.batchDraw();
+        }
+
+        function handleMouseUp() {
+            isDrawing = false;
+            currentShape = null;
+        }
+
+        // --- 辅助：切换所有蒙版形状的拖拽状态 ---
+        function updateShapesDraggable(isDraggable) {
+            if (!imageGroup) return;
+            const shapes = imageGroup.getChildren();
+            shapes.forEach(node => {
+                // 不要让背景图片也变成可拖拽的，只针对蒙版形状
+                if (node !== konvaImage) {
+                    node.draggable(isDraggable);
+                }
+            });
+        }
+
+        // --- UI 交互 ---
+
+        toolBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toolBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                state.tool = btn.dataset.tool;
+
+                // 核心：工具切换逻辑
+                if (state.tool === 'select') {
+                    // 进入选择模式：允许拖拽，显示指针
+                    containerDiv.style.cursor = 'default';
+                    updateShapesDraggable(true);
+                    brushControls.style.display = 'none';
+                    statusText.innerHTML = `当前: <strong class="text-blue-400">选择工具</strong> (点击图形调整大小，拖拽移动)`;
+                } else {
+                    // 进入绘图模式：禁止拖拽，隐藏选择框，显示十字光标
+                    containerDiv.style.cursor = 'crosshair';
+                    updateShapesDraggable(false); 
+                    transformer.nodes([]); // 清除选中
+                    layer.batchDraw();
+
+                    if (state.tool === 'brush') {
+                        brushControls.style.display = 'flex';
+                        statusText.innerHTML = `当前: <strong class="text-blue-400">画笔工具</strong> (按住拖动绘制)`;
+                    } else {
+                        brushControls.style.display = 'none';
+                        const toolNameMap = { rect: '矩形', circle: '圆形', ellipse: '椭圆', star: '五角星' };
+                        statusText.innerHTML = `当前: <strong class="text-blue-400">${toolNameMap[state.tool]}工具</strong> (按住拖动拉出形状)`;
+                    }
+                }
+            });
+        });
+
+        // 模式切换
+        modeSelect.addEventListener('change', (e) => {
+            state.mode = e.target.value;
+        });
+
+        // 笔刷大小
+        brushSizeInput.addEventListener('input', (e) => {
+            state.brushSize = parseInt(e.target.value, 10);
+            brushSizeVal.textContent = state.brushSize;
+        });
+
+        // 撤销
+        document.getElementById('btnUndo').addEventListener('click', () => {
+            const children = imageGroup.getChildren();
+            if (children.length > 1) { 
+                const lastNode = children[children.length - 1];
+                // 如果最后画的图形正被选中，先清除选中状态
+                if (transformer.nodes().indexOf(lastNode) >= 0) {
+                    transformer.nodes([]);
+                }
+                lastNode.destroy();
+                layer.batchDraw();
+            }
+        });
+
+        // 重置
+        document.getElementById('btnReset').addEventListener('click', () => {
+            transformer.nodes([]); // 清空选中
+            const children = imageGroup.getChildren();
+            for (let i = children.length - 1; i > 0; i--) {
+                children[i].destroy();
+            }
+            layer.batchDraw();
+        });
+
+        // 文件上传
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => loadImage(event.target.result);
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 导出
+        document.getElementById('btnExport').addEventListener('click', () => {
+            // 导出前先隐藏变换框，避免把蓝色的调整框也导出来
+            const currentNodes = transformer.nodes();
+            transformer.nodes([]);
+            layer.batchDraw();
+
+            const originalPixelRatio = Konva.pixelRatio;
+            Konva.pixelRatio = 2; 
+            
+            const dataURL = stage.toDataURL({ pixelRatio: 2 });
+            
+            const link = document.createElement('a');
+            link.download = `konva-mask-${Date.now()}.png`;
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            Konva.pixelRatio = originalPixelRatio;
+
+            // 恢复选中状态（可选）
+            if (currentNodes.length > 0) {
+                transformer.nodes(currentNodes);
+                layer.batchDraw();
+            }
+        });
+
+        initKonva();
+        loadImage("https://images.unsplash.com/photo-1542202229-7d93c33f5d07?q=80&w=1000&auto=format&fit=crop");
+
+    </script>
+</body>
+</html>
