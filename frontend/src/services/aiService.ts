@@ -1,5 +1,6 @@
 /**
  * AI 服务入口文件
+ * 所有 AI 功能通过 Wails 后端代理
  * 新代码应直接从 '@/services/ai' 导入
  */
 
@@ -14,10 +15,6 @@ export {
   // 服务工厂
   getAIService,
   clearServiceCache,
-
-  // 服务类
-  GeminiService,
-  OpenAIService,
 
   // 类型
   type AIServiceProvider,

@@ -1,7 +1,7 @@
 /**
  * AI 服务统一入口
- * 现在使用 Wails 后端代理所有 AI API 调用
- * 保持与原有 API 的兼容性
+ * 所有 AI API 调用都通过 Wails 后端代理
+ * 前端不再直接调用 AI API，确保 API Key 安全
  */
 
 import {
@@ -12,19 +12,22 @@ import {
   EnhancePrompt
 } from '../../../wailsjs/go/core/App';
 
-// 导出类型（保持兼容性）
+// 导出类型定义
 export * from './types';
-export { GeminiService } from './geminiService';
-export { OpenAIService } from './openaiService';
 
-// ==================== 服务工厂（保持兼容性）====================
+// ==================== 服务工厂 ====================
 
 /**
  * 获取 AI 服务实例（工厂方法）
- * 注意：现在所有调用都通过 Wails 后端，这个函数保留仅为兼容性
+ * 返回一个代理对象，所有方法都调用 Wails 后端
  */
-export function getAIService(provider?: string): any {
-  // 返回一个代理对象，所有方法都调用 Wails 后端
+export function getAIService(): {
+  enhancePrompt: typeof enhancePrompt;
+  generateImage: typeof generateImageFromText;
+  editImage: typeof editImageWithAI;
+  removeBackground: typeof removeBackgroundWithAI;
+  blendImages: typeof blendImagesWithAI;
+} {
   return {
     enhancePrompt: enhancePrompt,
     generateImage: generateImageFromText,
@@ -38,7 +41,7 @@ export function getAIService(provider?: string): any {
  * 清除服务实例缓存（保留兼容性，实际不需要）
  */
 export function clearServiceCache(): void {
-  // 不需要做任何事，因为没有缓存
+  // 后端管理客户端生命周期，前端无需缓存
 }
 
 // ==================== 主要服务函数 ====================

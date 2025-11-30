@@ -20,6 +20,12 @@ export interface AIServiceSettings {
   textModel: string;
   imageModel: string;
 
+  // Vertex AI 配置
+  useVertexAI: boolean;
+  vertexProject: string;
+  vertexLocation: string;
+  vertexCredentials: string;
+
   // OpenAI 兼容 API 配置
   openaiApiKey: string;
   openaiImageApiKey?: string;  // 图像 API 独立 API Key（可选）
@@ -139,6 +145,9 @@ export interface LayerData {
   // Background Pattern Support
   fillPatternUrl?: string;
   isTransparentBackground?: boolean;
+  // Eraser mask: store parent layer dimensions at creation time for proper scaling
+  originalParentWidth?: number;
+  originalParentHeight?: number;
 }
 
 

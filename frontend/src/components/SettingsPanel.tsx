@@ -35,7 +35,7 @@ type TabType = SettingsCategory;
 
 // ==================== 子组件 ====================
 
-const InputGroup = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
+const InputGroup = ({ label, hint, children }: { label: string; hint?: React.ReactNode; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs text-gray-300 font-medium">{label}</label>
     {children}
@@ -132,6 +132,78 @@ const ColorInput = ({ value, onChange }: { value: string; onChange: (val: string
   </div>
 );
 
+const TextAreaInput = ({
+  value,
+  onChange,
+  placeholder,
+  rows = 6,
+  error
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  rows?: number;
+  error?: string;
+}) => (
+  <div className="flex flex-col gap-1">
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows}
+      className={clsx(
+        "w-full bg-tech-900 border rounded px-3 py-2 text-sm text-gray-300",
+        "focus:outline-none transition-colors resize-none font-mono",
+        "placeholder:text-gray-600",
+        error ? "border-red-500 focus:border-red-400" : "border-tech-700 focus:border-cyan-500"
+      )}
+    />
+    {error && <p className="text-[10px] text-red-400">{error}</p>}
+  </div>
+);
+
+const RadioGroup = ({
+  value,
+  onChange,
+  options
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+}) => (
+  <div className="flex gap-4">
+    {options.map((opt) => (
+      <label
+        key={opt.value}
+        className="flex items-center gap-2 cursor-pointer group"
+      >
+        <div className="relative">
+          <input
+            type="radio"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={(e) => onChange(e.target.value)}
+            className="sr-only"
+          />
+          <div className={clsx(
+            "w-4 h-4 rounded-full border-2 transition-colors",
+            value === opt.value
+              ? "border-cyan-500 bg-cyan-500"
+              : "border-tech-600 group-hover:border-tech-500"
+          )}>
+            {value === opt.value && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+              </div>
+            )}
+          </div>
+        </div>
+        <span className="text-sm text-gray-300">{opt.label}</span>
+      </label>
+    ))}
+  </div>
+);
+
 const Toggle = ({ checked, onChange, label }: { checked: boolean; onChange: (val: boolean) => void; label: string }) => (
   <label className="flex items-center justify-between cursor-pointer">
     <span className="text-xs text-gray-300">{label}</span>
@@ -197,8 +269,31 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [showApiKey, setShowApiKey] = useState(false);
   const [showOpenaiApiKey, setShowOpenaiApiKey] = useState(false);
   const [showOpenaiImageApiKey, setShowOpenaiImageApiKey] = useState(false);
+  const [vertexCredentialsError, setVertexCredentialsError] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // JSON 验证函数
+  const validateJSON = (jsonString: string): boolean => {
+    if (!jsonString.trim()) {
+      setVertexCredentialsError('');
+      return true;
+    }
+    try {
+      const parsed = JSON.parse(jsonString);
+      // 验证是否包含必要的 GCP 服务账号字段
+      if (parsed.type === 'service_account' && parsed.project_id && parsed.private_key) {
+        setVertexCredentialsError('');
+        return true;
+      } else {
+        setVertexCredentialsError('无效的服务账号 JSON 格式');
+        return false;
+      }
+    } catch (e) {
+      setVertexCredentialsError('JSON 格式错误');
+      return false;
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -274,28 +369,118 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       {/* Gemini 配置 */}
       {settings.ai.provider === 'gemini' && (
         <>
+          {/* 后端模式选择 */}
           <InputGroup
-            label={t('settings.ai.apiKey', 'API Key')}
-            hint={t('settings.ai.apiKeyHint', '用于调用 Google Gemini API')}
+            label={t('settings.ai.backendMode', '后端模式')}
+            hint={t('settings.ai.backendModeHint', '选择 Gemini API 或 Vertex AI')}
           >
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <TextInput
-                  type={showApiKey ? 'text' : 'password'}
-                  value={settings.ai.apiKey}
-                  onChange={(val) => updateCategory('ai', { apiKey: val })}
-                  placeholder={t('settings.ai.apiKeyPlaceholder', '输入您的 API Key')}
-                />
-              </div>
-              <button
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="px-3 bg-tech-800 border border-tech-700 rounded hover:bg-tech-700 transition-colors"
-              >
-                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
+            <RadioGroup
+              value={settings.ai.useVertexAI ? 'vertex' : 'api'}
+              onChange={(val) => updateCategory('ai', { useVertexAI: val === 'vertex' })}
+              options={[
+                { value: 'api', label: 'Gemini API' },
+                { value: 'vertex', label: 'Vertex AI' }
+              ]}
+            />
           </InputGroup>
 
+          {/* Gemini API 模式 */}
+          {!settings.ai.useVertexAI && (
+            <InputGroup
+              label={t('settings.ai.apiKey', 'API Key')}
+              hint={t('settings.ai.apiKeyHint', '用于调用 Google Gemini API')}
+            >
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <TextInput
+                    type={showApiKey ? 'text' : 'password'}
+                    value={settings.ai.apiKey}
+                    onChange={(val) => updateCategory('ai', { apiKey: val })}
+                    placeholder={t('settings.ai.apiKeyPlaceholder', '输入您的 API Key')}
+                  />
+                </div>
+                <button
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="px-3 bg-tech-800 border border-tech-700 rounded hover:bg-tech-700 transition-colors"
+                >
+                  {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </InputGroup>
+          )}
+
+          {/* Vertex AI 模式 */}
+          {settings.ai.useVertexAI && (
+            <>
+              <InputGroup
+                label={t('settings.ai.vertexProject', 'GCP 项目 ID')}
+                hint={t('settings.ai.vertexProjectHint', 'Google Cloud Platform 项目 ID')}
+              >
+                <TextInput
+                  value={settings.ai.vertexProject}
+                  onChange={(val) => updateCategory('ai', { vertexProject: val })}
+                  placeholder="my-project-123"
+                />
+              </InputGroup>
+
+              <InputGroup
+                label={t('settings.ai.vertexLocation', 'GCP 区域')}
+                hint={t('settings.ai.vertexLocationHint', '选择最近的 GCP 区域以获得最佳性能')}
+              >
+                <SelectInput
+                  value={settings.ai.vertexLocation}
+                  onChange={(val) => updateCategory('ai', { vertexLocation: val })}
+                  options={[
+                    {value:'global',label:'global(Global)'},
+                    { value: 'us-central1', label: 'us-central1 (Iowa, USA)' },
+                    { value: 'us-east1', label: 'us-east1 (South Carolina, USA)' },
+                    { value: 'us-east4', label: 'us-east4 (Virginia, USA)' },
+                    { value: 'us-west1', label: 'us-west1 (Oregon, USA)' },
+                    { value: 'us-west4', label: 'us-west4 (Nevada, USA)' },
+                    { value: 'europe-west1', label: 'europe-west1 (Belgium)' },
+                    { value: 'europe-west2', label: 'europe-west2 (London, UK)' },
+                    { value: 'europe-west3', label: 'europe-west3 (Frankfurt, Germany)' },
+                    { value: 'europe-west4', label: 'europe-west4 (Netherlands)' },
+                    { value: 'asia-east1', label: 'asia-east1 (Taiwan)' },
+                    { value: 'asia-northeast1', label: 'asia-northeast1 (Tokyo, Japan)' },
+                    { value: 'asia-northeast3', label: 'asia-northeast3 (Seoul, South Korea)' },
+                    { value: 'asia-southeast1', label: 'asia-southeast1 (Singapore)' },
+                    { value: 'australia-southeast1', label: 'australia-southeast1 (Sydney)' },
+                  ]}
+                />
+              </InputGroup>
+
+              <InputGroup
+                label={t('settings.ai.vertexCredentials', '服务账号 JSON')}
+                hint={
+                  <span className="flex items-center gap-1">
+                    {t('settings.ai.vertexCredentialsHint', 'GCP 服务账号密钥 JSON 文件内容')}
+                    <a
+                      href="https://cloud.google.com/iam/docs/service-accounts-create"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300 underline ml-1"
+                    >
+                      {t('settings.ai.howToGetCredentials', '如何获取？')}
+                    </a>
+                  </span>
+                }
+              >
+                <TextAreaInput
+                  value={settings.ai.vertexCredentials}
+                  onChange={(val) => {
+                    updateCategory('ai', { vertexCredentials: val });
+                    validateJSON(val);
+                  }}
+                  placeholder={`{\n  "type": "service_account",\n  "project_id": "your-project-id",\n  "private_key_id": "...",\n  "private_key": "...",\n  ...\n}`}
+                  rows={8}
+                  error={vertexCredentialsError}
+                />
+              </InputGroup>
+            </>
+          )}
+
+          {/* 模型配置（两种模式共用）*/}
           <InputGroup
             label={t('settings.ai.textModel', '文本模型')}
             hint={t('settings.ai.textModelHint', '用于文本生成和理解')}

@@ -1,38 +1,162 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
-	"time"
+	"sync"
 )
 
-// AIService AI 代理服务
-// 在后端调用 AI API，隐藏 API Key，提供安全的 AI 功能
+// ==================== AIService 提供商管理器 ====================
+
+// AIService AI 服务管理器
+// 管理多个 AI 提供商，根据配置动态选择提供商
+// 保持现有的公共接口签名不变，内部委托给具体提供商
 type AIService struct {
 	ctx           context.Context
 	configService *ConfigService
-	httpClient    *http.Client
+
+	// 提供商管理
+	providers map[string]AIProvider
+	mu        sync.RWMutex
 }
 
 // NewAIService 创建 AI 服务实例
 func NewAIService(configService *ConfigService) *AIService {
 	return &AIService{
 		configService: configService,
-		httpClient: &http.Client{
-			Timeout: 120 * time.Second,
-		},
+		providers:     make(map[string]AIProvider),
 	}
 }
 
-// startup 在应用启动时调用
+// Startup 在应用启动时调用
 func (a *AIService) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
+
+// ==================== 提供商管理方法 ====================
+
+// RegisterProvider 注册提供商
+func (a *AIService) RegisterProvider(name string, provider AIProvider) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.providers[name] = provider
+}
+
+// GetProvider 获取提供商
+// 如果提供商不存在，会尝试根据配置创建
+func (a *AIService) GetProvider(name string) (AIProvider, error) {
+	a.mu.RLock()
+	provider, ok := a.providers[name]
+	a.mu.RUnlock()
+
+	if ok {
+		return provider, nil
+	}
+
+	// 提供商不存在，尝试创建
+	return a.createProvider(name)
+}
+
+// GetProviderCapabilities 获取提供商能力
+func (a *AIService) GetProviderCapabilities(providerName string) (*ProviderCapabilities, error) {
+	provider, err := a.GetProvider(providerName)
+	if err != nil {
+		return nil, err
+	}
+	caps := provider.GetCapabilities()
+	return &caps, nil
+}
+
+// createProvider 创建提供商（内部方法）
+func (a *AIService) createProvider(name string) (AIProvider, error) {
+	// 加载配置
+	aiSettings, err := a.loadAISettings()
+	if err != nil {
+		return nil, err
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// 双重检查，避免并发创建
+	if provider, ok := a.providers[name]; ok {
+		return provider, nil
+	}
+
+	var provider AIProvider
+
+	switch name {
+	case "gemini":
+		provider, err = NewGeminiProvider(a.ctx, aiSettings)
+	case "openai":
+		provider, err = NewOpenAIProvider(a.ctx, aiSettings)
+	default:
+		return nil, fmt.Errorf("unsupported AI provider: %s", name)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	a.providers[name] = provider
+	return provider, nil
+}
+
+// loadAISettings 加载 AI 配置（内部方法）
+func (a *AIService) loadAISettings() (AISettings, error) {
+	settingsJSON, err := a.configService.LoadSettings()
+	if err != nil {
+		return AISettings{}, fmt.Errorf("failed to load settings: %w", err)
+	}
+
+	var settings Settings
+	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
+		return AISettings{}, fmt.Errorf("failed to parse settings: %w", err)
+	}
+
+	return settings.AI, nil
+}
+
+// getCurrentProvider 获取当前配置的提供商（内部方法）
+func (a *AIService) getCurrentProvider() (AIProvider, error) {
+	aiSettings, err := a.loadAISettings()
+	if err != nil {
+		return nil, err
+	}
+	return a.GetProvider(aiSettings.Provider)
+}
+
+// ReloadProviders 重新加载所有提供商（配置变更时调用）
+// 关闭现有提供商并清除缓存，下次调用时会使用新配置重新创建
+func (a *AIService) ReloadProviders() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	fmt.Printf("[AIService] Reloading providers due to configuration change\n")
+
+	var lastErr error
+	for name, provider := range a.providers {
+		fmt.Printf("[AIService] Closing provider: %s\n", name)
+		if err := provider.Close(); err != nil {
+			lastErr = fmt.Errorf("failed to close provider %s: %w", name, err)
+			fmt.Printf("[AIService] Error closing provider %s: %v\n", name, err)
+		}
+	}
+
+	// 清除缓存
+	a.providers = make(map[string]AIProvider)
+	fmt.Printf("[AIService] All providers cleared, will be recreated on next use\n")
+
+	return lastErr
+}
+
+// Close 关闭所有提供商，释放资源
+func (a *AIService) Close() error {
+	return a.ReloadProviders()
+}
+
+// ==================== 参数结构体 ====================
 
 // GenerateImageParams 图像生成参数
 type GenerateImageParams struct {
@@ -42,79 +166,10 @@ type GenerateImageParams struct {
 	AspectRatio    string `json:"aspectRatio"`              // "1:1", "16:9", "9:16", "3:4", "4:3"
 }
 
-// GenerateImage 生成图像
-// 返回 base64 编码的图像数据
-func (a *AIService) GenerateImage(paramsJSON string) (string, error) {
-	var params GenerateImageParams
-	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
-		return "", fmt.Errorf("invalid parameters: %w", err)
-	}
-
-	// 加载配置
-	settingsJSON, err := a.configService.LoadSettings()
-	if err != nil {
-		return "", fmt.Errorf("failed to load settings: %w", err)
-	}
-
-	var settings Settings
-	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
-		return "", fmt.Errorf("failed to parse settings: %w", err)
-	}
-
-	// 根据提供商调用不同的 API
-	switch settings.AI.Provider {
-	case "gemini":
-		return a.generateImageWithGemini(params, settings.AI)
-	case "openai":
-		return a.generateImageWithOpenAI(params, settings.AI)
-	default:
-		return "", fmt.Errorf("unsupported AI provider: %s", settings.AI.Provider)
-	}
-}
-
 // EditImageParams 图像编辑参数
 type EditImageParams struct {
 	ImageData string `json:"imageData"` // base64 编码的图像
 	Prompt    string `json:"prompt"`
-}
-
-// EditImage 编辑图像
-func (a *AIService) EditImage(paramsJSON string) (string, error) {
-	var params EditImageParams
-	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
-		return "", fmt.Errorf("invalid parameters: %w", err)
-	}
-
-	settingsJSON, err := a.configService.LoadSettings()
-	if err != nil {
-		return "", fmt.Errorf("failed to load settings: %w", err)
-	}
-
-	var settings Settings
-	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
-		return "", fmt.Errorf("failed to parse settings: %w", err)
-	}
-
-	switch settings.AI.Provider {
-	case "gemini":
-		return a.editImageWithGemini(params, settings.AI)
-	case "openai":
-		return a.editImageWithOpenAI(params, settings.AI)
-	default:
-		return "", fmt.Errorf("unsupported AI provider: %s", settings.AI.Provider)
-	}
-}
-
-// RemoveBackground 移除背景
-func (a *AIService) RemoveBackground(imageData string) (string, error) {
-	// 使用图像编辑功能实现背景移除
-	params := EditImageParams{
-		ImageData: imageData,
-		Prompt:    "Remove the background from this image. Make the background transparent. Keep the main subject intact with high quality.",
-	}
-
-	paramsJSON, _ := json.Marshal(params)
-	return a.EditImage(string(paramsJSON))
 }
 
 // BlendImagesParams 图像混合参数
@@ -125,6 +180,83 @@ type BlendImagesParams struct {
 	Style       string `json:"style"` // "Seamless", "Overlay", etc.
 }
 
+// ==================== 公共 API 方法 ====================
+
+// GenerateImage 生成图像
+// 返回 base64 编码的图像数据
+func (a *AIService) GenerateImage(paramsJSON string) (string, error) {
+	var params GenerateImageParams
+	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
+		return "", fmt.Errorf("invalid parameters: %w", err)
+	}
+
+	// 获取当前提供商
+	provider, err := a.getCurrentProvider()
+	if err != nil {
+		return "", err
+	}
+
+	// 检查功能支持
+	caps := provider.GetCapabilities()
+	if !caps.GenerateImage {
+		return "", fmt.Errorf("provider %s does not support image generation", provider.Name())
+	}
+
+	// 如果有参考图像，检查是否支持
+	if params.ReferenceImage != "" && !caps.ReferenceImage {
+		return "", fmt.Errorf("provider %s does not support reference image", provider.Name())
+	}
+
+	// 委托给提供商
+	return provider.GenerateImage(a.ctx, params)
+}
+
+// EditImage 编辑图像
+func (a *AIService) EditImage(paramsJSON string) (string, error) {
+	var params EditImageParams
+	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
+		return "", fmt.Errorf("invalid parameters: %w", err)
+	}
+
+	// 获取当前提供商
+	provider, err := a.getCurrentProvider()
+	if err != nil {
+		return "", err
+	}
+
+	// 检查功能支持
+	caps := provider.GetCapabilities()
+	if !caps.EditImage {
+		return "", fmt.Errorf("provider %s does not support image editing", provider.Name())
+	}
+
+	// 委托给提供商
+	return provider.EditImage(a.ctx, params)
+}
+
+// RemoveBackground 移除背景
+func (a *AIService) RemoveBackground(imageData string) (string, error) {
+	// 获取当前提供商
+	provider, err := a.getCurrentProvider()
+	if err != nil {
+		return "", err
+	}
+
+	// 检查功能支持
+	caps := provider.GetCapabilities()
+	if !caps.RemoveBackground {
+		return "", fmt.Errorf("provider %s does not support background removal", provider.Name())
+	}
+
+	// 使用图像编辑功能实现背景移除
+	params := EditImageParams{
+		ImageData: imageData,
+		Prompt:    "Remove the background from this image. Make the background transparent. Keep the main subject intact with high quality.",
+	}
+
+	return provider.EditImage(a.ctx, params)
+}
+
 // BlendImages 混合图像
 func (a *AIService) BlendImages(paramsJSON string) (string, error) {
 	var params BlendImagesParams
@@ -132,14 +264,16 @@ func (a *AIService) BlendImages(paramsJSON string) (string, error) {
 		return "", fmt.Errorf("invalid parameters: %w", err)
 	}
 
-	settingsJSON, err := a.configService.LoadSettings()
+	// 获取当前提供商
+	provider, err := a.getCurrentProvider()
 	if err != nil {
-		return "", fmt.Errorf("failed to load settings: %w", err)
+		return "", err
 	}
 
-	var settings Settings
-	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
-		return "", fmt.Errorf("failed to parse settings: %w", err)
+	// 检查功能支持
+	caps := provider.GetCapabilities()
+	if !caps.BlendImages {
+		return "", fmt.Errorf("provider %s does not support image blending", provider.Name())
 	}
 
 	// 构建混合提示词
@@ -151,178 +285,23 @@ func (a *AIService) BlendImages(paramsJSON string) (string, error) {
 		Prompt:    fullPrompt,
 	}
 
-	editParamsJSON, _ := json.Marshal(editParams)
-	return a.EditImage(string(editParamsJSON))
+	return provider.EditImage(a.ctx, editParams)
 }
 
 // EnhancePrompt 增强提示词
 func (a *AIService) EnhancePrompt(prompt string) (string, error) {
-	settingsJSON, err := a.configService.LoadSettings()
-	if err != nil {
-		return "", fmt.Errorf("failed to load settings: %w", err)
-	}
-
-	var settings Settings
-	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
-		return "", fmt.Errorf("failed to parse settings: %w", err)
-	}
-
-	switch settings.AI.Provider {
-	case "gemini":
-		return a.enhancePromptWithGemini(prompt, settings.AI)
-	case "openai":
-		return a.enhancePromptWithOpenAI(prompt, settings.AI)
-	default:
-		return "", fmt.Errorf("unsupported AI provider: %s", settings.AI.Provider)
-	}
-}
-
-// ===== Gemini API 实现 =====
-
-func (a *AIService) generateImageWithGemini(params GenerateImageParams, aiSettings AISettings) (string, error) {
-	if aiSettings.APIKey == "" {
-		return "", fmt.Errorf("Gemini API key not configured")
-	}
-
-	// Gemini 图像生成 API 调用
-	// 注意：这里需要根据实际的 Gemini API 文档实现
-	// 以下是示例实现
-
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
-		aiSettings.ImageModel, aiSettings.APIKey)
-
-	requestBody := map[string]interface{}{
-		"contents": []map[string]interface{}{
-			{
-				"parts": []map[string]interface{}{
-					{"text": params.Prompt},
-				},
-			},
-		},
-		"generationConfig": map[string]interface{}{
-			"temperature": 0.9,
-		},
-	}
-
-	// 如果有参考图像，添加到请求中
-	if params.ReferenceImage != "" {
-		// 移除 data:image/...;base64, 前缀
-		imageData := a.extractBase64Data(params.ReferenceImage)
-		requestBody["contents"].([]map[string]interface{})[0]["parts"] = append(
-			requestBody["contents"].([]map[string]interface{})[0]["parts"].([]map[string]interface{}),
-			map[string]interface{}{
-				"inline_data": map[string]string{
-					"mime_type": "image/png",
-					"data":      imageData,
-				},
-			},
-		)
-	}
-
-	jsonData, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := a.httpClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", fmt.Errorf("API request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// 从响应中提取图像数据
-	// 注意：需要根据实际 API 响应格式调整
-	// 这里返回一个占位符
-	return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", nil
-}
-
-func (a *AIService) editImageWithGemini(params EditImageParams, aiSettings AISettings) (string, error) {
-	if aiSettings.APIKey == "" {
-		return "", fmt.Errorf("Gemini API key not configured")
-	}
-
-	// 实现图像编辑逻辑
-	// 类似于 generateImageWithGemini
-	return a.generateImageWithGemini(GenerateImageParams{
-		Prompt:         params.Prompt,
-		ReferenceImage: params.ImageData,
-	}, aiSettings)
-}
-
-func (a *AIService) enhancePromptWithGemini(prompt string, aiSettings AISettings) (string, error) {
-	if aiSettings.APIKey == "" {
-		return "", fmt.Errorf("Gemini API key not configured")
-	}
-
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
-		aiSettings.TextModel, aiSettings.APIKey)
-
-	enhancePrompt := fmt.Sprintf("Enhance this image generation prompt to be more detailed and effective: '%s'. Return only the enhanced prompt without any explanation.", prompt)
-
-	requestBody := map[string]interface{}{
-		"contents": []map[string]interface{}{
-			{
-				"parts": []map[string]interface{}{
-					{"text": enhancePrompt},
-				},
-			},
-		},
-	}
-
-	jsonData, _ := json.Marshal(requestBody)
-	resp, err := a.httpClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	// 获取当前提供商
+	provider, err := a.getCurrentProvider()
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
 
-	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-
-	// 提取增强后的提示词
-	// 需要根据实际响应格式调整
-	return prompt + " (enhanced)", nil
-}
-
-// ===== OpenAI API 实现 =====
-
-func (a *AIService) generateImageWithOpenAI(params GenerateImageParams, aiSettings AISettings) (string, error) {
-	apiKey := aiSettings.OpenAIAPIKey
-	if apiKey == "" {
-		return "", fmt.Errorf("OpenAI API key not configured")
+	// 检查功能支持
+	caps := provider.GetCapabilities()
+	if !caps.EnhancePrompt {
+		return "", fmt.Errorf("provider %s does not support prompt enhancement", provider.Name())
 	}
 
-	// TODO: 实现 OpenAI DALL-E API 调用
-	return "", fmt.Errorf("OpenAI image generation not yet implemented")
-}
-
-func (a *AIService) editImageWithOpenAI(params EditImageParams, aiSettings AISettings) (string, error) {
-	// TODO: 实现 OpenAI 图像编辑
-	return "", fmt.Errorf("OpenAI image editing not yet implemented")
-}
-
-func (a *AIService) enhancePromptWithOpenAI(prompt string, aiSettings AISettings) (string, error) {
-	// TODO: 实现 OpenAI 提示词增强
-	return "", fmt.Errorf("OpenAI prompt enhancement not yet implemented")
-}
-
-// ===== 辅助函数 =====
-
-// extractBase64Data 从 data URL 中提取 base64 数据
-func (a *AIService) extractBase64Data(dataURL string) string {
-	parts := strings.Split(dataURL, ",")
-	if len(parts) == 2 {
-		return parts[1]
-	}
-	return dataURL
+	// 委托给提供商
+	return provider.EnhancePrompt(a.ctx, prompt)
 }

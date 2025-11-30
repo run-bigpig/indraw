@@ -28,6 +28,12 @@ export const DEFAULT_AI_SETTINGS: AIServiceSettings = {
   textModel: 'gemini-2.5-flash',
   imageModel: 'gemini-2.5-flash-preview-05-20',
 
+  // Vertex AI 配置
+  useVertexAI: false,
+  vertexProject: '',
+  vertexLocation: 'us-central1',
+  vertexCredentials: '',
+
   // OpenAI 兼容 API 配置
   openaiApiKey: '',
   openaiImageApiKey: '',  // 图像 API 独立 API Key（可选）
@@ -98,6 +104,20 @@ function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSett
     imageModel: typeof settings.imageModel === 'string' && settings.imageModel
       ? settings.imageModel
       : DEFAULT_AI_SETTINGS.imageModel,
+
+    // Vertex AI 配置
+    useVertexAI: typeof settings.useVertexAI === 'boolean'
+      ? settings.useVertexAI
+      : DEFAULT_AI_SETTINGS.useVertexAI,
+    vertexProject: typeof settings.vertexProject === 'string'
+      ? settings.vertexProject
+      : DEFAULT_AI_SETTINGS.vertexProject,
+    vertexLocation: typeof settings.vertexLocation === 'string' && settings.vertexLocation
+      ? settings.vertexLocation
+      : DEFAULT_AI_SETTINGS.vertexLocation,
+    vertexCredentials: typeof settings.vertexCredentials === 'string'
+      ? settings.vertexCredentials
+      : DEFAULT_AI_SETTINGS.vertexCredentials,
 
     // OpenAI 配置
     openaiApiKey: typeof settings.openaiApiKey === 'string'
@@ -205,59 +225,27 @@ function validateSettings(settings: Partial<Settings>): Settings {
     app: validateAppSettings(settings.app || {}),
   };
 }
-
-// ==================== Wails 运行时检查 ====================
-
-/**
- * 检查 Wails 运行时是否就绪
- */
-function isWailsReady(): boolean {
-  return typeof window !== 'undefined' &&
-         typeof (window as any).go !== 'undefined' &&
-         typeof (window as any).go.main !== 'undefined' &&
-         typeof (window as any).go.main.App !== 'undefined';
-}
-
-/**
- * 等待 Wails 运行时就绪
- */
-async function waitForWails(maxWaitMs: number = 5000): Promise<boolean> {
-  const startTime = Date.now();
-  while (Date.now() - startTime < maxWaitMs) {
-    if (isWailsReady()) {
-      return true;
-    }
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  return false;
-}
-
-// ==================== 主要服务函数 ====================
-
 /**
  * 从 Wails 后端加载设置
  */
 export async function loadSettings(): Promise<Settings> {
+  console.log('[settingsService] loadSettings called');
   try {
-    // 等待 Wails 运行时就绪
-    const ready = await waitForWails();
-    if (!ready) {
-      console.warn('Wails runtime not ready, using default settings');
-      return DEFAULT_SETTINGS;
-    }
-
+    console.log('[settingsService] Calling Wails LoadSettings...');
     const settingsJSON = await LoadSettings();
+    console.log('[settingsService] LoadSettings returned:', settingsJSON?.substring(0, 100) + '...');
 
     // 检查返回值是否有效
     if (!settingsJSON || settingsJSON === '') {
-      console.warn('Empty settings returned, using defaults');
+      console.warn('[settingsService] Empty settings returned, using defaults');
       return DEFAULT_SETTINGS;
     }
 
     const parsed = JSON.parse(settingsJSON);
+    console.log('[settingsService] Settings parsed successfully');
     return validateSettings(parsed);
   } catch (error) {
-    console.error('Failed to load settings:', error);
+    console.error('[settingsService] Failed to load settings:', error);
     return DEFAULT_SETTINGS;
   }
 }
@@ -266,19 +254,18 @@ export async function loadSettings(): Promise<Settings> {
  * 保存设置到 Wails 后端（自动加密）
  */
 export async function saveSettings(settings: Settings): Promise<boolean> {
+  console.log('[settingsService] saveSettings called');
   try {
-    // 检查 Wails 运行时是否就绪
-    if (!isWailsReady()) {
-      console.warn('Wails runtime not ready, cannot save settings');
-      return false;
-    }
-
+    console.log('[settingsService] Validating settings...');
     const validated = validateSettings(settings);
     const settingsJSON = JSON.stringify(validated);
+    console.log('[settingsService] Settings JSON size:', settingsJSON.length, 'bytes');
+    console.log('[settingsService] Calling Wails SaveSettings...');
     await SaveSettings(settingsJSON);
+    console.log('[settingsService] SaveSettings completed successfully');
     return true;
   } catch (error) {
-    console.error('Failed to save settings:', error);
+    console.error('[settingsService] Failed to save settings:', error);
     return false;
   }
 }

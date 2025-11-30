@@ -497,6 +497,9 @@ export default function App() {
             strokeWidth,
             blendMode: 'destination-out',
             parentId: targetLayer.id,
+            // Store parent layer dimensions at creation time for proper scaling when layer is resized
+            originalParentWidth: targetLayer.width,
+            originalParentHeight: targetLayer.height,
           };
 
           // 直接更新图层列表，不改变当前选中图层

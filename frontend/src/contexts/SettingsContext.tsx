@@ -83,8 +83,10 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   // 初始化加载设置
   useEffect(() => {
     const initSettings = async () => {
+      console.log('[SettingsContext] Initializing settings...');
       try {
         const loaded = await loadSettings();
+        console.log('[SettingsContext] Settings loaded successfully:', loaded);
         dispatch({ type: 'LOAD_SETTINGS', payload: loaded });
         setIsLoaded(true);
 
@@ -93,13 +95,13 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           i18n.changeLanguage(loaded.app.language);
         }
       } catch (error) {
-        console.error('Failed to load settings:', error);
+        console.error('[SettingsContext] Failed to load settings:', error);
         // 使用默认设置
         setIsLoaded(true);
       }
     };
 
-    initSettings();
+    initSettings().then(r => console.log('initSettings resolved', r));
   }, []);
 
   // 用于跟踪是否是首次加载（避免首次加载时触发保存）
@@ -110,15 +112,20 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     if (isLoaded) {
       // 跳过首次加载时的保存（因为这时候 settings 是从后端加载的，不需要再保存回去）
       if (isFirstLoad.current) {
+        console.log('[SettingsContext] Skipping first save (initial load)');
         isFirstLoad.current = false;
         return;
       }
+
+      console.log('[SettingsContext] Settings changed, saving...', settings);
 
       const saveAsync = async () => {
         try {
           const success = await saveSettings(settings);
           if (!success) {
-            console.warn('Settings save returned false, may not have been saved');
+            console.warn('[SettingsContext] Settings save returned false, may not have been saved');
+          } else {
+            console.log('[SettingsContext] Settings saved successfully');
           }
 
           // 同步语言设置到 i18n
@@ -126,7 +133,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
             i18n.changeLanguage(settings.app.language);
           }
         } catch (error) {
-          console.error('Failed to save settings:', error);
+          console.error('[SettingsContext] Failed to save settings:', error);
         }
       };
 

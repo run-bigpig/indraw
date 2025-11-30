@@ -5,6 +5,48 @@ import Konva from 'konva';
 import type { Filter } from 'konva/lib/Node';
 import { LayerData, ToolType } from '../types';
 
+/**
+ * Scale eraser mask points and strokeWidth based on parent layer's current vs original dimensions.
+ * This ensures eraser strokes remain correctly positioned when the parent layer is resized.
+ */
+const getScaledEraseLineProps = (
+  mask: LayerData,
+  currentParentWidth: number,
+  currentParentHeight: number
+): { points: number[]; strokeWidth: number } => {
+  const originalWidth = mask.originalParentWidth;
+  const originalHeight = mask.originalParentHeight;
+  const points = mask.points || [];
+  const strokeWidth = mask.strokeWidth || 10;
+
+  // If no original dimensions stored, use points as-is (backward compatibility)
+  if (!originalWidth || !originalHeight || originalWidth === 0 || originalHeight === 0) {
+    return { points, strokeWidth };
+  }
+
+  // Calculate scale ratios
+  const scaleX = currentParentWidth / originalWidth;
+  const scaleY = currentParentHeight / originalHeight;
+
+  // If no scaling needed, return original values
+  if (Math.abs(scaleX - 1) < 0.001 && Math.abs(scaleY - 1) < 0.001) {
+    return { points, strokeWidth };
+  }
+
+  // Scale points
+  const scaledPoints: number[] = [];
+  for (let i = 0; i < points.length; i += 2) {
+    scaledPoints.push(points[i] * scaleX);
+    scaledPoints.push(points[i + 1] * scaleY);
+  }
+
+  // Scale strokeWidth by the average of scaleX and scaleY to maintain visual consistency
+  const avgScale = (scaleX + scaleY) / 2;
+  const scaledStrokeWidth = strokeWidth * avgScale;
+
+  return { points: scaledPoints, strokeWidth: scaledStrokeWidth };
+};
+
 interface URLImageProps {
   layer: LayerData;
   isDraggable: boolean;
@@ -174,19 +216,24 @@ const URLImage: React.FC<URLImageProps> = ({ layer, isDraggable, activeTool, onS
       {/* 图层级橡皮擦蒙版：只影响当前图片图层 */}
       {eraseLines && eraseLines.length > 0 && (
         <Group globalCompositeOperation="destination-out" listening={false}>
-          {eraseLines.map((mask) => (
-            <Line
-              key={mask.id}
-              points={mask.points || []}
-              stroke={mask.stroke || '#000000'}
-              strokeWidth={mask.strokeWidth || 10}
-              tension={0.5}
-              lineCap="round"
-              lineJoin="round"
-              opacity={1}
-              listening={false}
-            />
-          ))}
+          {eraseLines.map((mask) => {
+            // Scale eraser points based on current vs original parent dimensions
+            const { points: scaledPoints, strokeWidth: scaledStrokeWidth } =
+              getScaledEraseLineProps(mask, width, height);
+            return (
+              <Line
+                key={mask.id}
+                points={scaledPoints}
+                stroke={mask.stroke || '#000000'}
+                strokeWidth={scaledStrokeWidth}
+                tension={0.5}
+                lineCap="round"
+                lineJoin="round"
+                opacity={1}
+                listening={false}
+              />
+            );
+          })}
         </Group>
       )}
     </Group>

@@ -35,25 +35,39 @@ func NewConfigService() *ConfigService {
 func (c *ConfigService) Startup(ctx context.Context) error {
 	c.ctx = ctx
 
+	fmt.Printf("[ConfigService] Startup called\n")
+
 	// 获取用户配置目录
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
+		fmt.Printf("[ConfigService] Failed to get user config dir: %v\n", err)
 		return fmt.Errorf("failed to get user config dir: %w", err)
 	}
 
+	fmt.Printf("[ConfigService] User config dir: %s\n", userConfigDir)
+
 	// 创建应用配置目录
 	c.configDir = filepath.Join(userConfigDir, "NebulaAIStudio")
+	fmt.Printf("[ConfigService] App config dir: %s\n", c.configDir)
+
 	if err := os.MkdirAll(c.configDir, 0700); err != nil {
+		fmt.Printf("[ConfigService] Failed to create config dir: %v\n", err)
 		return fmt.Errorf("failed to create config dir: %w", err)
 	}
 
+	fmt.Printf("[ConfigService] Config dir created/verified successfully\n")
+
 	c.configFile = filepath.Join(c.configDir, "config.json")
+	fmt.Printf("[ConfigService] Config file path: %s\n", c.configFile)
 
 	// 生成加密密钥
 	// 使用机器标识 + 固定盐值生成密钥
 	machineID := c.getMachineID()
 	c.encryptionKey = pbkdf2.Key([]byte(machineID), []byte("nebula-ai-studio-salt"), 10000, 32, sha256.New)
 
+	fmt.Printf("[ConfigService] Encryption key generated (machine ID: %s)\n", machineID[:8]+"...")
+
+	fmt.Printf("[ConfigService] Startup completed successfully\n")
 	return nil
 }
 
@@ -84,10 +98,18 @@ type Settings struct {
 
 // AISettings AI 服务设置
 type AISettings struct {
-	Provider           string `json:"provider"`
-	APIKey             string `json:"apiKey"` // 加密存储
-	TextModel          string `json:"textModel"`
-	ImageModel         string `json:"imageModel"`
+	Provider   string `json:"provider"`
+	APIKey     string `json:"apiKey"` // 加密存储
+	TextModel  string `json:"textModel"`
+	ImageModel string `json:"imageModel"`
+
+	// Vertex AI 配置
+	UseVertexAI       bool   `json:"useVertexAI"`       // 是否使用 Vertex AI
+	VertexProject     string `json:"vertexProject"`     // GCP 项目 ID
+	VertexLocation    string `json:"vertexLocation"`    // GCP 区域（如 us-central1）
+	VertexCredentials string `json:"vertexCredentials"` // GCP 服务账号 JSON（加密存储）
+
+	// OpenAI 配置
 	OpenAIAPIKey       string `json:"openaiApiKey"`      // 加密存储
 	OpenAIImageAPIKey  string `json:"openaiImageApiKey"` // 加密存储
 	OpenAIBaseURL      string `json:"openaiBaseUrl"`
@@ -205,10 +227,16 @@ func (c *ConfigService) decrypt(ciphertext string) (string, error) {
 
 // SaveSettings 保存设置
 func (c *ConfigService) SaveSettings(settingsJSON string) error {
+	fmt.Printf("[ConfigService] SaveSettings called\n")
+	fmt.Printf("[ConfigService] Config file path: %s\n", c.configFile)
+
 	var settings Settings
 	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
+		fmt.Printf("[ConfigService] Failed to unmarshal settings: %v\n", err)
 		return fmt.Errorf("invalid settings format: %w", err)
 	}
+
+	fmt.Printf("[ConfigService] Settings parsed successfully, provider: %s\n", settings.AI.Provider)
 
 	// 加密敏感信息
 	if settings.AI.APIKey != "" {
@@ -217,6 +245,14 @@ func (c *ConfigService) SaveSettings(settingsJSON string) error {
 			return fmt.Errorf("failed to encrypt API key: %w", err)
 		}
 		settings.AI.APIKey = encrypted
+	}
+
+	if settings.AI.VertexCredentials != "" {
+		encrypted, err := c.encrypt(settings.AI.VertexCredentials)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt Vertex credentials: %w", err)
+		}
+		settings.AI.VertexCredentials = encrypted
 	}
 
 	if settings.AI.OpenAIAPIKey != "" {
@@ -238,44 +274,62 @@ func (c *ConfigService) SaveSettings(settingsJSON string) error {
 	// 序列化
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
+		fmt.Printf("[ConfigService] Failed to serialize settings: %v\n", err)
 		return fmt.Errorf("failed to serialize settings: %w", err)
 	}
 
+	fmt.Printf("[ConfigService] Settings serialized, size: %d bytes\n", len(data))
+
 	// 写入文件
+	fmt.Printf("[ConfigService] Writing to file: %s\n", c.configFile)
 	if err := os.WriteFile(c.configFile, data, 0600); err != nil {
+		fmt.Printf("[ConfigService] Failed to write file: %v\n", err)
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
+	fmt.Printf("[ConfigService] Settings saved successfully!\n")
 	return nil
 }
 
 // LoadSettings 加载设置
 func (c *ConfigService) LoadSettings() (string, error) {
+	fmt.Printf("[ConfigService] LoadSettings called\n")
+	fmt.Printf("[ConfigService] Config file path: %s\n", c.configFile)
+
 	// 检查文件是否存在
 	if _, err := os.Stat(c.configFile); os.IsNotExist(err) {
+		fmt.Printf("[ConfigService] Config file does not exist, creating default config\n")
 		// 首次启动：创建默认配置文件
 		defaultSettings := c.getDefaultSettings()
 		if saveErr := c.SaveSettings(defaultSettings); saveErr != nil {
 			// 保存失败不阻塞，仍然返回默认设置
-			fmt.Printf("Warning: failed to create default config file: %v\n", saveErr)
+			fmt.Printf("[ConfigService] Warning: failed to create default config file: %v\n", saveErr)
+		} else {
+			fmt.Printf("[ConfigService] Default config file created successfully\n")
 		}
 		return defaultSettings, nil
 	}
+
+	fmt.Printf("[ConfigService] Config file exists, loading...\n")
 
 	// 读取文件
 	data, err := os.ReadFile(c.configFile)
 	if err != nil {
 		// 读取失败，返回默认设置
-		fmt.Printf("Warning: failed to read config file, using defaults: %v\n", err)
+		fmt.Printf("[ConfigService] Warning: failed to read config file, using defaults: %v\n", err)
 		return c.getDefaultSettings(), nil
 	}
+
+	fmt.Printf("[ConfigService] Config file read successfully, size: %d bytes\n", len(data))
 
 	var settings Settings
 	if err := json.Unmarshal(data, &settings); err != nil {
 		// 解析失败，返回默认设置
-		fmt.Printf("Warning: invalid config file format, using defaults: %v\n", err)
+		fmt.Printf("[ConfigService] Warning: invalid config file format, using defaults: %v\n", err)
 		return c.getDefaultSettings(), nil
 	}
+
+	fmt.Printf("[ConfigService] Settings parsed successfully, provider: %s\n", settings.AI.Provider)
 
 	// 解密敏感信息
 	if settings.AI.APIKey != "" {
@@ -285,6 +339,15 @@ func (c *ConfigService) LoadSettings() (string, error) {
 			settings.AI.APIKey = ""
 		} else {
 			settings.AI.APIKey = decrypted
+		}
+	}
+
+	if settings.AI.VertexCredentials != "" {
+		decrypted, err := c.decrypt(settings.AI.VertexCredentials)
+		if err != nil {
+			settings.AI.VertexCredentials = ""
+		} else {
+			settings.AI.VertexCredentials = decrypted
 		}
 	}
 
@@ -309,9 +372,11 @@ func (c *ConfigService) LoadSettings() (string, error) {
 	// 重新序列化（包含解密后的数据）
 	result, err := json.Marshal(settings)
 	if err != nil {
+		fmt.Printf("[ConfigService] Failed to serialize decrypted settings: %v\n", err)
 		return "", fmt.Errorf("failed to serialize settings: %w", err)
 	}
 
+	fmt.Printf("[ConfigService] Settings loaded and decrypted successfully\n")
 	return string(result), nil
 }
 
@@ -320,9 +385,15 @@ func (c *ConfigService) getDefaultSettings() string {
 	defaults := Settings{
 		Version: "1.0.0",
 		AI: AISettings{
-			Provider:         "gemini",
-			TextModel:        "gemini-2.5-flash",
-			ImageModel:       "gemini-2.5-flash-preview-05-20",
+			Provider:   "gemini",
+			TextModel:  "gemini-2.5-flash",
+			ImageModel: "gemini-2.5-flash-preview-05-20",
+
+			// Vertex AI 默认配置
+			UseVertexAI:    false,
+			VertexLocation: "us-central1",
+
+			// OpenAI 默认配置
 			OpenAIBaseURL:    "https://api.openai.com/v1",
 			OpenAITextModel:  "gpt-4o",
 			OpenAIImageModel: "dall-e-3",
