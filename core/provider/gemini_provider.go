@@ -222,6 +222,59 @@ func (p *GeminiProvider) EditImage(ctx context.Context, params types.EditImagePa
 	return extractImageFromGeminiResponse(response)
 }
 
+// EditMultiImages 多图编辑/融合
+func (p *GeminiProvider) EditMultiImages(ctx context.Context, params types.MultiImageEditParams) (string, error) {
+	if len(params.Images) < 2 {
+		return "", fmt.Errorf("at least 2 images are required")
+	}
+
+	// 构建请求部分：先添加提示词
+	parts := []*genai.Part{
+		{Text: params.Prompt},
+	}
+
+	// 添加所有图片
+	for i, img := range params.Images {
+		imageData := extractBase64Data(img)
+		decodedData, err := base64.StdEncoding.DecodeString(imageData)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode image %d: %w", i, err)
+		}
+
+		parts = append(parts, &genai.Part{
+			InlineData: &genai.Blob{
+				MIMEType: "image/png",
+				Data:     decodedData,
+			},
+		})
+	}
+
+	content := &genai.Content{
+		Parts: parts,
+		Role:  genai.RoleUser,
+	}
+
+	// 设置生成参数
+	temperature := float32(0.95)
+	topP := float32(0.95)
+
+	// 调用 API
+	response, err := p.client.Models.GenerateContent(ctx, p.settings.ImageModel,
+		[]*genai.Content{content},
+		&genai.GenerateContentConfig{
+			Temperature:        &temperature,
+			TopP:               &topP,
+			MaxOutputTokens:    32768,
+			ResponseModalities: []string{"text", "image"},
+		})
+
+	if err != nil {
+		return "", fmt.Errorf("Gemini multi-image edit API error: %w", err)
+	}
+
+	return extractImageFromGeminiResponse(response)
+}
+
 // EnhancePrompt 增强提示词
 func (p *GeminiProvider) EnhancePrompt(ctx context.Context, prompt string) (string, error) {
 	// 构建增强提示词的系统提示

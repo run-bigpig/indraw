@@ -16,7 +16,9 @@
     "noApiKey": "请配置 Gemini API Key",
     "invalidFile": "无效的文件格式",
     "uploadFailed": "上传失败",
-    "processingFailed": "处理失败"
+    "processingFailed": "处理失败",
+    "selectMultipleImages": "请至少选择2个图片图层进行AI融合",
+    "blendSameGroup": "只能融合同一组/层级内的图层"
   },
   "shortcuts": {
     "multiSelect": "+ CLICK TO MULTI-SELECT",

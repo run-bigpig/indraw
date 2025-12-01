@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayerData, ToolType } from '@/types';
-import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder, FolderOpen, ImageIcon } from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder, FolderOpen, ImageIcon, Maximize } from 'lucide-react';
 import clsx from 'clsx';
 import { ProcessingState } from '../../App.tsx';
 import ContextMenu from './ContextMenu';
@@ -261,9 +261,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const isMultipleSelected = selectedIds.length > 1;
   const isGroupSelected = activeLayer?.type === 'group';
 
-  const activeIndex = activeLayer ? layers.findIndex(l => l.id === activeLayer.id) : -1;
-  const hasLayerBelow = activeIndex > 0;
-  const isLayerBelowImage = hasLayerBelow && layers[activeIndex - 1].type === 'image';
+  // 检查多选的图层是否都是图片类型
+  const selectedLayers = layers.filter(l => selectedIds.includes(l.id));
+  const selectedImageLayers = selectedLayers.filter(l => l.type === 'image');
+  const isMultipleImageSelected = selectedImageLayers.length >= 2;
 
   const showTransformForLayer = !!activeLayer && activeLayer.type !== 'line';
 
@@ -488,52 +489,6 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 </div>
 
 
-                                {/* AI Blend Section */}
-                                {isLayerBelowImage && (
-                                    <div className="bg-purple-900/20 border border-purple-500/30 rounded p-2 mb-3">
-                                        <div className="flex flex-col gap-2">
-                                            <InputGroup label={t('properties:aiBlendWithBelow')}>
-                                                <div className="flex gap-2 mb-1">
-                                                    <select
-                                                        value={blendStyle}
-                                                        onChange={(e) => setBlendStyle(e.target.value)}
-                                                        className="w-full bg-tech-900 border border-tech-600 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-purple-500"
-                                                    >
-                                                        <option value="Seamless">{t('properties:blendStyles.seamless')}</option>
-                                                        <option value="Double Exposure">{t('properties:blendStyles.doubleExposure')}</option>
-                                                        <option value="Splash Effect">{t('properties:blendStyles.splashEffect')}</option>
-                                                        <option value="Glitch/Cyberpunk">{t('properties:blendStyles.cyberpunk')}</option>
-                                                        <option value="Surreal">{t('properties:blendStyles.surreal')}</option>
-                                                    </select>
-                                                </div>
-                                                <textarea
-                                                    value={blendPrompt}
-                                                    onChange={(e) => setBlendPrompt(e.target.value)}
-                                                    placeholder={t('properties:customInstructions')}
-                                                    className="w-full bg-tech-900 border border-tech-600 rounded p-1.5 text-[10px] text-gray-300 h-10 resize-none focus:border-purple-500 mb-1"
-                                                />
-                                                <button
-                                                    onClick={() => onAIBlend(blendPrompt, blendStyle)}
-                                                    disabled={isGlobalProcessing}
-                                                    className="w-full flex items-center justify-center gap-2 bg-purple-600/80 hover:bg-purple-500 text-white text-[10px] py-1.5 rounded transition-colors disabled:opacity-50"
-                                                >
-                                                    {processingState === 'blending' ? (
-                                                        <>
-                                                            <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                            {t('properties:processing')}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Merge size={12} />
-                                                            {t('properties:mergeLayers')}
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </InputGroup>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Presets */}
                                 <InputGroup label={t('properties:presets')}>
                                     <div className="flex gap-1">
@@ -668,8 +623,63 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
                 </div>
             ) : isMultipleSelected ? (
-                <div className="text-xs text-gray-600 italic py-8 text-center border border-dashed border-tech-800 rounded-lg">
-                    {t('properties:multipleLayersSelected', { count: selectedIds.length })}
+                <div className="space-y-4">
+                    <div className="text-xs text-gray-400 py-2 text-center">
+                        {t('properties:multipleLayersSelected', { count: selectedIds.length })}
+                    </div>
+                    
+                    {/* 多选图片图层时显示AI融合选项 */}
+                    {isMultipleImageSelected && (
+                        <div className="bg-purple-900/20 border border-purple-500/30 rounded p-3">
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Merge size={14} className="text-purple-400" />
+                                    <span className="text-xs font-medium text-purple-300 uppercase tracking-wide">
+                                        {t('properties:aiBlendMultiple')}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mb-1">
+                                    {t('properties:aiBlendMultipleDesc', { count: selectedImageLayers.length })}
+                                </p>
+                                <div className="flex gap-2 mb-1">
+                                    <select
+                                        value={blendStyle}
+                                        onChange={(e) => setBlendStyle(e.target.value)}
+                                        className="w-full bg-tech-900 border border-tech-600 rounded px-2 py-1 text-[10px] text-gray-300 focus:outline-none focus:border-purple-500"
+                                    >
+                                        <option value="Seamless">{t('properties:blendStyles.seamless')}</option>
+                                        <option value="Double Exposure">{t('properties:blendStyles.doubleExposure')}</option>
+                                        <option value="Splash Effect">{t('properties:blendStyles.splashEffect')}</option>
+                                        <option value="Glitch/Cyberpunk">{t('properties:blendStyles.cyberpunk')}</option>
+                                        <option value="Surreal">{t('properties:blendStyles.surreal')}</option>
+                                    </select>
+                                </div>
+                                <textarea
+                                    value={blendPrompt}
+                                    onChange={(e) => setBlendPrompt(e.target.value)}
+                                    placeholder={t('properties:blendPromptPlaceholder')}
+                                    className="w-full bg-tech-900 border border-tech-600 rounded p-2 text-[10px] text-gray-300 h-16 resize-none focus:border-purple-500 focus:outline-none placeholder:text-gray-600"
+                                />
+                                <button
+                                    onClick={() => onAIBlend(blendPrompt, blendStyle)}
+                                    disabled={isGlobalProcessing}
+                                    className="w-full flex items-center justify-center gap-2 bg-purple-600/80 hover:bg-purple-500 text-white text-xs py-2 rounded transition-colors disabled:opacity-50"
+                                >
+                                    {processingState === 'blending' ? (
+                                        <>
+                                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            {t('properties:processing')}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles size={14} />
+                                            {t('properties:aiBlendAction')}
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="text-xs text-gray-600 italic py-8 text-center border border-dashed border-tech-800 rounded-lg">
@@ -713,10 +723,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     { id: 'group', label: t('dialog:contextMenu.group'), icon: Group, shortcut: 'Ctrl+G' },
                     { id: 'ungroup', label: t('dialog:contextMenu.ungroup'), icon: Folder, shortcut: 'Ctrl+Sh+G' },
                     { type: 'divider', id: 'd1', label: '' },
+                    { id: 'fit-to-canvas', label: t('dialog:contextMenu.fitToCanvas'), icon: Maximize, color: 'text-cyan-400' },
+                    { type: 'divider', id: 'd2', label: '' },
                     { id: 'duplicate', label: t('dialog:contextMenu.duplicate'), icon: Copy, shortcut: 'Ctrl+D' },
                     { id: 'delete', label: t('dialog:contextMenu.delete'), icon: Trash2, shortcut: 'Del', color: 'text-red-400' },
-                    { type: 'divider', id: 'd2', label: '' },
-                     { id: 'ai-blend', label: t('dialog:contextMenu.aiBlend'), icon: Sparkles, color: 'text-purple-400' },
                 ]}
             />
         )}

@@ -35,7 +35,8 @@
     "ungroup": "Ungroup",
     "lock": "Lock",
     "unlock": "Unlock",
-    "aiBlend": "AI Blend with Below"
+    "aiBlend": "AI Multi-Image Blend",
+    "fitToCanvas": "Fit to Canvas"
   },
   "recovery": {
     "title": "Recover Unsaved Project",

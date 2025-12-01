@@ -712,28 +712,21 @@ export default function App() {
   };
 
 	  const handleAIBlend = async (prompt: string, style: string) => {
-    if (selectedIds.length !== 1) {
-      alert("Please select the top layer to blend.");
-      return;
-    }
-    const selectedId = selectedIds[0];
-    const index = layers?.findIndex(l => l.id === selectedId) ?? -1;
-    if (index === -1) return;
-    if (index <= 0) {
-      alert("Need a layer below to blend with.");
-      return;
-    }
+    // 获取选中的图片图层
+    const selectedImageLayers = layers.filter(
+      l => selectedIds.includes(l.id) && l.type === 'image' && l.src
+    );
 
-    const topLayer = layers[index];
-    const bottomLayer = layers[index - 1];
-
-    if (topLayer.parentId !== bottomLayer.parentId) {
-      alert("Can only blend layers within the same group/level.");
+    if (selectedImageLayers.length < 2) {
+      alert(t('message:error.selectMultipleImages', '请至少选择2个图片图层进行AI融合'));
       return;
     }
 
-    if (topLayer.type !== 'image' || !topLayer.src || bottomLayer.type !== 'image' || !bottomLayer.src) {
-      alert("Both layers must be images to blend.");
+    // 检查是否在同一组/层级
+    const firstParentId = selectedImageLayers[0].parentId;
+    const sameGroup = selectedImageLayers.every(l => l.parentId === firstParentId);
+    if (!sameGroup) {
+      alert(t('message:error.blendSameGroup', '只能融合同一组/层级内的图层'));
       return;
     }
 
@@ -741,7 +734,18 @@ export default function App() {
     setProcessingState('blending');
 
     try {
-      const resultBase64 = await blendImagesWithAI(bottomLayer.src, topLayer.src, prompt, style);
+      // 按图层顺序排序（索引小的在下面，即底层优先）
+      const sortedLayers = [...selectedImageLayers].sort((a, b) => {
+        const indexA = layers.findIndex(l => l.id === a.id);
+        const indexB = layers.findIndex(l => l.id === b.id);
+        return indexA - indexB;
+      });
+
+      // 提取图片数据，按图层顺序（下层到上层）
+      const images = sortedLayers.map(l => l.src!);
+
+      // 调用后端多图融合接口
+      const resultBase64 = await blendImagesWithAI(images, prompt, style);
 
       // 获取画布配置
       const { width: canvasWidth, height: canvasHeight } = projectManager.canvasConfig;
@@ -749,19 +753,33 @@ export default function App() {
       // 加载混合结果图片并计算适配尺寸
       const layout = await loadAndFitImage(resultBase64, canvasWidth, canvasHeight, 1.0);
 
-      // 直接添加混合结果图层
-      addLayer({
+      // 获取原图层的 ID 列表，用于移除
+      const oldLayerIds = selectedImageLayers.map(l => l.id);
+
+      // 创建新的融合结果图层
+      const newLayer: LayerData = {
         id: uuidv4(),
         type: 'image',
-        name: `${style} Blend Result`,
+        name: `${style} Blend (${selectedImageLayers.length} layers)`,
         x: layout.x,
         y: layout.y,
         width: layout.width,
         height: layout.height,
         ...DEFAULT_LAYER_PROPS,
         src: resultBase64,
-        parentId: topLayer.parentId
-      });
+        parentId: firstParentId
+      };
+
+      // 移除原图层，添加新图层
+      const updatedLayers = layers.filter(l => !oldLayerIds.includes(l.id));
+      updatedLayers.push(newLayer);
+
+      // 更新图层并保存历史
+      layerManager.updateLayersWithHistory(updatedLayers, 'history.aiBlend');
+
+      // 选中新图层
+      setSelectedIds([newLayer.id]);
+
     } catch (e: any) {
       console.error("Blend failed", e);
       alert(`Blend failed: ${e.message}`);
@@ -1009,6 +1027,9 @@ Keep high quality and clarity.`;
       case 'ai-blend':
         handleAIBlend('', 'Seamless');
         break;
+      case 'fit-to-canvas':
+        handleFitToCanvas();
+        break;
       case 'duplicate':
         layerManager.duplicateLayer(selectedId);
         break;
@@ -1023,6 +1044,75 @@ Keep high quality and clarity.`;
         layerManager.reorderLayer(selectedId, 'down');
         break;
     }
+  };
+
+  // 适配画布：将选中的图片图层根据原图尺寸缩放并居中以完全填充画布（cover 模式）
+  const handleFitToCanvas = async () => {
+    const { width: canvasWidth, height: canvasHeight } = projectManager.canvasConfig;
+    
+    // 获取选中的图片图层
+    const selectedImageLayers = layers.filter(
+      l => selectedIds.includes(l.id) && l.type === 'image' && l.src
+    );
+
+    if (selectedImageLayers.length === 0) return;
+
+    // 获取每个图片的原始尺寸
+    const getOriginalSize = (src: string): Promise<{ width: number; height: number }> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+          resolve({ width: 100, height: 100 }); // 默认尺寸
+        };
+        img.src = src;
+      });
+    };
+
+    // 并行获取所有原图尺寸
+    const originalSizes = await Promise.all(
+      selectedImageLayers.map(layer => getOriginalSize(layer.src!))
+    );
+
+    // 创建尺寸映射
+    const sizeMap = new Map<string, { width: number; height: number }>();
+    selectedImageLayers.forEach((layer, index) => {
+      sizeMap.set(layer.id, originalSizes[index]);
+    });
+
+    const updatedLayers = layers.map(layer => {
+      if (!selectedIds.includes(layer.id) || layer.type !== 'image') {
+        return layer;
+      }
+
+      const originalSize = sizeMap.get(layer.id);
+      if (!originalSize) return layer;
+
+      // 使用原图尺寸计算缩放比例（cover 模式，完全填充画布）
+      const scaleX = canvasWidth / originalSize.width;
+      const scaleY = canvasHeight / originalSize.height;
+      const scale = Math.max(scaleX, scaleY);
+
+      // 计算新的尺寸
+      const newWidth = originalSize.width * scale;
+      const newHeight = originalSize.height * scale;
+
+      // 居中放置
+      const newX = (canvasWidth - newWidth) / 2;
+      const newY = (canvasHeight - newHeight) / 2;
+
+      return {
+        ...layer,
+        x: newX,
+        y: newY,
+        width: newWidth,
+        height: newHeight,
+      };
+    });
+
+    layerManager.updateLayersWithHistory(updatedLayers, 'history.fitToCanvas');
   };
 
   const handleExport = async () => {

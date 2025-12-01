@@ -35,7 +35,8 @@
     "ungroup": "取消成组",
     "lock": "锁定",
     "unlock": "解锁",
-    "aiBlend": "与下层 AI 混合"
+    "aiBlend": "AI 多图融合",
+    "fitToCanvas": "适配画布"
   },
   "recovery": {
     "title": "恢复未保存的项目",

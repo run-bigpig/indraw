@@ -111,22 +111,23 @@ export const editImageWithAI = async (base64Image: string, prompt: string): Prom
 };
 
 /**
- * 融合图像
- * @param base64Bottom 底层图像（base64 格式）
- * @param base64Top 顶层图像（base64 格式）
- * @param userPrompt 用户提示词
+ * 多图融合
+ * @param images 图像数组（base64 格式），按图层顺序排列（下层到上层）
+ * @param userPrompt 用户提示词（可选）
  * @param blendStyle 融合风格
  * @returns 融合后的图像（base64 格式）
  */
 export const blendImagesWithAI = async (
-  base64Bottom: string,
-  base64Top: string,
+  images: string[],
   userPrompt: string = "",
   blendStyle: string = "Seamless"
 ): Promise<string> => {
+  if (images.length < 2) {
+    throw new Error('At least 2 images are required for blending');
+  }
+
   const params = {
-    bottomImage: base64Bottom,
-    topImage: base64Top,
+    images,
     prompt: userPrompt,
     style: blendStyle,
   };
@@ -134,7 +135,7 @@ export const blendImagesWithAI = async (
   try {
     return await BlendImages(JSON.stringify(params));
   } catch (error) {
-    console.error('混合图像失败:', error);
+    console.error('多图融合失败:', error);
     throw error;
   }
 };

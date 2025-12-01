@@ -16,7 +16,9 @@
     "noApiKey": "Please configure Gemini API Key",
     "invalidFile": "Invalid file format",
     "uploadFailed": "Upload failed",
-    "processingFailed": "Processing failed"
+    "processingFailed": "Processing failed",
+    "selectMultipleImages": "Please select at least 2 image layers for AI blend",
+    "blendSameGroup": "Can only blend layers within the same group/level"
   },
   "shortcuts": {
     "multiSelect": "+ CLICK TO MULTI-SELECT",

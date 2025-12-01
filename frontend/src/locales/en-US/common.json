@@ -60,6 +60,8 @@
   "history.erase": "Erase",
   "history.aiInpaint": "AI Inpaint",
   "history.aiTransform": "AI Transform",
+  "history.aiBlend": "AI Multi-Image Blend",
+  "history.fitToCanvas": "Fit to Canvas",
   "history.moveUp": "Move Layer Up",
   "history.moveDown": "Move Layer Down",
   "history.invalidTime": "Invalid Time"

@@ -54,16 +54,14 @@ export interface ImageEditOptions {
 }
 
 /**
- * 图像融合选项
+ * 多图融合选项
  */
 export interface ImageBlendOptions {
-  /** 底层图像（base64 格式） */
-  bottomImage: string;
-  /** 顶层图像（base64 格式） */
-  topImage: string;
-  /** 用户提示词 */
+  /** 图像数组（base64 格式），按图层顺序排列（下层到上层） */
+  images: string[];
+  /** 用户提示词（可选） */
   prompt?: string;
-  /** 融合风格 */
+  /** 融合风格: "Seamless" | "Double Exposure" | "Splash Effect" | "Glitch/Cyberpunk" | "Surreal" */
   blendStyle?: string;
 }
 

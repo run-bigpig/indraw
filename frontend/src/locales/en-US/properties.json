@@ -75,6 +75,10 @@
   "transformStrengthHint": "Controls transformation intensity, higher value means more changes",
   "generateTransform": "Generate Transform",
   "transforming": "Transforming...",
+  "aiBlendMultiple": "AI Multi-Image Blend",
+  "aiBlendMultipleDesc": "Blend {{count}} selected images with AI",
+  "blendPromptPlaceholder": "Describe blend effect (optional), e.g.: natural transition, dreamy effect...",
+  "aiBlendAction": "Start AI Blend",
   "blendStyles": {
     "seamless": "Seamless (Standard)",
     "doubleExposure": "Double Exposure",

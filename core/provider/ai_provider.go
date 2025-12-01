@@ -90,6 +90,15 @@ type AIProvider interface {
 	//   - 错误信息
 	EditImage(ctx context.Context, params types.EditImageParams) (string, error)
 
+	// EditMultiImages 多图编辑/融合
+	// 参数：
+	//   - ctx: 上下文
+	//   - params: 多图编辑参数
+	// 返回：
+	//   - base64 编码的图像数据（含 data URI 前缀）
+	//   - 错误信息
+	EditMultiImages(ctx context.Context, params types.MultiImageEditParams) (string, error)
+
 	// EnhancePrompt 增强提示词
 	// 参数：
 	//   - ctx: 上下文

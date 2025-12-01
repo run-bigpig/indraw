@@ -115,6 +115,12 @@ func (p *OpenAIProvider) EditImage(ctx context.Context, params types.EditImagePa
 	return "", fmt.Errorf("OpenAI DALL-E 3 does not support image editing. Please use Gemini provider for image editing features")
 }
 
+// EditMultiImages 多图编辑/融合
+// 注意：DALL-E 3 不支持多图编辑功能
+func (p *OpenAIProvider) EditMultiImages(ctx context.Context, params types.MultiImageEditParams) (string, error) {
+	return "", fmt.Errorf("OpenAI DALL-E 3 does not support multi-image editing. Please use Gemini provider for image blending features")
+}
+
 // EnhancePrompt 增强提示词
 func (p *OpenAIProvider) EnhancePrompt(ctx context.Context, prompt string) (string, error) {
 	// 确定使用的模型

@@ -60,6 +60,8 @@
   "history.erase": "擦除",
   "history.aiInpaint": "AI 修复",
   "history.aiTransform": "AI 变换",
+  "history.aiBlend": "AI 多图融合",
+  "history.fitToCanvas": "适配画布",
   "history.moveUp": "上移图层",
   "history.moveDown": "下移图层",
   "history.invalidTime": "时间无效"

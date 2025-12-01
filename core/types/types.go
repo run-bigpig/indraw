@@ -90,10 +90,16 @@ type EditImageParams struct {
 	Prompt    string `json:"prompt"`
 }
 
-// BlendImagesParams 图像混合参数
+// MultiImageEditParams 多图编辑参数
+type MultiImageEditParams struct {
+	Images []string `json:"images"` // base64 编码的图像数组
+	Prompt string   `json:"prompt"`
+}
+
+// BlendImagesParams 多图融合参数
+// Images 数组按图层顺序排列（索引小的在下层，索引大的在上层）
 type BlendImagesParams struct {
-	BottomImage string `json:"bottomImage"` // base64
-	TopImage    string `json:"topImage"`    // base64
-	Prompt      string `json:"prompt"`
-	Style       string `json:"style"` // "Seamless", "Overlay", etc.
+	Images []string `json:"images"` // base64 数组，按图层顺序（下层到上层）
+	Prompt string   `json:"prompt"` // 用户提示词（可选）
+	Style  string   `json:"style"`  // 融合风格: "Seamless", "Double Exposure", "Splash Effect", "Glitch/Cyberpunk", "Surreal"
 }

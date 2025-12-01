@@ -75,6 +75,10 @@
   "transformStrengthHint": "控制变换程度，值越大变化越明显",
   "generateTransform": "生成变换",
   "transforming": "变换中...",
+  "aiBlendMultiple": "AI 多图融合",
+  "aiBlendMultipleDesc": "将选中的 {{count}} 张图片进行 AI 智能融合",
+  "blendPromptPlaceholder": "描述融合效果（可选），如：自然过渡、梦幻效果...",
+  "aiBlendAction": "开始 AI 融合",
   "blendStyles": {
     "seamless": "无缝（标准）",
     "doubleExposure": "双重曝光",

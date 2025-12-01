@@ -233,11 +233,17 @@ func (a *AIService) RemoveBackground(imageData string) (string, error) {
 	return aiProvider.EditImage(a.ctx, params)
 }
 
-// BlendImages 混合图像
+// BlendImages 多图融合
+// 按图层顺序（下层到上层）逐步融合多张图片
 func (a *AIService) BlendImages(paramsJSON string) (string, error) {
 	var params types.BlendImagesParams
 	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
 		return "", fmt.Errorf("invalid parameters: %w", err)
+	}
+
+	// 验证图片数量
+	if len(params.Images) < 2 {
+		return "", fmt.Errorf("at least 2 images are required for blending")
 	}
 
 	// 获取当前提供商
@@ -252,16 +258,63 @@ func (a *AIService) BlendImages(paramsJSON string) (string, error) {
 		return "", fmt.Errorf("aiProvider %s does not support image blending", aiProvider.Name())
 	}
 
-	// 构建混合提示词
-	fullPrompt := fmt.Sprintf("Blend these two images together using %s style. %s", params.Style, params.Prompt)
+	// 构建融合风格描述
+	styleDesc := getBlendStyleDescription(params.Style)
 
-	// 使用图像编辑功能
-	editParams := types.EditImageParams{
-		ImageData: params.BottomImage,
-		Prompt:    fullPrompt,
+	// 从第一张图片开始，逐步与后续图片融合
+	currentResult := params.Images[0]
+
+	for i := 1; i < len(params.Images); i++ {
+		// 构建融合提示词
+		var fullPrompt string
+		if i == len(params.Images)-1 && params.Prompt != "" {
+			// 最后一次融合时加入用户提示词
+			fullPrompt = fmt.Sprintf(
+				"Blend these two images together seamlessly. %s User instruction: %s. "+
+					"Create a cohesive result that combines elements from both images naturally. "+
+					"Maintain high quality and visual consistency.",
+				styleDesc, params.Prompt)
+		} else {
+			fullPrompt = fmt.Sprintf(
+				"Blend these two images together seamlessly. %s "+
+					"Create a cohesive result that combines elements from both images naturally. "+
+					"Maintain high quality and visual consistency.",
+				styleDesc)
+		}
+
+		// 调用多图编辑功能
+		editParams := types.MultiImageEditParams{
+			Images: []string{currentResult, params.Images[i]},
+			Prompt: fullPrompt,
+		}
+
+		result, err := aiProvider.EditMultiImages(a.ctx, editParams)
+		if err != nil {
+			return "", fmt.Errorf("blend step %d failed: %w", i, err)
+		}
+
+		currentResult = result
 	}
 
-	return aiProvider.EditImage(a.ctx, editParams)
+	return currentResult, nil
+}
+
+// getBlendStyleDescription 获取融合风格描述
+func getBlendStyleDescription(style string) string {
+	switch style {
+	case "Seamless":
+		return "Use seamless blending with natural transitions between elements."
+	case "Double Exposure":
+		return "Create a double exposure effect, overlaying the images artistically like film photography."
+	case "Splash Effect":
+		return "Create a dynamic splash effect with elements flowing and merging energetically."
+	case "Glitch/Cyberpunk":
+		return "Apply a glitch/cyberpunk aesthetic with digital distortion, neon colors, and futuristic elements."
+	case "Surreal":
+		return "Create a surreal, dreamlike composition that defies reality and combines elements in unexpected ways."
+	default:
+		return "Blend naturally and harmoniously."
+	}
 }
 
 // EnhancePrompt 增强提示词
