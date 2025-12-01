@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { LayerData, HistoryEntry } from '../types';
 
 /**
@@ -11,6 +11,7 @@ import { LayerData, HistoryEntry } from '../types';
  * - 回调函数依赖数组为空，避免不必要的重建
  * - 每次保存历史记录时触发自动保存
  * - 记录每个操作的描述信息
+ * - ✅ 性能优化：使用 requestAnimationFrame + requestIdleCallback 分离 UI 更新和保存操作
  */
 export function useHistory(
   initialLayers: LayerData[] = [],
@@ -30,13 +31,26 @@ export function useHistory(
   const historyStepRef = useRef(historyStep);
   const onHistorySaveRef = useRef(onHistorySave);
 
+  // ✅ 性能优化：跟踪待执行的保存回调
+  const pendingAutoSaveRef = useRef<number | null>(null);
+
   historyRef.current = history;
   historyStepRef.current = historyStep;
   onHistorySaveRef.current = onHistorySave;
 
+  // 清理
+  useEffect(() => {
+    return () => {
+      if (pendingAutoSaveRef.current !== null && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(pendingAutoSaveRef.current);
+      }
+    };
+  }, []);
+
   // 保存到历史记录 - 使用函数式更新避免闭包陷阱
-  // ✅ 性能优化：异步触发自动保存，避免阻塞 UI
+  // ✅ 性能优化：同步更新状态，异步触发自动保存
   const saveToHistory = useCallback((newLayers: LayerData[], description: string = 'history.unknown') => {
+    // 同步更新历史状态，确保 UI 立即反映变化
     setHistory(prevHistory => {
       const currentStep = historyStepRef.current;
       // 截断当前步骤之后的历史，添加新状态
@@ -48,27 +62,34 @@ export function useHistory(
         timestamp,
       });
       console.log('[useHistory] saveToHistory:', { description, timestamp, step: newHistory.length - 1 });
+      
       // 同步更新 historyStep
       setHistoryStep(newHistory.length - 1);
-
-      // ✅ 性能优化：使用 requestIdleCallback 异步触发自动保存
-      // 这样可以让 UI 先响应，然后在空闲时执行自动保存
-      if (onHistorySaveRef.current) {
-        const callback = onHistorySaveRef.current;
-        if ('requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(() => {
-            callback();
-          }, { timeout: 1000 }); // 最多延迟 1 秒
-        } else {
-          // 降级方案：使用 setTimeout
-          setTimeout(() => {
-            callback();
-          }, 100);
-        }
-      }
-
+      
       return newHistory;
     });
+
+    // ✅ 性能优化：取消之前的待执行保存，避免重复保存
+    if (pendingAutoSaveRef.current !== null && 'cancelIdleCallback' in window) {
+      (window as any).cancelIdleCallback(pendingAutoSaveRef.current);
+    }
+
+    // ✅ 性能优化：使用 requestIdleCallback 异步触发自动保存
+    // 这样可以让 UI 先响应，然后在空闲时执行自动保存
+    if (onHistorySaveRef.current) {
+      const callback = onHistorySaveRef.current;
+      if ('requestIdleCallback' in window) {
+        pendingAutoSaveRef.current = (window as any).requestIdleCallback(() => {
+          pendingAutoSaveRef.current = null;
+          callback();
+        }, { timeout: 1000 }); // 最多延迟 1 秒
+      } else {
+        // 降级方案：使用 setTimeout
+        setTimeout(() => {
+          callback();
+        }, 100);
+      }
+    }
   }, []); // 空依赖数组，回调永不重建
 
   // 撤销 - 使用 ref 获取最新状态

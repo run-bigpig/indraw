@@ -386,7 +386,31 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
     };
 
     const handleMouseUp = () => {
-        selectionDrag.current = null;
+        // ✅ 性能优化：批量移动选中图层结束时，触发一次历史保存
+        if (selectionDrag.current) {
+            const movedIds = Object.keys(selectionDrag.current.originals);
+            if (movedIds.length > 0) {
+                // 检查是否真的发生了移动
+                const hasMoved = movedIds.some(id => {
+                    const layer = layers.find(l => l.id === id);
+                    const original = selectionDrag.current?.originals[id];
+                    return layer && original && (layer.x !== original.x || layer.y !== original.y);
+                });
+
+                if (hasMoved) {
+                    // 使用第一个移动的图层触发历史保存
+                    const firstId = movedIds[0];
+                    const layer = layers.find(l => l.id === firstId);
+                    if (layer) {
+                        // 触发一次带历史保存的更新（只更新第一个，其他已经在 mouseMove 中更新了）
+                        // ✅ 性能优化：直接同步调用，不再使用 requestAnimationFrame
+                        // updateLayer 内部已经有防抖机制，不会阻塞 UI
+                        onUpdateLayer(firstId, { x: layer.x, y: layer.y }, true);
+                    }
+                }
+            }
+            selectionDrag.current = null;
+        }
 
         if ((activeTool === 'brush' || activeTool === 'eraser') && isDrawing.current) {
             isDrawing.current = false;

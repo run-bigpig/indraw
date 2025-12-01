@@ -19,7 +19,7 @@
     "processingFailed": "处理失败"
   },
   "shortcuts": {
-    "multiSelect": "CLICK TO MULTI-SELECT",
+    "multiSelect": "+ CLICK TO MULTI-SELECT",
     "undo": "Undo (Ctrl+Z)",
     "redo": "Redo (Ctrl+Shift+Z)"
   },

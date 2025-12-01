@@ -6,6 +6,7 @@
   "exportDisabled": "Please create a project first",
   "upload": "Upload",
   "create": "Create",
+  "creating": "Creating...",
   "open": "Open",
   "close": "Close",
   "undo": "Undo",
@@ -58,6 +59,7 @@
   "history.draw": "Draw",
   "history.erase": "Erase",
   "history.aiInpaint": "AI Inpaint",
+  "history.aiTransform": "AI Transform",
   "history.moveUp": "Move Layer Up",
   "history.moveDown": "Move Layer Down",
   "history.invalidTime": "Invalid Time"

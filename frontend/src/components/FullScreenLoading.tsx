@@ -29,6 +29,8 @@ const FullScreenLoading: React.FC<FullScreenLoadingProps> = ({ processingState }
         return t('ai:blending', 'AI Blending...');
       case 'removing-bg':
         return t('ai:removingBg', 'Removing Background...');
+      case 'transforming':
+        return t('ai:transforming', 'AI Transforming...');
       default:
         return t('common:processing', 'Processing...');
     }
@@ -45,6 +47,8 @@ const FullScreenLoading: React.FC<FullScreenLoadingProps> = ({ processingState }
         return t('ai:blendingHint', 'Blending layers with AI...');
       case 'removing-bg':
         return t('ai:removingBgHint', 'Removing background from image...');
+      case 'transforming':
+        return t('ai:transformingHint', 'Transforming image with AI...');
       default:
         return '';
     }

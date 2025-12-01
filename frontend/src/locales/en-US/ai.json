@@ -1,5 +1,5 @@
 {
-  "generator": "AI GENERATOR",
+  "generator": "MATERIAL GENERATOR",
   "prompt": "Prompt",
   "promptPlaceholder": "Describe the image you want to create...",
   "enhancePrompt": "Enhance Prompt with AI",
@@ -11,19 +11,27 @@
   "removeReference": "Remove Reference",
   "generate": "GENERATE",
   "generating": "Generating...",
+  "generatingHint": "Creating your image with AI...",
   "inpaint": "AI Inpaint",
   "inpaintPrompt": "Describe what you want to inpaint...",
   "inpaintHint": "Use AI Brush to draw on the image, then enter a prompt to inpaint",
   "submitInpaint": "Submit Inpaint",
   "inpainting": "Inpainting...",
+  "inpaintingHint": "Editing selected area with AI...",
   "removeBackground": "Remove Background",
   "removingBackground": "Removing Background...",
+  "removingBg": "Removing Background...",
+  "removingBgHint": "Removing background from image...",
   "blend": "AI Blend",
   "blendPrompt": "Describe the blend effect...",
   "blendStyle": "Blend Style",
   "blending": "Blending...",
+  "blendingHint": "Blending layers with AI...",
+  "transforming": "Transforming...",
+  "transformingHint": "Transforming image with AI...",
   "selectImageFirst": "Please select an image layer first",
   "drawMaskFirst": "Please draw a mask with AI Brush first",
-  "enterPromptFirst": "Please enter a prompt first"
+  "enterPromptFirst": "Please enter a prompt first",
+  "pleaseWait": "Please wait, this may take a moment..."
 }
 

@@ -55,9 +55,11 @@ interface URLImageProps {
   onChange: (newAttrs: Partial<LayerData>) => void;
   // 擦除蒙版子线段（只对当前图层生效）
   eraseLines?: LayerData[];
+  // 是否是组的子元素（用于事件冒泡控制）
+  isGroupChild?: boolean;
 }
 
-const URLImage: React.FC<URLImageProps> = ({ layer, isDraggable, activeTool, onSelect, onChange, eraseLines }) => {
+const URLImage: React.FC<URLImageProps> = ({ layer, isDraggable, activeTool, onSelect, onChange, eraseLines, isGroupChild = false }) => {
   const [image] = useImage(layer.src || '', 'anonymous');
   const shapeRef = useRef<Konva.Image>(null);
   const groupRef = useRef<Konva.Group>(null);
@@ -155,16 +157,22 @@ const URLImage: React.FC<URLImageProps> = ({ layer, isDraggable, activeTool, onS
       draggable={isDraggable}
       onClick={(e) => {
         if (activeTool !== 'select') return;
+        // 如果是组的子元素，不阻止冒泡，让父组处理选中
+        if (isGroupChild) return;
         e.cancelBubble = true;
         onSelect(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
       }}
       onMouseDown={(e) => {
         if (activeTool !== 'select') return;
+        // 如果是组的子元素，不阻止冒泡，让父组处理拖拽
+        if (isGroupChild) return;
         e.cancelBubble = true;
         onSelect(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
       }}
       onTap={(e) => {
         if (activeTool !== 'select') return;
+        // 如果是组的子元素，不阻止冒泡，让父组处理
+        if (isGroupChild) return;
         e.cancelBubble = true;
         onSelect(false);
       }}
@@ -248,9 +256,11 @@ interface LineLayerProps {
   onSelect: (multi: boolean) => void;
   onChange: (newAttrs: Partial<LayerData>) => void;
   eraseLines: LayerData[];
+  // 是否是组的子元素（用于事件冒泡控制）
+  isGroupChild?: boolean;
 }
 
-const LineLayer: React.FC<LineLayerProps> = ({ layer, isDraggable, activeTool, onSelect, onChange, eraseLines }) => {
+const LineLayer: React.FC<LineLayerProps> = ({ layer, isDraggable, activeTool, onSelect, onChange, eraseLines, isGroupChild = false }) => {
   const groupRef = useRef<Konva.Group>(null);
   const hasEraseLines = eraseLines.length > 0;
 
@@ -298,16 +308,22 @@ const LineLayer: React.FC<LineLayerProps> = ({ layer, isDraggable, activeTool, o
       globalCompositeOperation={(layer.blendMode as any) || 'source-over'}
       onClick={(e) => {
         if (activeTool !== 'select') return;
+        // 如果是组的子元素，不阻止冒泡，让父组处理选中
+        if (isGroupChild) return;
         e.cancelBubble = true;
         onSelect(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
       }}
       onMouseDown={(e) => {
         if (activeTool !== 'select') return;
+        // 如果是组的子元素，不阻止冒泡，让父组处理拖拽
+        if (isGroupChild) return;
         e.cancelBubble = true;
         onSelect(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
       }}
       onTap={(e) => {
         if (activeTool !== 'select') return;
+        // 如果是组的子元素，不阻止冒泡，让父组处理
+        if (isGroupChild) return;
         e.cancelBubble = true;
         onSelect(false);
       }}
@@ -362,6 +378,9 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
 
     const opacity = editingTextId === layer.id ? 0 : layer.opacity;
     const isChild = !!layer.parentId;
+    // 检查父图层是否是组类型，用于控制事件冒泡
+    const parentLayer = layer.parentId ? layers.find(l => l.id === layer.parentId) : null;
+    const isGroupChild = parentLayer?.type === 'group';
     const isSelected = selectedIds.includes(layer.id);
     const isDraggable = activeTool === 'select' && (!isChild || isSelected);
 
@@ -428,6 +447,7 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
           onSelect={(multi) => onSelectLayer(layer.id, multi)}
           onChange={(newAttrs) => onUpdateLayer(layer.id, newAttrs)}
           eraseLines={eraseLines}
+          isGroupChild={isGroupChild}
         />
       );
     }
@@ -452,16 +472,22 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
           draggable={isDraggable}
           onClick={(e) => {
             if (activeTool !== 'select') return;
+            // 如果是组的子元素，不阻止冒泡，让父组处理选中
+            if (isGroupChild) return;
             e.cancelBubble = true;
             onSelectLayer(layer.id, e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
           }}
           onMouseDown={(e) => {
             if (activeTool !== 'select') return;
+            // 如果是组的子元素，不阻止冒泡，让父组处理拖拽
+            if (isGroupChild) return;
             e.cancelBubble = true;
             onSelectLayer(layer.id, e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
           }}
           onTap={(e) => {
             if (activeTool !== 'select') return;
+            // 如果是组的子元素，不阻止冒泡，让父组处理
+            if (isGroupChild) return;
             e.cancelBubble = true;
             onSelectLayer(layer.id, false);
           }}
@@ -512,6 +538,7 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
           onSelect={(multi) => onSelectLayer(layer.id, multi)}
           onChange={(newAttrs) => onUpdateLayer(layer.id, newAttrs)}
           eraseLines={eraseLines}
+          isGroupChild={isGroupChild}
         />
       );
     }

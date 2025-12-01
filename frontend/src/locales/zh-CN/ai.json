@@ -1,5 +1,5 @@
 {
-  "generator": "AI 生成器",
+  "generator": "素材生成器",
   "prompt": "提示词",
   "promptPlaceholder": "描述你想要创建的图像...",
   "enhancePrompt": "使用 AI 增强提示词",
@@ -11,19 +11,27 @@
   "removeReference": "移除参考图片",
   "generate": "生成",
   "generating": "生成中...",
+  "generatingHint": "正在使用 AI 创建图像...",
   "inpaint": "AI 修复",
   "inpaintPrompt": "描述你想要修复的内容...",
   "inpaintHint": "使用 AI 画笔在图像上绘制，然后输入提示词进行修复",
   "submitInpaint": "提交修复",
   "inpainting": "修复中...",
+  "inpaintingHint": "正在使用 AI 编辑选中区域...",
   "removeBackground": "移除背景",
   "removingBackground": "移除背景中...",
+  "removingBg": "移除背景中...",
+  "removingBgHint": "正在从图像中移除背景...",
   "blend": "AI 混合",
   "blendPrompt": "描述混合效果...",
   "blendStyle": "混合风格",
   "blending": "混合中...",
+  "blendingHint": "正在使用 AI 混合图层...",
+  "transforming": "变换中...",
+  "transformingHint": "正在使用 AI 变换图像...",
   "selectImageFirst": "请先选择一个图像图层",
   "drawMaskFirst": "请先使用 AI 画笔绘制遮罩",
-  "enterPromptFirst": "请先输入提示词"
+  "enterPromptFirst": "请先输入提示词",
+  "pleaseWait": "请稍候，这可能需要一些时间..."
 }
 

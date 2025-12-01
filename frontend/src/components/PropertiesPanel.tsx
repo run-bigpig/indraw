@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayerData, ToolType } from '@/types';
-import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder,FolderOpen} from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder, FolderOpen, ImageIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { ProcessingState } from '../../App.tsx';
 import ContextMenu from './ContextMenu';
@@ -25,6 +25,7 @@ interface PropertiesPanelProps {
   onUpdateLayer: (id: string, attrs: Partial<LayerData>, saveHistory?: boolean) => void;
   onRemoveBackground: () => void;
   onAIBlend: (prompt: string, style: string) => void;
+  onAITransform: (prompt: string) => void;
   onGroup: () => void;
   onUngroup: () => void;
   onContextMenuAction: (action: string) => void; // Reuse App's handler
@@ -242,6 +243,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onUpdateLayer,
   onRemoveBackground,
   onAIBlend,
+  onAITransform,
   onGroup,
   onUngroup,
   onContextMenuAction,
@@ -251,6 +253,8 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const [blendPrompt, setBlendPrompt] = useState('');
   const [blendStyle, setBlendStyle] = useState('Seamless');
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
+  // AI Transform state
+  const [transformPrompt, setTransformPrompt] = useState('');
 
   // Active Layer Logic
   const activeLayer = layers.find(l => selectedIds.length === 1 && l.id === selectedIds[0]);
@@ -438,6 +442,49 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                         <Wand size={12} />
                                         {processingState === 'removing-bg' ? t('properties:removing') : t('properties:removeBackground')}
                                     </button>
+                                </div>
+
+                                {/* AI Transform Section */}
+                                <div className="bg-cyan-900/20 border border-cyan-500/30 rounded p-2 mb-3">
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <ImageIcon size={12} className="text-cyan-400" />
+                                            <span className="text-[10px] font-medium text-cyan-300 uppercase tracking-wide">
+                                                {t('properties:aiTransform')}
+                                            </span>
+                                        </div>
+                                        <p className="text-[9px] text-gray-500 mb-1">
+                                            {t('properties:aiTransformDesc')}
+                                        </p>
+                                        <textarea
+                                            value={transformPrompt}
+                                            onChange={(e) => setTransformPrompt(e.target.value)}
+                                            placeholder={t('properties:transformPromptPlaceholder')}
+                                            className="w-full bg-tech-900 border border-tech-600 rounded p-1.5 text-[10px] text-gray-300 h-16 resize-none focus:border-cyan-500 focus:outline-none placeholder:text-gray-600"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (transformPrompt.trim()) {
+                                                    onAITransform(transformPrompt);
+                                                    setTransformPrompt('');
+                                                }
+                                            }}
+                                            disabled={isGlobalProcessing || !transformPrompt.trim()}
+                                            className="w-full flex items-center justify-center gap-2 bg-cyan-600/80 hover:bg-cyan-500 text-white text-[10px] py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {processingState === 'transforming' ? (
+                                                <>
+                                                    <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    {t('properties:transforming')}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Sparkles size={12} />
+                                                    {t('properties:generateTransform')}
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
 
 

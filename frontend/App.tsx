@@ -40,7 +40,7 @@ import FullScreenLoading from '@/components/FullScreenLoading';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
 
-export type ProcessingState = 'idle' | 'generating' | 'inpainting' | 'removing-bg' | 'blending';
+export type ProcessingState = 'idle' | 'generating' | 'inpainting' | 'removing-bg' | 'blending' | 'transforming';
 
 export default function App() {
   // i18n
@@ -956,6 +956,45 @@ export default function App() {
     }
   };
 
+  // AI Transform: 基于当前图片和提示词生成变换后的新图片（直接替换原图层）
+  const handleAITransform = async (prompt: string) => {
+    const targetLayer = layers?.find(l => selectedIds.includes(l.id));
+    if (!targetLayer || targetLayer.type !== 'image' || !targetLayer.src) {
+      alert(t('properties:selectImageLayerHint', 'Please select an image layer.'));
+      return;
+    }
+
+    if (!prompt.trim()) {
+      return;
+    }
+
+    setProcessingState('transforming');
+
+    try {
+      // 使用 editImageWithAI 进行图像变换
+      // 构建完整的提示词，说明这是图像变换而非局部修复
+      const fullPrompt = `Transform the entire image based on this instruction: ${prompt}. 
+Maintain the overall composition and subject matter, but apply the requested transformation style/effect to the whole image.
+Keep high quality and clarity.`;
+
+      const resultBase64 = await editImageWithAI(targetLayer.src, fullPrompt);
+
+      // 直接更新原图层的图片（与 AI Inpaint 行为一致）
+      const updatedLayers = layers.map(l =>
+        l.id === targetLayer.id
+          ? { ...l, src: resultBase64, name: `${targetLayer.name.replace(' (Transformed)', '')} (Transformed)` }
+          : l
+      );
+      layerManager.updateLayersWithHistory(updatedLayers, 'history.aiTransform');
+
+    } catch (e: any) {
+      console.error("AI Transform failed", e);
+      alert(`AI Transform failed: ${e.message}`);
+    } finally {
+      setProcessingState('idle');
+    }
+  };
+
   const handleContextMenuAction = (action: string) => {
     if (selectedIds.length === 0) return;
     const selectedId = selectedIds[0];
@@ -1472,6 +1511,7 @@ export default function App() {
             onUpdateLayer={layerManager.updateLayer}
             onRemoveBackground={handleRemoveBackground}
             onAIBlend={handleAIBlend}
+            onAITransform={handleAITransform}
             onGroup={groupingManager.groupLayers}
             onUngroup={groupingManager.ungroupLayers}
             onContextMenuAction={handleContextMenuAction}
