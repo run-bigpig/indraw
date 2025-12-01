@@ -20,10 +20,10 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "Nebula AI Studio",
-		Width:     1280,
-		Height:    800,
-		MinWidth:  1024,
-		MinHeight: 700,
+		Width:     1960,
+		Height:    1280,
+		MinWidth:  1280,
+		MinHeight: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

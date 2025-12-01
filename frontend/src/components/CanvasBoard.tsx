@@ -4,6 +4,8 @@ import { Stage, Layer, Rect, Transformer, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { LayerData, ToolType, CanvasConfig } from '../types';
 import Konva from 'konva';
+import { Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Ruler from './Ruler';
 import LayerRenderer from './LayerRenderer';
 import DrawingLayer from './DrawingLayer';
@@ -43,6 +45,11 @@ interface CanvasBoardProps {
     onAddText: (x: number, y: number) => void;
     onContextMenuAction: (action: string) => void;
     stageRef: React.RefObject<Konva.Stage>;
+    isDraggingFile?: boolean;
+    onDragEnter?: (e: React.DragEvent) => void;
+    onDragOver?: (e: React.DragEvent) => void;
+    onDragLeave?: (e: React.DragEvent) => void;
+    onDrop?: (e: React.DragEvent) => void;
 }
 
 const CanvasBoard: React.FC<CanvasBoardProps> = ({
@@ -61,7 +68,13 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
     onAddText,
     onContextMenuAction,
     stageRef,
+    isDraggingFile = false,
+    onDragEnter,
+    onDragOver,
+    onDragLeave,
+    onDrop,
 }) => {
+    const { t } = useTranslation(['toolbar']);
     const [scale, setScale] = useState(1);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -415,7 +428,28 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
         <div
             className="w-full h-full bg-[#0f1119] relative overflow-hidden shadow-inner"
             ref={containerRef}
+            onDragEnter={onDragEnter}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
         >
+            {/* 拖拽上传提示遮罩 */}
+            {isDraggingFile && (
+                <div className="absolute inset-0 z-50 bg-cyan-500/10 border-4 border-dashed border-cyan-400 flex items-center justify-center pointer-events-none backdrop-blur-sm">
+                    <div className="bg-tech-900/95 px-8 py-6 rounded-xl border border-cyan-400/50 shadow-2xl">
+                        <div className="flex flex-col items-center gap-3">
+                            <Upload size={48} className="text-cyan-400" />
+                            <p className="text-lg font-medium text-cyan-100">
+                                {t('toolbar:dragDropHint', '拖拽图片到此处上传')}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                                {t('toolbar:onlyImageSupported', '仅支持图片格式')}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <Ruler orientation="horizontal" scale={scale} offset={position.x} width={containerRef.current?.clientWidth} />
             <Ruler orientation="vertical" scale={scale} offset={position.y} height={containerRef.current?.clientHeight} />
 

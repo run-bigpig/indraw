@@ -20,5 +20,8 @@
   "eraseTooltip": "擦除选中图层的像素",
   "maskClip": "蒙版裁切",
   "maskClipTooltip": "使用图形裁切当前图层",
-  "disabledTooltip": "请先创建项目"
+  "disabledTooltip": "请先创建项目",
+  "dragDropHint": "拖拽图片到此处上传",
+  "onlyImageSupported": "仅支持图片格式",
+  "invalidFileType": "无效的文件类型，仅支持图片"
 }

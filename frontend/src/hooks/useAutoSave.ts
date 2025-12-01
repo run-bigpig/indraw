@@ -51,8 +51,7 @@ export function useAutoSave({
   isProjectCreated,
   projectPath,
 }: UseAutoSaveOptions): UseAutoSaveReturn {
-  const { settings, isLoaded: settingsLoaded } = useSettings();
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { isLoaded: settingsLoaded } = useSettings();
   const [lastSaveTime, setLastSaveTime] = useState<string | null>(null);
   const [hasRecoverableData, setHasRecoverableData] = useState(false);
   const [recoverableTimestamp, setRecoverableTimestamp] = useState<string | null>(null);
@@ -124,60 +123,6 @@ export function useAutoSave({
 
     checkRecoveryData();
   }, [settingsLoaded]);
-
-  // 管理自动保存定时器
-  useEffect(() => {
-    // 清除之前的定时器
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    console.log('[AutoSave] 定时器配置更新:', {
-      autoSaveEnabled: settings.app.autoSave,
-      interval: settings.app.autoSaveInterval,
-      isProjectCreated,
-    });
-
-    // 如果启用了自动保存且项目已创建
-    if (settings.app.autoSave && isProjectCreated) {
-      const intervalMs = settings.app.autoSaveInterval * 1000; // 秒转毫秒
-
-      console.log(`[AutoSave] 启动自动保存定时器，间隔: ${settings.app.autoSaveInterval} 秒`);
-
-      intervalRef.current = setInterval(() => {
-        performSave();
-      }, intervalMs);
-
-      // 立即执行一次保存
-      performSave();
-    } else {
-      console.log('[AutoSave] 自动保存未启用或项目未创建');
-    }
-
-    // 清理函数
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        console.log('[AutoSave] 定时器已清除');
-      }
-    };
-  }, [settings.app.autoSave, settings.app.autoSaveInterval, isProjectCreated, performSave]);
-
-  // 页面关闭前保存（桌面端可能不触发 beforeunload，但保留兼容性）
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (settings.app.autoSave && isProjectCreatedRef.current) {
-        // 注意：beforeunload 中无法可靠地执行异步操作
-        // 但 Wails 桌面端会在关闭前触发 OnBeforeClose 事件
-        saveToLocalStorage(layersRef.current, canvasConfigRef.current);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [settings.app.autoSave]);
 
   // 恢复数据（异步）
   const recoverData = useCallback(async (): Promise<AutoSaveData | null> => {

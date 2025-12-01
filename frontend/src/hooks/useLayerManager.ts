@@ -13,7 +13,7 @@ import { LayerData } from '../types';
  */
 export function useLayerManager(
   initialLayers: LayerData[] = [],
-  onHistorySave?: (layers: LayerData[]) => void
+  onHistorySave?: (layers: LayerData[], description: string) => void
 ) {
   const [layers, setLayers] = useState<LayerData[]>(initialLayers);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -28,16 +28,22 @@ export function useLayerManager(
   onHistorySaveRef.current = onHistorySave;
 
   // 更新图层并保存历史 - 使用函数式更新
-  const updateLayersWithHistory = useCallback((newLayers: LayerData[]) => {
+  const updateLayersWithHistory = useCallback((newLayers: LayerData[], description: string = 'history.update') => {
     setLayers(newLayers);
-    onHistorySaveRef.current?.(newLayers);
+    onHistorySaveRef.current?.(newLayers, description);
   }, []); // 空依赖数组
 
   // 添加图层 - 使用函数式更新
   const addLayer = useCallback((layer: LayerData) => {
     setLayers(prevLayers => {
       const newLayers = [...prevLayers, layer];
-      onHistorySaveRef.current?.(newLayers);
+      const description = layer.type === 'image' ? 'history.addImage' :
+                         layer.type === 'text' ? 'history.addText' :
+                         layer.type === 'rect' ? 'history.addRect' :
+                         layer.type === 'circle' ? 'history.addCircle' :
+                         layer.type === 'line' ? 'history.addLine' :
+                         'history.addLayer';
+      onHistorySaveRef.current?.(newLayers, description);
       return newLayers;
     });
     setSelectedIds([layer.id]);
@@ -48,7 +54,15 @@ export function useLayerManager(
     setLayers(prevLayers => {
       const newLayers = prevLayers.map(l => l.id === id ? { ...l, ...attrs } : l);
       if (saveHistory) {
-        onHistorySaveRef.current?.(newLayers);
+        // 根据修改的属性生成描述
+        const description = attrs.visible !== undefined ? 'history.toggleVisibility' :
+                           attrs.locked !== undefined ? 'history.toggleLock' :
+                           attrs.name !== undefined ? 'history.rename' :
+                           attrs.x !== undefined || attrs.y !== undefined ? 'history.move' :
+                           attrs.width !== undefined || attrs.height !== undefined ? 'history.resize' :
+                           attrs.rotation !== undefined ? 'history.rotate' :
+                           'history.updateLayer';
+        onHistorySaveRef.current?.(newLayers, description);
       }
       return newLayers;
     });
@@ -73,7 +87,8 @@ export function useLayerManager(
 
       // 过滤掉要删除的图层
       const newLayers = prevLayers.filter(l => !idsToDelete.has(l.id));
-      onHistorySaveRef.current?.(newLayers);
+      const description = ids.length > 1 ? 'history.deleteLayers' : 'history.deleteLayer';
+      onHistorySaveRef.current?.(newLayers, description);
       return newLayers;
     });
     setSelectedIds([]);
@@ -100,8 +115,14 @@ export function useLayerManager(
       y: layer.y + 20,
       parentId: layer.parentId
     };
-    addLayer(newLayer);
-  }, [addLayer]);
+    // addLayer 内部会自动添加描述，但这里是复制操作，需要特殊处理
+    setLayers(prevLayers => {
+      const newLayers = [...prevLayers, newLayer];
+      onHistorySaveRef.current?.(newLayers, 'history.duplicate');
+      return newLayers;
+    });
+    setSelectedIds([newLayer.id]);
+  }, []);
 
   // 图层排序 - 使用函数式更新
   const reorderLayer = useCallback((id: string, direction: 'up' | 'down') => {
@@ -123,7 +144,8 @@ export function useLayerManager(
       const newLayers = [...prevLayers];
       [newLayers[indexA], newLayers[indexB]] = [newLayers[indexB], newLayers[indexA]];
 
-      onHistorySaveRef.current?.(newLayers);
+      const description = direction === 'up' ? 'history.moveUp' : 'history.moveDown';
+      onHistorySaveRef.current?.(newLayers, description);
       return newLayers;
     });
   }, []); // 空依赖数组
@@ -149,7 +171,7 @@ export function useLayerManager(
       }));
       setLayers(prevLayers => {
         const updatedLayers = [...prevLayers, ...newLayersToAdd];
-        onHistorySaveRef.current?.(updatedLayers);
+        onHistorySaveRef.current?.(updatedLayers, 'history.paste');
         return updatedLayers;
       });
       setSelectedIds(newLayersToAdd.map(l => l.id));

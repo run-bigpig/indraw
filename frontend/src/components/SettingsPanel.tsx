@@ -5,13 +5,12 @@
 
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  X, 
-  Settings, 
-  Cpu, 
-  Palette, 
-  Wrench, 
-  Globe,
+import {
+  X,
+  Settings,
+  Cpu,
+  Palette,
+  Wrench,
   Eye,
   EyeOff,
   Download,
@@ -345,7 +344,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { id: 'ai', icon: <Cpu size={16} />, label: t('settings.tabs.ai', 'AI 服务') },
     { id: 'canvas', icon: <Palette size={16} />, label: t('settings.tabs.canvas', '画布') },
     { id: 'tools', icon: <Wrench size={16} />, label: t('settings.tabs.tools', '工具') },
-    { id: 'app', icon: <Globe size={16} />, label: t('settings.tabs.app', '应用') },
   ];
 
   const showMessage = (type: 'success' | 'error', text: string) => {
@@ -773,45 +771,11 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     </div>
   );
 
-  // 渲染应用设置
-  const renderAppSettings = () => (
-    <div className="space-y-4">
-      <InputGroup label={t('settings.app.language', '界面语言')}>
-        <SelectInput
-          value={settings.app.language}
-          onChange={(val) => handleUpdateCategory('app', { language: val as 'zh-CN' | 'en-US' })}
-          options={[
-            { value: 'zh-CN', label: '简体中文' },
-            { value: 'en-US', label: 'English' },
-          ]}
-        />
-      </InputGroup>
-
-      <Toggle
-        checked={settings.app.autoSave}
-        onChange={(val) => handleUpdateCategory('app', { autoSave: val })}
-        label={t('settings.app.autoSave', '自动保存')}
-      />
-
-      {settings.app.autoSave && (
-        <InputGroup label={t('settings.app.autoSaveInterval', '自动保存间隔（秒）')}>
-          <NumberInput
-            value={settings.app.autoSaveInterval}
-            onChange={(val) => handleUpdateCategory('app', { autoSaveInterval: val })}
-            min={10}
-            max={300}
-          />
-        </InputGroup>
-      )}
-    </div>
-  );
-
   const renderContent = () => {
     switch (activeTab) {
       case 'ai': return renderAISettings();
       case 'canvas': return renderCanvasSettings();
       case 'tools': return renderToolSettings();
-      case 'app': return renderAppSettings();
       default: return null;
     }
   };

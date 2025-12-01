@@ -20,5 +20,8 @@
   "eraseTooltip": "Erase pixels on the selected image",
   "maskClip": "Mask Clip",
   "maskClipTooltip": "Clip the selected image with a shape",
-  "disabledTooltip": "Please create a project first"
+  "disabledTooltip": "Please create a project first",
+  "dragDropHint": "Drag and drop images here to upload",
+  "onlyImageSupported": "Only image files are supported",
+  "invalidFileType": "Invalid file type, only images are supported"
 }

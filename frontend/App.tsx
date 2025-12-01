@@ -8,9 +8,29 @@ import Toolbar from './src/components/Toolbar';
 import PropertiesPanel from './src/components/PropertiesPanel';
 import LanguageSwitcher from './src/components/LanguageSwitcher';
 import SettingsPanel from './src/components/SettingsPanel';
+import HistoryPanel from './src/components/HistoryPanel';
 import { LayerData, ToolType, CanvasConfig} from '@/types';
 import { generateImageFromText, editImageWithAI, removeBackgroundWithAI, blendImagesWithAI, enhancePrompt } from '@/services/ai';
-import { Download, Zap, Command, X, Undo2, Redo2, FileText, FolderOpen, Save, FilePlus, ChevronDown, Sparkles, Upload, Settings, Clock, Trash2, Loader2 } from 'lucide-react';
+import {
+  Download,
+  Zap,
+  Command,
+  X,
+  Undo2,
+  Redo2,
+  FileText,
+  FolderOpen,
+  Save,
+  FilePlus,
+  ChevronDown,
+  Sparkles,
+  Upload,
+  Settings,
+  Trash2,
+  Loader2,
+  History,
+  Clock
+} from 'lucide-react';
 import clsx from 'clsx';
 import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAutoSave } from '@/hooks';
 import { compositeInpaint } from '@/utils/imageComposite.ts';
@@ -26,11 +46,27 @@ export default function App() {
   const { t } = useTranslation(['common', 'dialog', 'message']);
 
   // Hooks
-  const historyManager = useHistory([]);
   const projectManager = useProjectManager();
 
+  // 临时的 layers 状态，用于初始化 autoSave
+  const [tempLayers, setTempLayers] = useState<LayerData[]>([]);
+
+  // Auto Save - 需要在 historyManager 之前初始化
+  const autoSave = useAutoSave({
+    layers: tempLayers,
+    canvasConfig: projectManager.canvasConfig,
+    isProjectCreated: projectManager.isProjectCreated,
+    projectPath: projectManager.projectInfo?.isTemporary === false ? projectManager.projectInfo.path : undefined,
+  });
+
+  const historyManager = useHistory([], autoSave.triggerSave);
   const layerManager = useLayerManager([], historyManager.saveToHistory);
   const { layers, selectedIds, setSelectedIds, clipboard } = layerManager;
+
+  // 同步 layers 到 tempLayers
+  useEffect(() => {
+    setTempLayers(layers);
+  }, [layers]);
 
   const groupingManager = useLayerGrouping(
     layers,
@@ -43,6 +79,7 @@ export default function App() {
   const [activeTool, setActiveTool] = useState<ToolType>('select');
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [drawingLines, setDrawingLines] = useState<any[]>([]);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   // Settings - 需要在工具配置之前获取
   const { settings, isLoaded: settingsLoaded } = useSettings();
@@ -91,17 +128,9 @@ export default function App() {
   });
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
-
-  // Auto Save
-  // 如果项目有路径，自动保存到项目目录；否则保存到全局自动保存位置
-  const autoSave = useAutoSave({
-    layers,
-    canvasConfig: projectManager.canvasConfig,
-    isProjectCreated: projectManager.isProjectCreated,
-    projectPath: projectManager.projectInfo?.isTemporary === false ? projectManager.projectInfo.path : undefined,
-  });
 
   // Recovery Modal State
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
@@ -154,6 +183,15 @@ export default function App() {
     const nextLayers = historyManager.redo();
     if (nextLayers) {
       layerManager.setLayers(nextLayers);
+    }
+  };
+
+  const handleJumpToHistoryStep = (step: number) => {
+    const targetLayers = historyManager.jumpToStep(step);
+    if (targetLayers) {
+      layerManager.setLayers(targetLayers);
+      setSelectedIds([]);
+      setShowHistoryPanel(false);
     }
   };
 
@@ -511,7 +549,7 @@ export default function App() {
           };
 
           // 直接更新图层列表，不改变当前选中图层
-          layerManager.updateLayersWithHistory([...layers, eraseMaskLayer]);
+          layerManager.updateLayersWithHistory([...layers, eraseMaskLayer], 'history.erase');
           console.log('[lineDrawn] added eraseMaskLayer', {
             parentId: targetLayer.id,
             strokeWidth,
@@ -546,9 +584,13 @@ export default function App() {
     });
   };
 
-  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // 通用的处理图片文件函数
+  const processImageFile = async (file: File) => {
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      alert(t('toolbar:invalidFileType', '无效的文件类型，仅支持图片'));
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -573,7 +615,58 @@ export default function App() {
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await processImageFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // 拖拽上传处理函数
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!projectManager.isProjectCreated) return;
+    setIsDraggingFile(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // 只有当离开整个拖放区域时才重置状态
+    if (e.currentTarget === e.target) {
+      setIsDraggingFile(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+
+    if (!projectManager.isProjectCreated) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    // 只处理图片文件
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+    if (imageFiles.length === 0) {
+      alert(t('toolbar:invalidFileType', '无效的文件类型，仅支持图片'));
+      return;
+    }
+
+    // 处理所有图片文件
+    for (const file of imageFiles) {
+      await processImageFile(file);
+    }
   };
 
   const handleAIGenerate = async (prompt: string, referenceImage: string | null, imageSize: '1K' | '2K' | '4K', aspectRatio: '1:1' | '16:9' | '9:16' | '3:4' | '4:3') => {
@@ -809,10 +902,14 @@ export default function App() {
       const finalImage = await compositeInpaint(targetLayer.src, aiResultBase64, maskBase64, naturalWidth, naturalHeight);
 
       // 6. Update Layer
-      layerManager.updateLayer(targetLayer.id, {
-        src: finalImage,
-        name: `${targetLayer.name.replace(' (Edited)', '')} (Edited)`
-      });
+      // 注意：updateLayer 内部会根据修改的属性自动生成描述，但这里是 AI 修复，需要特殊处理
+      // 我们先更新图层，然后手动保存历史记录
+      const updatedLayers = layers.map(l =>
+        l.id === targetLayer.id
+          ? { ...l, src: finalImage, name: `${targetLayer.name.replace(' (Edited)', '')} (Edited)` }
+          : l
+      );
+      layerManager.updateLayersWithHistory(updatedLayers, 'history.aiInpaint');
 
       setDrawingLines([]);
       setInpaintPrompt('');
@@ -1052,6 +1149,13 @@ export default function App() {
             >
               <Redo2 size={16} />
             </button>
+            <button
+              onClick={() => setShowHistoryPanel(true)}
+              className="p-1.5 text-gray-400 hover:text-white hover:bg-tech-800 rounded"
+              title={t('common:history', '历史记录')}
+            >
+              <History size={16} />
+            </button>
           </div>
 	      {/* Tool Options Bar (Eraser Size etc.) */}
 	  {/* Tool Options Bar - Brush / Eraser */}
@@ -1277,6 +1381,11 @@ export default function App() {
                 onAddText={handleAddTextAt}
                 onContextMenuAction={handleContextMenuAction}
                 stageRef={stageRef}
+                isDraggingFile={isDraggingFile}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               />
 
               {activeTool === 'brush' && brushMode === 'ai' && isImageLayerSelected && drawingLines.length > 0 && (
@@ -1730,12 +1839,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Auto Save Indicator - 自动保存状态指示器 */}
-      {settings.app.autoSave && projectManager.isProjectCreated && autoSave.lastSaveTime && (
-        <div className="fixed bottom-4 left-4 z-30 px-3 py-1.5 bg-tech-900/90 border border-tech-700 rounded-lg text-xs text-gray-500 backdrop-blur-sm">
-          {t('message:autoSave.lastSaved', '自动保存')}: {autoSave.lastSaveTime}
-        </div>
-      )}
+
 
       {/* Project Loading Overlay - 项目加载动画 */}
       {isLoadingProject && (
@@ -1758,6 +1862,15 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* History Panel - 历史记录面板 */}
+      <HistoryPanel
+        isOpen={showHistoryPanel}
+        onClose={() => setShowHistoryPanel(false)}
+        history={historyManager.history}
+        currentStep={historyManager.historyStep}
+        onJumpToStep={handleJumpToHistoryStep}
+      />
     </div>
   );
 }

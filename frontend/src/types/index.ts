@@ -80,15 +80,6 @@ export interface ToolSettings {
 }
 
 /**
- * 应用配置
- */
-export interface AppSettings {
-  language: 'zh-CN' | 'en-US';
-  autoSave: boolean;
-  autoSaveInterval: number; // 秒
-}
-
-/**
  * 完整设置配置
  */
 export interface Settings {
@@ -96,19 +87,24 @@ export interface Settings {
   ai: AIServiceSettings;
   canvas: CanvasDefaultSettings;
   tools: ToolSettings;
-  app: AppSettings;
 }
 
 /**
  * 设置分类键
  */
-export type SettingsCategory = 'ai' | 'canvas' | 'tools' | 'app';
+export type SettingsCategory = 'ai' | 'canvas' | 'tools';
 
 export interface CanvasConfig {
   width: number;
   height: number;
   background: 'transparent' | 'color';
   backgroundColor?: string;
+}
+
+export interface HistoryEntry {
+  layers: LayerData[];
+  description: string;
+  timestamp: number;
 }
 
 export interface LayerData {

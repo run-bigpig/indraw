@@ -9,7 +9,7 @@ import { LayerData } from '../types';
 export function useLayerGrouping(
   layers: LayerData[],
   selectedIds: string[],
-  onLayersUpdate: (layers: LayerData[]) => void,
+  onLayersUpdate: (layers: LayerData[], description: string) => void,
   onSelectionChange: (ids: string[]) => void
 ) {
   // 分组图层
@@ -57,7 +57,7 @@ export function useLayerGrouping(
       return l;
     });
 
-    onLayersUpdate([...updatedLayers, groupLayer]);
+    onLayersUpdate([...updatedLayers, groupLayer], 'history.group');
     onSelectionChange([groupId]);
   }, [layers, selectedIds, onLayersUpdate, onSelectionChange]);
 
@@ -70,7 +70,7 @@ export function useLayerGrouping(
 
     groupsToUngroup.forEach(group => {
       const children = currentLayers.filter(l => l.parentId === group.id);
-      
+
       // 计算子图层的绝对位置
       const updatedChildren = children.map(child => {
         const rad = (group.rotation * Math.PI) / 180;
@@ -97,8 +97,8 @@ export function useLayerGrouping(
       }).filter(l => l.id !== group.id);
     });
 
-    onLayersUpdate(currentLayers);
-    
+    onLayersUpdate(currentLayers, 'history.ungroup');
+
     const originalGroupIds = groupsToUngroup.map(g => g.id);
     const childIds = layers.filter(l => l.parentId && originalGroupIds.includes(l.parentId)).map(l => l.id);
     onSelectionChange(childIds);

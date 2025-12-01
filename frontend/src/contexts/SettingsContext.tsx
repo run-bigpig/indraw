@@ -13,7 +13,6 @@ import {
   importSettings,
   DEFAULT_SETTINGS,
 } from '../services/settingsService';
-import i18n from '../locales';
 
 // ==================== Action 类型 ====================
 
@@ -89,11 +88,6 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         const loaded = await loadSettings();
         dispatch({ type: 'LOAD_SETTINGS', payload: loaded });
         setIsLoaded(true);
-
-        // 同步语言设置
-        if (loaded.app.language !== i18n.language) {
-          i18n.changeLanguage(loaded.app.language);
-        }
       } catch (error) {
         console.error('[SettingsContext] Failed to load settings:', error);
         // 使用默认设置
@@ -113,11 +107,6 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         return false;
       }
 
-      // 同步语言设置到 i18n
-      if (settings.app.language !== i18n.language) {
-        i18n.changeLanguage(settings.app.language);
-      }
-
       return true;
     } catch (error) {
       console.error('[SettingsContext] Failed to save settings:', error);
@@ -130,11 +119,6 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     try {
       const loaded = await loadSettings();
       dispatch({ type: 'LOAD_SETTINGS', payload: loaded });
-
-      // 同步语言设置
-      if (loaded.app.language !== i18n.language) {
-        i18n.changeLanguage(loaded.app.language);
-      }
     } catch (error) {
       console.error('[SettingsContext] Failed to reload settings:', error);
     }
