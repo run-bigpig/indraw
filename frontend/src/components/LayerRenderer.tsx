@@ -519,7 +519,21 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
     return null;
   };
 
-  return <>{layers.filter((layer) => !layer.parentId).map((layer) => renderLayerRecursive(layer))}</>;
+  // ✅ 性能优化：使用 useMemo 缓存根图层列表
+  const rootLayers = useMemo(() => {
+    return layers.filter((layer) => !layer.parentId);
+  }, [layers]);
+
+  return <>{rootLayers.map((layer) => renderLayerRecursive(layer))}</>;
 };
 
-export default LayerRenderer;
+// ✅ 性能优化：使用 React.memo 包装组件，添加自定义比较函数
+export default React.memo(LayerRenderer, (prevProps, nextProps) => {
+  // 只在必要时重新渲染
+  return (
+    prevProps.layers === nextProps.layers &&
+    prevProps.selectedIds === nextProps.selectedIds &&
+    prevProps.activeTool === nextProps.activeTool &&
+    prevProps.editingTextId === nextProps.editingTextId
+  );
+});

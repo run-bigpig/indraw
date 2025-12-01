@@ -35,6 +35,7 @@ export function useHistory(
   onHistorySaveRef.current = onHistorySave;
 
   // 保存到历史记录 - 使用函数式更新避免闭包陷阱
+  // ✅ 性能优化：异步触发自动保存，避免阻塞 UI
   const saveToHistory = useCallback((newLayers: LayerData[], description: string = 'history.unknown') => {
     setHistory(prevHistory => {
       const currentStep = historyStepRef.current;
@@ -50,9 +51,20 @@ export function useHistory(
       // 同步更新 historyStep
       setHistoryStep(newHistory.length - 1);
 
-      // 触发自动保存
+      // ✅ 性能优化：使用 requestIdleCallback 异步触发自动保存
+      // 这样可以让 UI 先响应，然后在空闲时执行自动保存
       if (onHistorySaveRef.current) {
-        onHistorySaveRef.current();
+        const callback = onHistorySaveRef.current;
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            callback();
+          }, { timeout: 1000 }); // 最多延迟 1 秒
+        } else {
+          // 降级方案：使用 setTimeout
+          setTimeout(() => {
+            callback();
+          }, 100);
+        }
       }
 
       return newHistory;

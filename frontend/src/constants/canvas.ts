@@ -49,4 +49,3 @@ export const DEFAULT_TEXT_PROPS = {
 
 // 默认形状颜色
 export const DEFAULT_SHAPE_COLOR = '#06B6D4';
-

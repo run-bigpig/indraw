@@ -36,6 +36,7 @@ import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAu
 import { compositeInpaint } from '@/utils/imageComposite.ts';
 import { loadAndFitImage } from '@/utils/imageLayout';
 import { DEFAULT_BRUSH_CONFIG, DEFAULT_ERASER_CONFIG, DEFAULT_LAYER_PROPS, DEFAULT_TEXT_PROPS } from '@/constants';
+import FullScreenLoading from '@/components/FullScreenLoading';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
 
@@ -670,8 +671,11 @@ export default function App() {
   };
 
   const handleAIGenerate = async (prompt: string, referenceImage: string | null, imageSize: '1K' | '2K' | '4K', aspectRatio: '1:1' | '16:9' | '9:16' | '3:4' | '4:3') => {
+    // 显示全屏 Loading，禁止用户操作
     setProcessingState('generating');
+
     try {
+      // 异步生成图片
       const base64Image = await generateImageFromText(
         prompt,
         referenceImage || undefined,
@@ -685,6 +689,7 @@ export default function App() {
       // 加载图片并计算适配画布的尺寸和位置
       const layout = await loadAndFitImage(base64Image, canvasWidth, canvasHeight, 1.0);
 
+      // 直接添加生成的图层
       addLayer({
         id: uuidv4(),
         type: 'image',
@@ -696,10 +701,12 @@ export default function App() {
         ...DEFAULT_LAYER_PROPS,
         src: base64Image,
       });
+
       setActiveTool('select');
     } catch (error: any) {
       alert(`AI Generation failed: ${error.message}`);
     } finally {
+      // 关闭全屏 Loading，恢复用户操作
       setProcessingState('idle');
     }
   };
@@ -730,7 +737,9 @@ export default function App() {
       return;
     }
 
+    // 显示全屏 Loading，禁止用户操作
     setProcessingState('blending');
+
     try {
       const resultBase64 = await blendImagesWithAI(bottomLayer.src, topLayer.src, prompt, style);
 
@@ -740,6 +749,7 @@ export default function App() {
       // 加载混合结果图片并计算适配尺寸
       const layout = await loadAndFitImage(resultBase64, canvasWidth, canvasHeight, 1.0);
 
+      // 直接添加混合结果图层
       addLayer({
         id: uuidv4(),
         type: 'image',
@@ -756,6 +766,7 @@ export default function App() {
       console.error("Blend failed", e);
       alert(`Blend failed: ${e.message}`);
     } finally {
+      // 关闭全屏 Loading，恢复用户操作
       setProcessingState('idle');
     }
   };
@@ -1871,6 +1882,9 @@ export default function App() {
         currentStep={historyManager.historyStep}
         onJumpToStep={handleJumpToHistoryStep}
       />
+
+      {/* 全屏 Loading 遮罩 - AI 操作期间显示 */}
+      <FullScreenLoading processingState={processingState} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayerData, ToolType } from '@/types';
 import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder,FolderOpen} from 'lucide-react';
@@ -59,22 +59,72 @@ const NumberInput = ({ value, onChange, onCommit, label }: { value: number, onCh
     </div>
 );
 
-const Slider = ({ value, min, max, step = 1, onChange, onCommit, label }: { value: number, min: number, max: number, step?: number, onChange: (val: number) => void, onCommit?: (val: number) => void, label: string }) => (
-    <div className="flex flex-col gap-1">
-        <div className="flex justify-between">
-            <span className="text-[10px] text-gray-400">{label}</span>
-            <span className="text-[10px] text-cyan-400">{value}</span>
+// ✅ 性能优化：使用防抖的滑块组件
+const Slider = ({ value, min, max, step = 1, onChange, onCommit, label }: { value: number, min: number, max: number, step?: number, onChange: (val: number) => void, onCommit?: (val: number) => void, label: string }) => {
+    // 使用 ref 存储防抖定时器
+    const commitTimeoutRef = useRef<number | null>(null);
+    // 本地状态用于即时显示
+    const [localValue, setLocalValue] = useState(value);
+
+    // 同步外部值变化
+    useEffect(() => {
+        setLocalValue(value);
+    }, [value]);
+
+    // 清理定时器
+    useEffect(() => {
+        return () => {
+            if (commitTimeoutRef.current !== null) {
+                clearTimeout(commitTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = parseFloat(e.target.value);
+        setLocalValue(newValue);
+        onChange(newValue);
+
+        // ✅ 防抖提交：延迟 300ms 后自动提交
+        if (onCommit) {
+            if (commitTimeoutRef.current !== null) {
+                clearTimeout(commitTimeoutRef.current);
+            }
+            commitTimeoutRef.current = window.setTimeout(() => {
+                commitTimeoutRef.current = null;
+                onCommit(newValue);
+            }, 300);
+        }
+    }, [onChange, onCommit]);
+
+    const handleMouseUp = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+        // 立即提交
+        if (onCommit) {
+            if (commitTimeoutRef.current !== null) {
+                clearTimeout(commitTimeoutRef.current);
+                commitTimeoutRef.current = null;
+            }
+            onCommit(parseFloat((e.target as HTMLInputElement).value));
+        }
+    }, [onCommit]);
+
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="flex justify-between">
+                <span className="text-[10px] text-gray-400">{label}</span>
+                <span className="text-[10px] text-cyan-400">{localValue}</span>
+            </div>
+            <input
+                type="range" min={min} max={max} step={step}
+                value={localValue}
+                onChange={handleChange}
+                onMouseUp={handleMouseUp}
+                onTouchEnd={handleMouseUp as any}
+                className="w-full h-1 bg-tech-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 hover:[&::-webkit-slider-thumb]:bg-cyan-400"
+            />
         </div>
-        <input 
-            type="range" min={min} max={max} step={step}
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
-            onMouseUp={(e) => onCommit && onCommit(parseFloat((e.target as HTMLInputElement).value))}
-            onTouchEnd={(e) => onCommit && onCommit(parseFloat((e.target as HTMLInputElement).value))}
-            className="w-full h-1 bg-tech-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 hover:[&::-webkit-slider-thumb]:bg-cyan-400"
-        />
-    </div>
-)
+    );
+};
 
 // Helper to render tree
 const LayerItem = ({ 
