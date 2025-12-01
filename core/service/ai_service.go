@@ -137,7 +137,6 @@ func (a *AIService) ReloadProviders() error {
 
 	var lastErr error
 	for name, provider := range a.providers {
-		fmt.Printf("[AIService] Closing provider: %s\n", name)
 		if err := provider.Close(); err != nil {
 			lastErr = fmt.Errorf("failed to close provider %s: %w", name, err)
 			fmt.Printf("[AIService] Error closing provider %s: %v\n", name, err)
@@ -146,7 +145,6 @@ func (a *AIService) ReloadProviders() error {
 
 	// 清除缓存
 	a.providers = make(map[string]AIProvider)
-	fmt.Printf("[AIService] All providers cleared, will be recreated on next use\n")
 
 	return lastErr
 }
@@ -251,7 +249,7 @@ func (a *AIService) RemoveBackground(imageData string) (string, error) {
 	// 使用图像编辑功能实现背景移除
 	params := EditImageParams{
 		ImageData: imageData,
-		Prompt:    "Remove the background from this image. Make the background transparent. Keep the main subject intact with high quality.",
+		Prompt:    "Remove the background from this image. Keep the main subject intact with high quality. Return the image with transparent background.",
 	}
 
 	return provider.EditImage(a.ctx, params)

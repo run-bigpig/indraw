@@ -119,7 +119,7 @@ export function useProjectManager() {
         console.log('Project saved to:', projectInfo.path);
       } else {
         // 临时项目，弹出对话框
-        const suggestedName = `nebula-project-${new Date().toISOString().slice(0, 10)}.json`;
+        const suggestedName = `indraw-project-${new Date().toISOString().slice(0, 10)}.json`;
         const filePath = await SaveProject(JSON.stringify(projectData), suggestedName);
         if (filePath) {
           console.log('Project saved to:', filePath);

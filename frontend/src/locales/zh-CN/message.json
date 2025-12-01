@@ -30,6 +30,10 @@
   },
   "autoSave": {
     "lastSaved": "自动保存"
+  },
+  "loading": {
+    "project": "正在加载项目",
+    "pleaseWait": "请稍候，正在加载图层数据..."
   }
 }
 

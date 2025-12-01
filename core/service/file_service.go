@@ -62,7 +62,7 @@ func (f *FileService) SaveProject(projectDataJSON string, suggestedName string) 
 	// 显示保存对话框
 	defaultFilename := suggestedName
 	if defaultFilename == "" {
-		defaultFilename = fmt.Sprintf("nebula-project-%d.json", time.Now().Unix())
+		defaultFilename = fmt.Sprintf("indraw-project-%d.json", time.Now().Unix())
 	}
 
 	filePath, err := runtime.SaveFileDialog(f.ctx, runtime.SaveDialogOptions{
@@ -151,7 +151,7 @@ func (f *FileService) ExportImage(imageDataURL string, suggestedName string) (st
 	// 显示保存对话框
 	defaultFilename := suggestedName
 	if defaultFilename == "" {
-		defaultFilename = fmt.Sprintf("nebula-export-%d.png", time.Now().Unix())
+		defaultFilename = fmt.Sprintf("indraw-export-%d.png", time.Now().Unix())
 	}
 
 	filePath, err := runtime.SaveFileDialog(f.ctx, runtime.SaveDialogOptions{

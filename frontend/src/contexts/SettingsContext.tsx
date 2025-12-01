@@ -34,6 +34,8 @@ interface SettingsContextType {
   resetAllSettings: () => void;
   exportSettingsToJson: (includeSensitive?: boolean) => string;
   importSettingsFromJson: (json: string) => boolean;
+  manualSaveSettings: () => Promise<boolean>;
+  reloadSettings: () => Promise<void>;
 }
 
 // ==================== Reducer ====================
@@ -83,10 +85,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   // 初始化加载设置
   useEffect(() => {
     const initSettings = async () => {
-      console.log('[SettingsContext] Initializing settings...');
       try {
         const loaded = await loadSettings();
-        console.log('[SettingsContext] Settings loaded successfully:', loaded);
         dispatch({ type: 'LOAD_SETTINGS', payload: loaded });
         setIsLoaded(true);
 
@@ -101,45 +101,44 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       }
     };
 
-    initSettings().then(r => console.log('initSettings resolved', r));
+    initSettings();
   }, []);
 
-  // 用于跟踪是否是首次加载（避免首次加载时触发保存）
-  const isFirstLoad = React.useRef(true);
-
-  // 设置变更时自动保存
-  useEffect(() => {
-    if (isLoaded) {
-      // 跳过首次加载时的保存（因为这时候 settings 是从后端加载的，不需要再保存回去）
-      if (isFirstLoad.current) {
-        console.log('[SettingsContext] Skipping first save (initial load)');
-        isFirstLoad.current = false;
-        return;
+  // 手动保存设置
+  const manualSaveSettings = useCallback(async (): Promise<boolean> => {
+    try {
+      const success = await saveSettings(settings);
+      if (!success) {
+        console.warn('[SettingsContext] Failed to save settings');
+        return false;
       }
 
-      console.log('[SettingsContext] Settings changed, saving...', settings);
+      // 同步语言设置到 i18n
+      if (settings.app.language !== i18n.language) {
+        i18n.changeLanguage(settings.app.language);
+      }
 
-      const saveAsync = async () => {
-        try {
-          const success = await saveSettings(settings);
-          if (!success) {
-            console.warn('[SettingsContext] Settings save returned false, may not have been saved');
-          } else {
-            console.log('[SettingsContext] Settings saved successfully');
-          }
-
-          // 同步语言设置到 i18n
-          if (settings.app.language !== i18n.language) {
-            i18n.changeLanguage(settings.app.language);
-          }
-        } catch (error) {
-          console.error('[SettingsContext] Failed to save settings:', error);
-        }
-      };
-
-      saveAsync();
+      return true;
+    } catch (error) {
+      console.error('[SettingsContext] Failed to save settings:', error);
+      return false;
     }
-  }, [settings, isLoaded]);
+  }, [settings]);
+
+  // 重新加载设置（用于取消修改）
+  const reloadSettings = useCallback(async (): Promise<void> => {
+    try {
+      const loaded = await loadSettings();
+      dispatch({ type: 'LOAD_SETTINGS', payload: loaded });
+
+      // 同步语言设置
+      if (loaded.app.language !== i18n.language) {
+        i18n.changeLanguage(loaded.app.language);
+      }
+    } catch (error) {
+      console.error('[SettingsContext] Failed to reload settings:', error);
+    }
+  }, []);
 
   // 更新整体设置
   const updateSettings = useCallback((updates: Partial<Settings>) => {
@@ -187,6 +186,8 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     resetAllSettings,
     exportSettingsToJson,
     importSettingsFromJson,
+    manualSaveSettings,
+    reloadSettings,
   };
 
   return (

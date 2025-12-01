@@ -122,7 +122,17 @@ func (a *App) RemoveRecentProject(path string) error {
 
 // SaveSettings 保存设置
 func (a *App) SaveSettings(settingsJSON string) error {
-	return a.configService.SaveSettings(settingsJSON)
+	if err := a.configService.SaveSettings(settingsJSON); err != nil {
+		return err
+	}
+
+	// 配置变更后，重新加载 AI 提供商以应用新配置
+	if err := a.aiService.ReloadProviders(); err != nil {
+		fmt.Printf("[App] Warning: failed to reload AI providers: %v\n", err)
+		// 不返回错误，因为配置已成功保存
+	}
+
+	return nil
 }
 
 // LoadSettings 加载设置

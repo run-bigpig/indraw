@@ -63,10 +63,16 @@
   "export": "导出",
   "import": "导入",
   "reset": "重置",
+  "save": "保存",
+  "cancel": "取消",
   "exportSuccess": "设置已导出",
   "importSuccess": "设置已导入",
   "importError": "导入失败，文件格式无效",
   "resetConfirm": "确定要重置所有设置吗？此操作不可撤销。",
-  "resetSuccess": "设置已重置为默认值"
+  "resetSuccess": "设置已重置为默认值",
+  "saveSuccess": "设置已保存",
+  "saveError": "保存失败，请重试",
+  "unsavedChanges": "有未保存的修改",
+  "discardConfirm": "确定要放弃未保存的修改吗？"
 }
 

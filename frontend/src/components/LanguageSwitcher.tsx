@@ -11,8 +11,9 @@ const LanguageSwitcher: React.FC = () => {
   
   const toggleLanguage = () => {
     const newLang = isZhCN ? 'en-US' : 'zh-CN';
-    i18n.changeLanguage(newLang);
-    localStorage.setItem('language', newLang);
+    i18n.changeLanguage(newLang).then(() => {
+      localStorage.setItem('language', newLang);
+    });
   };
   
   return (

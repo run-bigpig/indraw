@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettings } from '../contexts/SettingsContext';
-import { SettingsCategory } from '../types';
+import { Settings as SettingsType, SettingsCategory } from '@/types';
 
 // ==================== 类型定义 ====================
 
@@ -257,20 +257,23 @@ const Slider = ({
 
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { t } = useTranslation();
-  const { 
-    settings, 
-    updateCategory, 
-    resetAllSettings, 
-    exportSettingsToJson, 
-    importSettingsFromJson 
+  const {
+    settings,
+    updateCategory,
+    resetAllSettings,
+    exportSettingsToJson,
+    importSettingsFromJson,
+    manualSaveSettings,
+    reloadSettings
   } = useSettings();
-  
+
   const [activeTab, setActiveTab] = useState<TabType>('ai');
   const [showApiKey, setShowApiKey] = useState(false);
   const [showOpenaiApiKey, setShowOpenaiApiKey] = useState(false);
   const [showOpenaiImageApiKey, setShowOpenaiImageApiKey] = useState(false);
   const [vertexCredentialsError, setVertexCredentialsError] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // JSON 验证函数
@@ -295,6 +298,47 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     }
   };
 
+  // 包装 updateCategory 以标记未保存状态
+  const handleUpdateCategory = <T extends SettingsCategory>(
+    category: T,
+    updates: Partial<SettingsType[T]>
+  ) => {
+    updateCategory(category, updates);
+    setHasUnsavedChanges(true);
+  };
+
+  // 保存设置
+  const handleSave = async () => {
+    const success = await manualSaveSettings();
+    if (success) {
+      setHasUnsavedChanges(false);
+      showMessage('success', t('settings.saveSuccess', '设置已保存'));
+    } else {
+      showMessage('error', t('settings.saveError', '保存失败，请重试'));
+    }
+  };
+
+  // 取消修改
+  const handleCancel = async () => {
+    if (hasUnsavedChanges) {
+      if (!confirm(t('settings.discardConfirm', '确定要放弃未保存的修改吗？'))) {
+        return;
+      }
+    }
+    await reloadSettings();
+    setHasUnsavedChanges(false);
+  };
+
+  // 关闭面板时检查未保存的修改
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      if (!confirm(t('settings.discardConfirm', '确定要放弃未保存的修改吗？'))) {
+        return;
+      }
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const tabs: { id: TabType; icon: React.ReactNode; label: string }[] = [
@@ -315,7 +359,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `nebula-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `indraw-settings-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -358,7 +402,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       >
         <SelectInput
           value={settings.ai.provider}
-          onChange={(val) => updateCategory('ai', { provider: val as 'gemini' | 'openai' })}
+          onChange={(val) => handleUpdateCategory('ai', { provider: val as 'gemini' | 'openai' })}
           options={[
             { value: 'gemini', label: t('settings.ai.providerGemini', 'Google Gemini') },
             { value: 'openai', label: t('settings.ai.providerOpenai', 'OpenAI 兼容') },
@@ -376,7 +420,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <RadioGroup
               value={settings.ai.useVertexAI ? 'vertex' : 'api'}
-              onChange={(val) => updateCategory('ai', { useVertexAI: val === 'vertex' })}
+              onChange={(val) => handleUpdateCategory('ai', { useVertexAI: val === 'vertex' })}
               options={[
                 { value: 'api', label: 'Gemini API' },
                 { value: 'vertex', label: 'Vertex AI' }
@@ -395,7 +439,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <TextInput
                     type={showApiKey ? 'text' : 'password'}
                     value={settings.ai.apiKey}
-                    onChange={(val) => updateCategory('ai', { apiKey: val })}
+                    onChange={(val) => handleUpdateCategory('ai', { apiKey: val })}
                     placeholder={t('settings.ai.apiKeyPlaceholder', '输入您的 API Key')}
                   />
                 </div>
@@ -418,7 +462,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               >
                 <TextInput
                   value={settings.ai.vertexProject}
-                  onChange={(val) => updateCategory('ai', { vertexProject: val })}
+                  onChange={(val) => handleUpdateCategory('ai', { vertexProject: val })}
                   placeholder="my-project-123"
                 />
               </InputGroup>
@@ -429,7 +473,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               >
                 <SelectInput
                   value={settings.ai.vertexLocation}
-                  onChange={(val) => updateCategory('ai', { vertexLocation: val })}
+                  onChange={(val) => handleUpdateCategory('ai', { vertexLocation: val })}
                   options={[
                     {value:'global',label:'global(Global)'},
                     { value: 'us-central1', label: 'us-central1 (Iowa, USA)' },
@@ -469,7 +513,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <TextAreaInput
                   value={settings.ai.vertexCredentials}
                   onChange={(val) => {
-                    updateCategory('ai', { vertexCredentials: val });
+                    handleUpdateCategory('ai', { vertexCredentials: val });
                     validateJSON(val);
                   }}
                   placeholder={`{\n  "type": "service_account",\n  "project_id": "your-project-id",\n  "private_key_id": "...",\n  "private_key": "...",\n  ...\n}`}
@@ -487,7 +531,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <TextInput
               value={settings.ai.textModel}
-              onChange={(val) => updateCategory('ai', { textModel: val })}
+              onChange={(val) => handleUpdateCategory('ai', { textModel: val })}
               placeholder="gemini-2.5-flash"
             />
           </InputGroup>
@@ -498,7 +542,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <TextInput
               value={settings.ai.imageModel}
-              onChange={(val) => updateCategory('ai', { imageModel: val })}
+              onChange={(val) => handleUpdateCategory('ai', { imageModel: val })}
               placeholder="gemini-2.5-flash-preview-05-20"
             />
           </InputGroup>
@@ -514,7 +558,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <TextInput
                 value={settings.ai.openaiBaseUrl}
-                onChange={(val) => updateCategory('ai', { openaiBaseUrl: val })}
+                onChange={(val) => handleUpdateCategory('ai', { openaiBaseUrl: val })}
                 placeholder="https://api.openai.com/v1"
             />
           </InputGroup>
@@ -527,7 +571,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <TextInput
                   type={showOpenaiApiKey ? 'text' : 'password'}
                   value={settings.ai.openaiApiKey}
-                  onChange={(val) => updateCategory('ai', { openaiApiKey: val })}
+                  onChange={(val) => handleUpdateCategory('ai', { openaiApiKey: val })}
                   placeholder={t('settings.ai.openaiApiKeyPlaceholder', '输入您的 API Key')}
                 />
               </div>
@@ -545,7 +589,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <TextInput
                 value={settings.ai.openaiTextModel}
-                onChange={(val) => updateCategory('ai', { openaiTextModel: val })}
+                onChange={(val) => handleUpdateCategory('ai', { openaiTextModel: val })}
                 placeholder="gpt-4o"
             />
           </InputGroup>
@@ -555,7 +599,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <TextInput
                 value={settings.ai.openaiImageBaseUrl || ''}
-                onChange={(val) => updateCategory('ai', { openaiImageBaseUrl: val })}
+                onChange={(val) => handleUpdateCategory('ai', { openaiImageBaseUrl: val })}
                 placeholder={t('settings.ai.openaiImageBaseUrlPlaceholder', '留空则使用通用 Base URL')}
             />
           </InputGroup>
@@ -568,7 +612,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <TextInput
                   type={showOpenaiImageApiKey ? 'text' : 'password'}
                   value={settings.ai.openaiImageApiKey || ''}
-                  onChange={(val) => updateCategory('ai', { openaiImageApiKey: val })}
+                  onChange={(val) => handleUpdateCategory('ai', { openaiImageApiKey: val })}
                   placeholder={t('settings.ai.openaiImageApiKeyPlaceholder', '留空则使用通用 API Key')}
                 />
               </div>
@@ -587,7 +631,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           >
             <TextInput
               value={settings.ai.openaiImageModel}
-              onChange={(val) => updateCategory('ai', { openaiImageModel: val })}
+              onChange={(val) => handleUpdateCategory('ai', { openaiImageModel: val })}
               placeholder="dall-e-3"
             />
           </InputGroup>
@@ -609,7 +653,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <InputGroup label={t('settings.canvas.width', '默认宽度')}>
           <NumberInput
             value={settings.canvas.width}
-            onChange={(val) => updateCategory('canvas', { width: val })}
+            onChange={(val) => handleUpdateCategory('canvas', { width: val })}
             min={100}
             max={4096}
           />
@@ -617,7 +661,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <InputGroup label={t('settings.canvas.height', '默认高度')}>
           <NumberInput
             value={settings.canvas.height}
-            onChange={(val) => updateCategory('canvas', { height: val })}
+            onChange={(val) => handleUpdateCategory('canvas', { height: val })}
             min={100}
             max={4096}
           />
@@ -627,7 +671,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       <InputGroup label={t('settings.canvas.background', '默认背景')}>
         <SelectInput
           value={settings.canvas.background}
-          onChange={(val) => updateCategory('canvas', { background: val as 'transparent' | 'color' })}
+          onChange={(val) => handleUpdateCategory('canvas', { background: val as 'transparent' | 'color' })}
           options={[
             { value: 'transparent', label: t('settings.canvas.transparent', '透明') },
             { value: 'color', label: t('settings.canvas.color', '纯色') },
@@ -639,7 +683,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <InputGroup label={t('settings.canvas.backgroundColor', '背景颜色')}>
           <ColorInput
             value={settings.canvas.backgroundColor}
-            onChange={(val) => updateCategory('canvas', { backgroundColor: val })}
+            onChange={(val) => handleUpdateCategory('canvas', { backgroundColor: val })}
           />
         </InputGroup>
       )}
@@ -658,16 +702,16 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               value={settings.tools.brush.size}
               min={1}
               max={100}
-              onChange={(val) => updateCategory('tools', { 
-                brush: { ...settings.tools.brush, size: val } 
+              onChange={(val) => handleUpdateCategory('tools', {
+                brush: { ...settings.tools.brush, size: val }
               })}
             />
           </InputGroup>
           <InputGroup label={t('settings.tools.brushColor', '默认颜色')}>
             <ColorInput
               value={settings.tools.brush.color}
-              onChange={(val) => updateCategory('tools', { 
-                brush: { ...settings.tools.brush, color: val } 
+              onChange={(val) => handleUpdateCategory('tools', {
+                brush: { ...settings.tools.brush, color: val }
               })}
             />
           </InputGroup>
@@ -677,8 +721,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               min={0}
               max={1}
               step={0.1}
-              onChange={(val) => updateCategory('tools', { 
-                brush: { ...settings.tools.brush, opacity: val } 
+              onChange={(val) => handleUpdateCategory('tools', {
+                brush: { ...settings.tools.brush, opacity: val }
               })}
             />
           </InputGroup>
@@ -694,8 +738,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               value={settings.tools.eraser.size}
               min={1}
               max={100}
-              onChange={(val) => updateCategory('tools', { 
-                eraser: { ...settings.tools.eraser, size: val } 
+              onChange={(val) => handleUpdateCategory('tools', {
+                eraser: { ...settings.tools.eraser, size: val }
               })}
             />
           </InputGroup>
@@ -709,8 +753,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <InputGroup label={t('settings.tools.textSize', '默认字号')}>
             <NumberInput
               value={settings.tools.text.fontSize}
-              onChange={(val) => updateCategory('tools', { 
-                text: { ...settings.tools.text, fontSize: val } 
+              onChange={(val) => handleUpdateCategory('tools', {
+                text: { ...settings.tools.text, fontSize: val }
               })}
               min={8}
               max={200}
@@ -719,8 +763,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <InputGroup label={t('settings.tools.textColor', '默认颜色')}>
             <ColorInput
               value={settings.tools.text.color}
-              onChange={(val) => updateCategory('tools', { 
-                text: { ...settings.tools.text, color: val } 
+              onChange={(val) => handleUpdateCategory('tools', {
+                text: { ...settings.tools.text, color: val }
               })}
             />
           </InputGroup>
@@ -735,7 +779,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       <InputGroup label={t('settings.app.language', '界面语言')}>
         <SelectInput
           value={settings.app.language}
-          onChange={(val) => updateCategory('app', { language: val as 'zh-CN' | 'en-US' })}
+          onChange={(val) => handleUpdateCategory('app', { language: val as 'zh-CN' | 'en-US' })}
           options={[
             { value: 'zh-CN', label: '简体中文' },
             { value: 'en-US', label: 'English' },
@@ -745,7 +789,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
       <Toggle
         checked={settings.app.autoSave}
-        onChange={(val) => updateCategory('app', { autoSave: val })}
+        onChange={(val) => handleUpdateCategory('app', { autoSave: val })}
         label={t('settings.app.autoSave', '自动保存')}
       />
 
@@ -753,7 +797,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <InputGroup label={t('settings.app.autoSaveInterval', '自动保存间隔（秒）')}>
           <NumberInput
             value={settings.app.autoSaveInterval}
-            onChange={(val) => updateCategory('app', { autoSaveInterval: val })}
+            onChange={(val) => handleUpdateCategory('app', { autoSaveInterval: val })}
             min={10}
             max={300}
           />
@@ -782,7 +826,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <h2 className="text-base font-medium text-gray-200">{t('settings.title', '设置')}</h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 hover:bg-tech-800 rounded transition-colors"
           >
             <X size={18} />
@@ -828,37 +872,63 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         </div>
 
         {/* 底部操作 */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-tech-700">
-          <div className="flex gap-2">
+        <div className="border-t border-tech-700">
+          {/* 保存/取消按钮区域 */}
+          <div className="flex items-center justify-end gap-3 px-4 py-3 bg-tech-950/50">
             <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-tech-800 hover:bg-tech-700 rounded transition-colors"
+              onClick={handleCancel}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-tech-700 hover:bg-tech-600 text-gray-300 rounded transition-colors"
             >
-              <Download size={14} />
-              {t('settings.export', '导出')}
+              {t('settings.cancel', '取消')}
             </button>
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-tech-800 hover:bg-tech-700 rounded transition-colors"
+              onClick={handleSave}
+              className={clsx(
+                "flex items-center gap-1.5 px-4 py-2 text-sm rounded transition-colors",
+                hasUnsavedChanges
+                  ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                  : "bg-cyan-600/50 text-gray-300 cursor-default"
+              )}
             >
-              <Upload size={14} />
-              {t('settings.import', '导入')}
+              <Check size={16} />
+              {t('settings.save', '保存')}
+              {hasUnsavedChanges && <span className="ml-1 text-xs">*</span>}
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImport}
-              className="hidden"
-            />
           </div>
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/30 rounded transition-colors"
-          >
-            <RotateCcw size={14} />
-            {t('settings.reset', '重置')}
-          </button>
+
+          {/* 其他操作按钮 */}
+          <div className="flex items-center justify-between px-4 py-2 border-t border-tech-700/50">
+            <div className="flex gap-2">
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-tech-800 hover:bg-tech-700 rounded transition-colors"
+              >
+                <Download size={14} />
+                {t('settings.export', '导出')}
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-tech-800 hover:bg-tech-700 rounded transition-colors"
+              >
+                <Upload size={14} />
+                {t('settings.import', '导入')}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="hidden"
+              />
+            </div>
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/30 rounded transition-colors"
+            >
+              <RotateCcw size={14} />
+              {t('settings.reset', '重置')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

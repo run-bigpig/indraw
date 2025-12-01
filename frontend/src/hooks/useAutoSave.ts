@@ -71,7 +71,15 @@ export function useAutoSave({
 
   // 执行保存（异步）
   const performSave = useCallback(async () => {
-    if (!isProjectCreatedRef.current) return;
+    if (!isProjectCreatedRef.current) {
+      console.log('[AutoSave] 跳过保存：项目未创建');
+      return;
+    }
+
+    console.log('[AutoSave] 开始执行自动保存...', {
+      layersCount: layersRef.current.length,
+      projectPath: projectPathRef.current,
+    });
 
     try {
       // 如果有项目路径，保存到项目目录；否则保存到全局自动保存位置
@@ -83,9 +91,12 @@ export function useAutoSave({
       if (success) {
         const now = new Date().toLocaleTimeString();
         setLastSaveTime(now);
+        console.log('[AutoSave] 自动保存成功:', now);
+      } else {
+        console.warn('[AutoSave] 自动保存失败：saveToLocalStorage 返回 false');
       }
     } catch (error) {
-      console.error('自动保存执行失败:', error);
+      console.error('[AutoSave] 自动保存执行失败:', error);
     }
   }, []);
 
@@ -122,9 +133,17 @@ export function useAutoSave({
       intervalRef.current = null;
     }
 
+    console.log('[AutoSave] 定时器配置更新:', {
+      autoSaveEnabled: settings.app.autoSave,
+      interval: settings.app.autoSaveInterval,
+      isProjectCreated,
+    });
+
     // 如果启用了自动保存且项目已创建
     if (settings.app.autoSave && isProjectCreated) {
       const intervalMs = settings.app.autoSaveInterval * 1000; // 秒转毫秒
+
+      console.log(`[AutoSave] 启动自动保存定时器，间隔: ${settings.app.autoSaveInterval} 秒`);
 
       intervalRef.current = setInterval(() => {
         performSave();
@@ -132,6 +151,8 @@ export function useAutoSave({
 
       // 立即执行一次保存
       performSave();
+    } else {
+      console.log('[AutoSave] 自动保存未启用或项目未创建');
     }
 
     // 清理函数
@@ -139,6 +160,7 @@ export function useAutoSave({
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+        console.log('[AutoSave] 定时器已清除');
       }
     };
   }, [settings.app.autoSave, settings.app.autoSaveInterval, isProjectCreated, performSave]);

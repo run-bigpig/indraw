@@ -63,10 +63,16 @@
   "export": "Export",
   "import": "Import",
   "reset": "Reset",
+  "save": "Save",
+  "cancel": "Cancel",
   "exportSuccess": "Settings exported",
   "importSuccess": "Settings imported",
   "importError": "Import failed, invalid file format",
   "resetConfirm": "Are you sure you want to reset all settings? This action cannot be undone.",
-  "resetSuccess": "Settings have been reset to defaults"
+  "resetSuccess": "Settings have been reset to defaults",
+  "saveSuccess": "Settings saved successfully",
+  "saveError": "Failed to save settings, please try again",
+  "unsavedChanges": "Unsaved changes",
+  "discardConfirm": "Are you sure you want to discard unsaved changes?"
 }
 

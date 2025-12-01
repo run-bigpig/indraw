@@ -2,8 +2,6 @@ module indraw
 
 go 1.24.0
 
-toolchain go1.24.9
-
 require (
 	cloud.google.com/go/auth v0.17.0
 	github.com/sashabaranov/go-openai v1.41.2

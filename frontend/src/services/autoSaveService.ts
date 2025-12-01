@@ -7,7 +7,7 @@
  * 2. 项目路径保存（已保存项目）：保存到项目目录
  */
 
-import { LayerData, CanvasConfig } from '../types';
+import { LayerData, CanvasConfig } from '@/types';
 import { AutoSave, LoadAutoSave, ClearAutoSave, SaveProjectToPath } from '../../wailsjs/go/core/App';
 
 /**
@@ -19,19 +19,6 @@ export interface AutoSaveData {
   layers: LayerData[];
   canvasConfig: CanvasConfig;
 }
-
-// ==================== Wails 运行时检查 ====================
-
-/**
- * 检查 Wails 运行时是否就绪
- */
-function isWailsReady(): boolean {
-  return typeof window !== 'undefined' &&
-         typeof (window as any).go !== 'undefined' &&
-         typeof (window as any).go.main !== 'undefined' &&
-         typeof (window as any).go.main.App !== 'undefined';
-}
-
 /**
  * 保存项目状态到本地文件系统（通过 Wails 后端）
  * @param layers 图层数据
@@ -44,12 +31,6 @@ export async function saveToLocalStorage(
   projectPath?: string
 ): Promise<boolean> {
   try {
-    // 检查 Wails 运行时是否就绪
-    if (!isWailsReady()) {
-      console.warn('Wails runtime not ready, cannot auto-save');
-      return false;
-    }
-
     const data: AutoSaveData = {
       version: '1.0',
       timestamp: Date.now(),
@@ -76,12 +57,6 @@ export async function saveToLocalStorage(
  */
 export async function loadFromLocalStorage(): Promise<AutoSaveData | null> {
   try {
-    // 检查 Wails 运行时是否就绪
-    if (!isWailsReady()) {
-      console.warn('Wails runtime not ready, cannot load auto-save');
-      return null;
-    }
-
     const saved = await LoadAutoSave();
     if (!saved) return null;
 
@@ -137,11 +112,6 @@ export function formatTimestamp(timestamp: number): string {
  */
 export async function clearAutoSaveData(): Promise<void> {
   try {
-    // 检查 Wails 运行时是否就绪
-    if (!isWailsReady()) {
-      console.warn('Wails runtime not ready, cannot clear auto-save');
-      return;
-    }
     await ClearAutoSave();
   } catch (error) {
     console.error('清除自动保存数据失败:', error);

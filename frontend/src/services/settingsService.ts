@@ -207,7 +207,7 @@ function validateAppSettings(settings: Partial<AppSettings>): AppSettings {
     autoSave: typeof settings.autoSave === 'boolean' 
       ? settings.autoSave 
       : DEFAULT_APP_SETTINGS.autoSave,
-    autoSaveInterval: typeof settings.autoSaveInterval === 'number' && settings.autoSaveInterval >= 10 && settings.autoSaveInterval <= 300
+    autoSaveInterval: typeof settings.autoSaveInterval === 'number' && settings.autoSaveInterval >= 0 && settings.autoSaveInterval <= 300
       ? settings.autoSaveInterval
       : DEFAULT_APP_SETTINGS.autoSaveInterval,
   };
@@ -229,11 +229,8 @@ function validateSettings(settings: Partial<Settings>): Settings {
  * 从 Wails 后端加载设置
  */
 export async function loadSettings(): Promise<Settings> {
-  console.log('[settingsService] loadSettings called');
   try {
-    console.log('[settingsService] Calling Wails LoadSettings...');
     const settingsJSON = await LoadSettings();
-    console.log('[settingsService] LoadSettings returned:', settingsJSON?.substring(0, 100) + '...');
 
     // 检查返回值是否有效
     if (!settingsJSON || settingsJSON === '') {
@@ -242,7 +239,6 @@ export async function loadSettings(): Promise<Settings> {
     }
 
     const parsed = JSON.parse(settingsJSON);
-    console.log('[settingsService] Settings parsed successfully');
     return validateSettings(parsed);
   } catch (error) {
     console.error('[settingsService] Failed to load settings:', error);
@@ -254,15 +250,10 @@ export async function loadSettings(): Promise<Settings> {
  * 保存设置到 Wails 后端（自动加密）
  */
 export async function saveSettings(settings: Settings): Promise<boolean> {
-  console.log('[settingsService] saveSettings called');
   try {
-    console.log('[settingsService] Validating settings...');
     const validated = validateSettings(settings);
     const settingsJSON = JSON.stringify(validated);
-    console.log('[settingsService] Settings JSON size:', settingsJSON.length, 'bytes');
-    console.log('[settingsService] Calling Wails SaveSettings...');
     await SaveSettings(settingsJSON);
-    console.log('[settingsService] SaveSettings completed successfully');
     return true;
   } catch (error) {
     console.error('[settingsService] Failed to save settings:', error);

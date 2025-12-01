@@ -13,11 +13,11 @@
     "create": "Create Project"
   },
   "welcome": {
-    "title": "Welcome to Nebula",
-    "subtitle": "AI-Powered Creative Studio. Design, Edit, and Generate with the power of Gemini.",
+    "title": "Welcome to INDRAW EDITOR",
+    "subtitle": "AI-Powered Creative Editor.",
     "createNew": "Create New Project",
     "openExisting": "Open Existing Project",
-    "version": "v1.0.0 • Powered by Gemini Flash 2.5"
+    "version": "v1.0.0 • Powered by syskey"
   },
   "fileMenu": {
     "newProject": "New Project",

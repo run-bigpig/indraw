@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayerData, ToolType } from '@/types';
-import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Image as ImageIcon, X, Wand, Merge, Group, Folder, FolderOpen, MoreVertical } from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder,FolderOpen} from 'lucide-react';
 import clsx from 'clsx';
 import { ProcessingState } from '../../App.tsx';
-import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import ContextMenu from './ContextMenu';
 
 interface PropertiesPanelProps {
   layers: LayerData[];
@@ -242,10 +242,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   ];
   
   const isGlobalProcessing = processingState !== 'idle';
-  
+
   return (
     <div className="w-80 bg-tech-900 border-l border-tech-700 flex flex-col z-20 shadow-2xl h-full">
-      
+
       {/* Header */}
       <div className="h-12 border-b border-tech-700 flex items-center justify-between px-4 bg-tech-800/50 backdrop-blur">
         <span className="font-mono font-medium text-cyan-400 tracking-wider text-sm">{t('properties:controlCenter').toUpperCase()}</span>

@@ -164,10 +164,14 @@ func (p *GeminiProvider) GenerateImage(ctx context.Context, params GenerateImage
 			TopP:               &topP,
 			MaxOutputTokens:    32768,
 			ResponseModalities: []string{"text", "image"},
+			ImageConfig: &genai.ImageConfig{
+				ImageSize:   params.ImageSize,
+				AspectRatio: params.AspectRatio,
+			},
 		})
 
 	if err != nil {
-		return "", fmt.Errorf("Gemini API error: %w", err)
+		return "", fmt.Errorf("gemini API error: %w", err)
 	}
 
 	return extractImageFromGeminiResponse(response)
@@ -197,7 +201,7 @@ func (p *GeminiProvider) EditImage(ctx context.Context, params EditImageParams) 
 	}
 
 	// 设置生成参数
-	temperature := float32(0.9)
+	temperature := float32(0.95)
 	topP := float32(0.95)
 
 	// 调用 API
@@ -231,7 +235,7 @@ func (p *GeminiProvider) EnhancePrompt(ctx context.Context, prompt string) (stri
 	}
 
 	// 设置生成参数
-	temperature := float32(0.7)
+	temperature := float32(0.75)
 	topP := float32(0.95)
 
 	// 调用 API
@@ -240,11 +244,11 @@ func (p *GeminiProvider) EnhancePrompt(ctx context.Context, prompt string) (stri
 		&genai.GenerateContentConfig{
 			Temperature:     &temperature,
 			TopP:            &topP,
-			MaxOutputTokens: 500,
+			MaxOutputTokens: 32768,
 		})
 
 	if err != nil {
-		return "", fmt.Errorf("Gemini prompt enhancement error: %w", err)
+		return "", fmt.Errorf("gemini prompt enhancement error: %w", err)
 	}
 
 	// 提取增强后的文本

@@ -30,6 +30,10 @@
   },
   "autoSave": {
     "lastSaved": "Auto saved"
+  },
+  "loading": {
+    "project": "Loading Project",
+    "pleaseWait": "Please wait, loading layer data..."
   }
 }
 

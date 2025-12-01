@@ -10,10 +10,11 @@ import LanguageSwitcher from './src/components/LanguageSwitcher';
 import SettingsPanel from './src/components/SettingsPanel';
 import { LayerData, ToolType, CanvasConfig} from '@/types';
 import { generateImageFromText, editImageWithAI, removeBackgroundWithAI, blendImagesWithAI, enhancePrompt } from '@/services/ai';
-import { Download, Zap, Command, X, Undo2, Redo2, FileText, FolderOpen, Save, FilePlus, ChevronDown, Sparkles, Upload, Settings, Clock, Trash2 } from 'lucide-react';
+import { Download, Zap, Command, X, Undo2, Redo2, FileText, FolderOpen, Save, FilePlus, ChevronDown, Sparkles, Upload, Settings, Clock, Trash2, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAutoSave } from '@/hooks';
 import { compositeInpaint } from '@/utils/imageComposite.ts';
+import { loadAndFitImage } from '@/utils/imageLayout';
 import { DEFAULT_BRUSH_CONFIG, DEFAULT_ERASER_CONFIG, DEFAULT_LAYER_PROPS, DEFAULT_TEXT_PROPS } from '@/constants';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
@@ -91,6 +92,7 @@ export default function App() {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
 
   // Auto Save
   // 如果项目有路径，自动保存到项目目录；否则保存到全局自动保存位置
@@ -254,6 +256,7 @@ export default function App() {
   };
 
   const handleLoadProject = async () => {
+    setIsLoadingProject(true);
     try {
       const { layers: loadedLayers, config } = await projectManager.loadProject();
       layerManager.setLayers(loadedLayers);
@@ -263,6 +266,8 @@ export default function App() {
       if (err.message !== "No project selected") {
         alert(err.message || "Failed to load project");
       }
+    } finally {
+      setIsLoadingProject(false);
     }
 
     setShowFileMenu(false);
@@ -270,6 +275,7 @@ export default function App() {
 
   // 从最近项目列表打开项目
   const handleOpenRecentProject = async (path: string, name: string) => {
+    setIsLoadingProject(true);
     try {
       const { layers: loadedLayers, config } = await projectManager.loadProjectFromPath(path, name);
       layerManager.setLayers(loadedLayers);
@@ -279,6 +285,8 @@ export default function App() {
       alert(t('message:error.loadProjectFailed', '加载项目失败') + ': ' + err.message);
       // 如果加载失败，可能是项目已被删除，从列表中移除
       projectManager.removeFromRecentProjects(path);
+    } finally {
+      setIsLoadingProject(false);
     }
     setShowFileMenu(false);
   };
@@ -538,36 +546,31 @@ export default function App() {
     });
   };
 
-  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.src = reader.result as string;
-      img.onload = () => {
-        const stage = stageRef.current;
-        let x = 0;
-        let y = 0;
+    reader.onload = async () => {
+      const base64Image = reader.result as string;
 
-        if (stage) {
-          x = -stage.x() / stage.scaleX() + (stage.width() / 2) / stage.scaleX();
-          y = -stage.y() / stage.scaleY() + (stage.height() / 2) / stage.scaleY();
-        }
+      // 获取画布配置
+      const { width: canvasWidth, height: canvasHeight } = projectManager.canvasConfig;
 
-        addLayer({
-          id: uuidv4(),
-          type: 'image',
-          name: `Image ${layers.length + 1}`,
-          x: x - (img.width / 4),
-          y: y - (img.height / 4),
-          width: img.width / 2,
-          height: img.height / 2,
-          ...DEFAULT_LAYER_PROPS,
-          src: reader.result as string,
-        });
-      };
+      // 加载图片并计算适配画布的尺寸和位置
+      const layout = await loadAndFitImage(base64Image, canvasWidth, canvasHeight, 1.0);
+
+      addLayer({
+        id: uuidv4(),
+        type: 'image',
+        name: `Image ${layers.length + 1}`,
+        x: layout.x,
+        y: layout.y,
+        width: layout.width,
+        height: layout.height,
+        ...DEFAULT_LAYER_PROPS,
+        src: base64Image,
+      });
     };
     reader.readAsDataURL(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -583,21 +586,20 @@ export default function App() {
         aspectRatio
       );
 
-      const stage = stageRef.current;
-      let x = 0, y = 0;
-      if (stage) {
-        x = -stage.x() / stage.scaleX() + (stage.width() / 2) / stage.scaleX();
-        y = -stage.y() / stage.scaleY() + (stage.height() / 2) / stage.scaleY();
-      }
+      // 获取画布配置
+      const { width: canvasWidth, height: canvasHeight } = projectManager.canvasConfig;
+
+      // 加载图片并计算适配画布的尺寸和位置
+      const layout = await loadAndFitImage(base64Image, canvasWidth, canvasHeight, 1.0);
 
       addLayer({
         id: uuidv4(),
         type: 'image',
         name: `AI Gen ${layers.length + 1}`,
-        x: x - 128,
-        y: y - 128,
-        width: 256,
-        height: 256,
+        x: layout.x,
+        y: layout.y,
+        width: layout.width,
+        height: layout.height,
         ...DEFAULT_LAYER_PROPS,
         src: base64Image,
       });
@@ -638,14 +640,21 @@ export default function App() {
     setProcessingState('blending');
     try {
       const resultBase64 = await blendImagesWithAI(bottomLayer.src, topLayer.src, prompt, style);
+
+      // 获取画布配置
+      const { width: canvasWidth, height: canvasHeight } = projectManager.canvasConfig;
+
+      // 加载混合结果图片并计算适配尺寸
+      const layout = await loadAndFitImage(resultBase64, canvasWidth, canvasHeight, 1.0);
+
       addLayer({
         id: uuidv4(),
         type: 'image',
         name: `${style} Blend Result`,
-        x: bottomLayer.x + 20,
-        y: bottomLayer.y + 20,
-        width: bottomLayer.width,
-        height: bottomLayer.height,
+        x: layout.x,
+        y: layout.y,
+        width: layout.width,
+        height: layout.height,
         ...DEFAULT_LAYER_PROPS,
         src: resultBase64,
         parentId: topLayer.parentId
@@ -912,7 +921,7 @@ export default function App() {
 
     // 使用 Wails 后端导出
     try {
-      const suggestedName = `nebula-export-${Date.now()}.png`;
+      const suggestedName = `indraw-export-${Date.now()}.png`;
       const filePath = await ExportImage(uri, suggestedName);
       if (filePath) {
         console.log('Image exported to:', filePath);
@@ -940,7 +949,7 @@ export default function App() {
           <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center shadow-[0_0_10px_rgba(6,182,212,0.5)]">
             <Zap size={18} className="text-white" />
 	      </div>
-          <h1 className="font-bold text-lg tracking-tight text-gray-100">NEBULA <span className="text-cyan-400 font-light">STUDIO</span></h1>
+          <h1 className="font-bold text-lg tracking-tight text-gray-100">INDRAW <span className="text-cyan-400 font-light">EDITOR</span></h1>
 
           {/* 当前项目名称 */}
           {projectManager.projectInfo && (
@@ -1311,42 +1320,44 @@ export default function App() {
           )}
         </main>
 
-	      <PropertiesPanel
-	          layers={layers}
-	          selectedIds={selectedIds}
-	          activeTool={activeTool}
-	          brushMode={brushMode}
-	          processingState={processingState}
-	          brushConfig={brushConfig}
-	          inpaintPrompt={inpaintPrompt}
-	          onSetBrushConfig={(config) => {
-	            setBrushConfig(config);
-	            if (brushMode === 'normal') {
-	              setNormalBrushConfig(config);
-	            } else {
-	              setAiBrushConfig(config);
-	            }
-	          }}
-	          onSetBrushMode={(mode) => {
-	            setBrushMode(mode);
-	            setDrawingLines([]);
-	            // 切换模式时恢复各自独立的配置
-	            setBrushConfig(mode === 'normal' ? normalBrushConfig : aiBrushConfig);
-	          }}
-          onSetInpaintPrompt={setInpaintPrompt}
-          onSelectLayer={handleSelectLayer}
-          onDeleteLayer={(id) => layerManager.deleteLayers([id])}
-          onToggleVisibility={layerManager.toggleVisibility}
-          onLayerReorder={layerManager.reorderLayer}
-          onDuplicateLayer={layerManager.duplicateLayer}
-          onUpdateLayer={layerManager.updateLayer}
-          onRemoveBackground={handleRemoveBackground}
-          onAIBlend={handleAIBlend}
-          onGroup={groupingManager.groupLayers}
-          onUngroup={groupingManager.ungroupLayers}
-          onContextMenuAction={handleContextMenuAction}
-          onInpaintSubmit={handleInpaintSubmit}
-        />
+        {projectManager.isProjectCreated && (
+          <PropertiesPanel
+            layers={layers}
+            selectedIds={selectedIds}
+            activeTool={activeTool}
+            brushMode={brushMode}
+            processingState={processingState}
+            brushConfig={brushConfig}
+            inpaintPrompt={inpaintPrompt}
+            onSetBrushConfig={(config) => {
+              setBrushConfig(config);
+              if (brushMode === 'normal') {
+                setNormalBrushConfig(config);
+              } else {
+                setAiBrushConfig(config);
+              }
+            }}
+            onSetBrushMode={(mode) => {
+              setBrushMode(mode);
+              setDrawingLines([]);
+              // 切换模式时恢复各自独立的配置
+              setBrushConfig(mode === 'normal' ? normalBrushConfig : aiBrushConfig);
+            }}
+            onSetInpaintPrompt={setInpaintPrompt}
+            onSelectLayer={handleSelectLayer}
+            onDeleteLayer={(id) => layerManager.deleteLayers([id])}
+            onToggleVisibility={layerManager.toggleVisibility}
+            onLayerReorder={layerManager.reorderLayer}
+            onDuplicateLayer={layerManager.duplicateLayer}
+            onUpdateLayer={layerManager.updateLayer}
+            onRemoveBackground={handleRemoveBackground}
+            onAIBlend={handleAIBlend}
+            onGroup={groupingManager.groupLayers}
+            onUngroup={groupingManager.ungroupLayers}
+            onContextMenuAction={handleContextMenuAction}
+            onInpaintSubmit={handleInpaintSubmit}
+          />
+        )}
       </div>
 
       {/* New Canvas Modal */}
@@ -1723,6 +1734,28 @@ export default function App() {
       {settings.app.autoSave && projectManager.isProjectCreated && autoSave.lastSaveTime && (
         <div className="fixed bottom-4 left-4 z-30 px-3 py-1.5 bg-tech-900/90 border border-tech-700 rounded-lg text-xs text-gray-500 backdrop-blur-sm">
           {t('message:autoSave.lastSaved', '自动保存')}: {autoSave.lastSaveTime}
+        </div>
+      )}
+
+      {/* Project Loading Overlay - 项目加载动画 */}
+      {isLoadingProject && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="flex flex-col items-center gap-6 p-8 bg-tech-900/90 border border-tech-600 rounded-2xl shadow-2xl">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full border-4 border-tech-700 border-t-cyan-400 animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 size={32} className="text-cyan-400 animate-pulse" />
+              </div>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-gray-200 mb-2">
+                {t('message:loading.project', '正在加载项目')}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {t('message:loading.pleaseWait', '请稍候，正在加载图层数据...')}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
