@@ -1,7 +1,8 @@
-package service
+package provider
 
 import (
 	"context"
+	"indraw/core/types"
 )
 
 // ==================== AI 功能枚举 ====================
@@ -78,7 +79,7 @@ type AIProvider interface {
 	// 返回：
 	//   - base64 编码的图像数据（含 data URI 前缀）
 	//   - 错误信息
-	GenerateImage(ctx context.Context, params GenerateImageParams) (string, error)
+	GenerateImage(ctx context.Context, params types.GenerateImageParams) (string, error)
 
 	// EditImage 编辑图像
 	// 参数：
@@ -87,7 +88,7 @@ type AIProvider interface {
 	// 返回：
 	//   - base64 编码的图像数据（含 data URI 前缀）
 	//   - 错误信息
-	EditImage(ctx context.Context, params EditImageParams) (string, error)
+	EditImage(ctx context.Context, params types.EditImageParams) (string, error)
 
 	// EnhancePrompt 增强提示词
 	// 参数：
@@ -105,9 +106,3 @@ type AIProvider interface {
 	// 在提供商不再使用时调用，用于释放连接、清理缓存等
 	Close() error
 }
-
-// ==================== 参数结构体 ====================
-// 注意：这些结构体已在 ai_service.go 中定义，这里仅作为文档参考
-// GenerateImageParams 定义在 ai_service.go
-// EditImageParams 定义在 ai_service.go
-// BlendImagesParams 定义在 ai_service.go

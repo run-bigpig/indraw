@@ -1,8 +1,9 @@
-package service
+package provider
 
 import (
 	"context"
 	"fmt"
+	"indraw/core/types"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -27,11 +28,11 @@ var openaiCapabilities = ProviderCapabilities{
 type OpenAIProvider struct {
 	ctx      context.Context
 	client   *openai.Client
-	settings AISettings
+	settings types.AISettings
 }
 
 // NewOpenAIProvider 创建 OpenAI 提供商实例
-func NewOpenAIProvider(ctx context.Context, settings AISettings) (*OpenAIProvider, error) {
+func NewOpenAIProvider(ctx context.Context, settings types.AISettings) (*OpenAIProvider, error) {
 	apiKey := settings.OpenAIAPIKey
 	if apiKey == "" {
 		return nil, fmt.Errorf("OpenAI API key not configured")
@@ -72,7 +73,7 @@ func (p *OpenAIProvider) Close() error {
 }
 
 // GenerateImage 生成图像
-func (p *OpenAIProvider) GenerateImage(ctx context.Context, params GenerateImageParams) (string, error) {
+func (p *OpenAIProvider) GenerateImage(ctx context.Context, params types.GenerateImageParams) (string, error) {
 	// 映射图像尺寸
 	size := mapOpenAIImageSize(params.ImageSize, params.AspectRatio)
 
@@ -109,7 +110,7 @@ func (p *OpenAIProvider) GenerateImage(ctx context.Context, params GenerateImage
 
 // EditImage 编辑图像
 // 注意：DALL-E 3 不支持图像编辑功能
-func (p *OpenAIProvider) EditImage(ctx context.Context, params EditImageParams) (string, error) {
+func (p *OpenAIProvider) EditImage(ctx context.Context, params types.EditImageParams) (string, error) {
 	// DALL-E 3 不支持图像编辑，返回友好的错误信息
 	return "", fmt.Errorf("OpenAI DALL-E 3 does not support image editing. Please use Gemini provider for image editing features")
 }

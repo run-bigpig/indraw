@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"indraw/core/types"
 	"io"
 	"os"
 	"path/filepath"
@@ -72,78 +73,6 @@ func (c *ConfigService) getMachineID() string {
 	}
 
 	return fmt.Sprintf("%s-%s", username, hostname)
-}
-
-// Settings 应用设置结构
-type Settings struct {
-	Version string         `json:"version"`
-	AI      AISettings     `json:"ai"`
-	Canvas  CanvasSettings `json:"canvas"`
-	Tools   ToolsSettings  `json:"tools"`
-	App     AppSettings    `json:"app"`
-}
-
-// AISettings AI 服务设置
-type AISettings struct {
-	Provider   string `json:"provider"`
-	APIKey     string `json:"apiKey"` // 加密存储
-	TextModel  string `json:"textModel"`
-	ImageModel string `json:"imageModel"`
-
-	// Vertex AI 配置
-	UseVertexAI       bool   `json:"useVertexAI"`       // 是否使用 Vertex AI
-	VertexProject     string `json:"vertexProject"`     // GCP 项目 ID
-	VertexLocation    string `json:"vertexLocation"`    // GCP 区域（如 us-central1）
-	VertexCredentials string `json:"vertexCredentials"` // GCP 服务账号 JSON（加密存储）
-
-	// OpenAI 配置
-	OpenAIAPIKey       string `json:"openaiApiKey"`      // 加密存储
-	OpenAIImageAPIKey  string `json:"openaiImageApiKey"` // 加密存储
-	OpenAIBaseURL      string `json:"openaiBaseUrl"`
-	OpenAIImageBaseURL string `json:"openaiImageBaseUrl"`
-	OpenAITextModel    string `json:"openaiTextModel"`
-	OpenAIImageModel   string `json:"openaiImageModel"`
-}
-
-// CanvasSettings 画布默认设置
-type CanvasSettings struct {
-	Width           int    `json:"width"`
-	Height          int    `json:"height"`
-	Background      string `json:"background"`
-	BackgroundColor string `json:"backgroundColor"`
-}
-
-// ToolsSettings 工具设置
-type ToolsSettings struct {
-	Brush  BrushSettings  `json:"brush"`
-	Eraser EraserSettings `json:"eraser"`
-	Text   TextSettings   `json:"text"`
-}
-
-// BrushSettings 画笔设置
-type BrushSettings struct {
-	Size    int     `json:"size"`
-	Color   string  `json:"color"`
-	Opacity float64 `json:"opacity"`
-}
-
-// EraserSettings 橡皮擦设置
-type EraserSettings struct {
-	Size int `json:"size"`
-}
-
-// TextSettings 文本设置
-type TextSettings struct {
-	FontSize    int    `json:"fontSize"`
-	Color       string `json:"color"`
-	DefaultText string `json:"defaultText"`
-}
-
-// AppSettings 应用设置
-type AppSettings struct {
-	Language         string `json:"language"`
-	AutoSave         bool   `json:"autoSave"`
-	AutoSaveInterval int    `json:"autoSaveInterval"` // 秒
 }
 
 // encrypt 加密字符串
@@ -214,7 +143,7 @@ func (c *ConfigService) decrypt(ciphertext string) (string, error) {
 
 // SaveSettings 保存设置
 func (c *ConfigService) SaveSettings(settingsJSON string) error {
-	var settings Settings
+	var settings types.Settings
 	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
 		return fmt.Errorf("invalid settings format: %w", err)
 	}
@@ -287,7 +216,7 @@ func (c *ConfigService) LoadSettings() (string, error) {
 		return c.getDefaultSettings(), nil
 	}
 
-	var settings Settings
+	var settings types.Settings
 	if err := json.Unmarshal(data, &settings); err != nil {
 		// 解析失败，返回默认设置
 		fmt.Printf("[ConfigService] Warning: invalid config file format: %v\n", err)
@@ -343,9 +272,9 @@ func (c *ConfigService) LoadSettings() (string, error) {
 
 // getDefaultSettings 获取默认设置
 func (c *ConfigService) getDefaultSettings() string {
-	defaults := Settings{
+	defaults := types.Settings{
 		Version: "1.0.0",
-		AI: AISettings{
+		AI: types.AISettings{
 			Provider:   "gemini",
 			TextModel:  "gemini-2.5-flash",
 			ImageModel: "gemini-2.5-flash-preview-05-20",
@@ -359,28 +288,28 @@ func (c *ConfigService) getDefaultSettings() string {
 			OpenAITextModel:  "gpt-4o",
 			OpenAIImageModel: "dall-e-3",
 		},
-		Canvas: CanvasSettings{
+		Canvas: types.CanvasSettings{
 			Width:           1080,
 			Height:          1080,
 			Background:      "transparent",
 			BackgroundColor: "#ffffff",
 		},
-		Tools: ToolsSettings{
-			Brush: BrushSettings{
+		Tools: types.ToolsSettings{
+			Brush: types.BrushSettings{
 				Size:    10,
 				Color:   "#ffffff",
 				Opacity: 1.0,
 			},
-			Eraser: EraserSettings{
+			Eraser: types.EraserSettings{
 				Size: 20,
 			},
-			Text: TextSettings{
+			Text: types.TextSettings{
 				FontSize:    32,
 				Color:       "#ffffff",
 				DefaultText: "Double click to edit",
 			},
 		},
-		App: AppSettings{
+		App: types.AppSettings{
 			Language:         "zh-CN",
 			AutoSave:         false,
 			AutoSaveInterval: 60,

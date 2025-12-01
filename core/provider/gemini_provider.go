@@ -1,9 +1,10 @@
-package service
+package provider
 
 import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"indraw/core/types"
 	"strings"
 
 	"cloud.google.com/go/auth"
@@ -30,14 +31,14 @@ var geminiCapabilities = ProviderCapabilities{
 type GeminiProvider struct {
 	ctx      context.Context
 	client   *genai.Client
-	settings AISettings
+	settings types.AISettings
 }
 
 // NewGeminiProvider 创建 Gemini 提供商实例
 // 支持两种后端模式：
 //   - Gemini API：使用 API Key 认证
 //   - Vertex AI：使用 GCP 服务账号认证
-func NewGeminiProvider(ctx context.Context, settings AISettings) (*GeminiProvider, error) {
+func NewGeminiProvider(ctx context.Context, settings types.AISettings) (*GeminiProvider, error) {
 	client, err := createGeminiClient(ctx, settings)
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func NewGeminiProvider(ctx context.Context, settings AISettings) (*GeminiProvide
 }
 
 // createGeminiClient 创建 Gemini 客户端（内部函数）
-func createGeminiClient(ctx context.Context, settings AISettings) (*genai.Client, error) {
+func createGeminiClient(ctx context.Context, settings types.AISettings) (*genai.Client, error) {
 	var client *genai.Client
 	var err error
 	fmt.Printf("Creating Gemini client (UseVertexAI: %s)\n", settings.TextModel)
@@ -127,7 +128,7 @@ func (p *GeminiProvider) Close() error {
 }
 
 // GenerateImage 生成图像
-func (p *GeminiProvider) GenerateImage(ctx context.Context, params GenerateImageParams) (string, error) {
+func (p *GeminiProvider) GenerateImage(ctx context.Context, params types.GenerateImageParams) (string, error) {
 	// 构建内容部分
 	parts := []*genai.Part{{Text: params.Prompt}}
 
@@ -178,7 +179,7 @@ func (p *GeminiProvider) GenerateImage(ctx context.Context, params GenerateImage
 }
 
 // EditImage 编辑图像
-func (p *GeminiProvider) EditImage(ctx context.Context, params EditImageParams) (string, error) {
+func (p *GeminiProvider) EditImage(ctx context.Context, params types.EditImageParams) (string, error) {
 	// 解码图像数据
 	imageData := extractBase64Data(params.ImageData)
 	decodedData, err := base64.StdEncoding.DecodeString(imageData)
