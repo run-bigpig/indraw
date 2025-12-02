@@ -14,7 +14,7 @@
   },
   "welcome": {
     "title": "Welcome to INDRAW EDITOR",
-    "subtitle": "AI-Powered Creative Editor.",
+    "subtitle": "AI-Powered Creative Image Editor.",
     "createNew": "Create New Project",
     "openExisting": "Open Existing Project",
     "version": "v1.0.0 • Powered by syskey"
