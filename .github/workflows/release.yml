@@ -7,12 +7,28 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.os }}
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            runner_os: Windows
+            arch: amd64
+            wails_platform: windows/amd64
+          - os: ubuntu-latest
+            runner_os: Linux
+            arch: amd64
+            wails_platform: linux/amd64
+          - os: macos-latest
+            runner_os: macOS
+            arch: amd64
+            wails_platform: darwin/amd64
+          - os: macos-latest
+            runner_os: macOS
+            arch: arm64
+            wails_platform: darwin/arm64
 
     steps:
       - name: Checkout code
@@ -33,9 +49,9 @@ jobs:
         with:
           path: |
             frontend/node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-npm-${{ hashFiles('frontend/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-
+            ${{ runner.os }}-${{ matrix.arch }}-npm-
 
       - name: Install frontend deps
         run: |
@@ -51,27 +67,20 @@ jobs:
       - name: Build app
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
-
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            wails build -clean -tags production -platform windows/amd64
-          elif [[ "$RUNNER_OS" == "Linux" ]]; then
-            wails build -clean -tags production -platform linux/amd64
-          else
-            wails build -clean -tags production -platform darwin/amd64,darwin/arm64
-          fi
+          wails build -clean -tags production -platform ${{ matrix.wails_platform }}
         shell: bash
 
       - name: Archive build artifacts
         run: |
           ls -R build || echo "No build dir?"
-          zip -r "indraw-${{ runner.os }}.zip" build
+          zip -r "indraw-${{ runner.os }}-${{ matrix.arch }}.zip" build
         shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: indraw-${{ runner.os }}
-          path: indraw-${{ runner.os }}.zip
+          name: indraw-${{ runner.os }}-${{ matrix.arch }}
+          path: indraw-${{ runner.os }}-${{ matrix.arch }}.zip
 
   release:
     name: Publish Release
@@ -79,31 +88,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Windows artifact
+      - name: Download Windows amd64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: indraw-Windows
-          path: artifacts/windows
+          name: indraw-Windows-amd64
+          path: artifacts/windows-amd64
 
-      - name: Download Linux artifact
+      - name: Download Linux amd64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: indraw-Linux
-          path: artifacts/linux
+          name: indraw-Linux-amd64
+          path: artifacts/linux-amd64
 
-      - name: Download macOS artifact
+      - name: Download macOS amd64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: indraw-macos
-          path: artifacts/macos
+          name: indraw-macOS-amd64
+          path: artifacts/macos-amd64
+
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: indraw-macOS-arm64
+          path: artifacts/macos-arm64
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/windows/**
-            artifacts/linux/**
-            artifacts/macos/**
+            artifacts/windows-amd64/**
+            artifacts/linux-amd64/**
+            artifacts/macos-amd64/**
+            artifacts/macos-arm64/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
