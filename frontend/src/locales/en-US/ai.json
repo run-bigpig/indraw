@@ -32,6 +32,11 @@
   "selectImageFirst": "Please select an image layer first",
   "drawMaskFirst": "Please draw a mask with AI Brush first",
   "enterPromptFirst": "Please enter a prompt first",
-  "pleaseWait": "Please wait, this may take a moment..."
+  "pleaseWait": "Please wait, this may take a moment...",
+  "sketchCanvas": "Sketch Canvas",
+  "sketchHint": "Draw your sketch here",
+  "sketchDrawn": "Sketch drawn, will be used for AI generation",
+  "sketchAndReference": "Both sketch and reference image will be used for AI generation",
+  "clearSketch": "Clear Sketch"
 }
 

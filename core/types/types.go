@@ -80,6 +80,7 @@ type AppSettings struct {
 type GenerateImageParams struct {
 	Prompt         string `json:"prompt"`
 	ReferenceImage string `json:"referenceImage,omitempty"` // base64 编码的参考图像
+	SketchImage    string `json:"sketchImage,omitempty"`   // base64 编码的草图图像
 	ImageSize      string `json:"imageSize"`                // "1K", "2K", "4K"
 	AspectRatio    string `json:"aspectRatio"`              // "1:1", "16:9", "9:16", "3:4", "4:3"
 }

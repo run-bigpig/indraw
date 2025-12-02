@@ -132,7 +132,23 @@ func (p *GeminiProvider) GenerateImage(ctx context.Context, params types.Generat
 	// 构建内容部分
 	parts := []*genai.Part{{Text: params.Prompt}}
 
-	// 如果有参考图像，添加到请求中
+	// 如果有草图图像，添加到请求中（优先使用草图）
+	if params.SketchImage != "" {
+		imageData := extractBase64Data(params.SketchImage)
+		decodedData, err := base64.StdEncoding.DecodeString(imageData)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode sketch image: %w", err)
+		}
+
+		parts = append(parts, &genai.Part{
+			InlineData: &genai.Blob{
+				MIMEType: "image/png",
+				Data:     decodedData,
+			},
+		})
+	}
+
+	// 如果有参考图像，也添加到请求中（可以同时使用草图和参考图）
 	if params.ReferenceImage != "" {
 		imageData := extractBase64Data(params.ReferenceImage)
 		decodedData, err := base64.StdEncoding.DecodeString(imageData)

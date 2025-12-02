@@ -65,6 +65,7 @@ export const enhancePrompt = async (originalPrompt: string): Promise<string> => 
  * 文本生成图像
  * @param prompt 生成提示词
  * @param referenceImage 参考图像（可选）
+ * @param sketchImage 草图图像（可选）
  * @param imageSize 图像尺寸等级
  * @param aspectRatio 宽高比
  * @returns 生成的图像（base64 格式）
@@ -72,12 +73,14 @@ export const enhancePrompt = async (originalPrompt: string): Promise<string> => 
 export const generateImageFromText = async (
   prompt: string,
   referenceImage?: string,
+  sketchImage?: string,
   imageSize: '1K' | '2K' | '4K' = '1K',
   aspectRatio: '1:1' | '16:9' | '9:16' | '3:4' | '4:3' = '1:1'
 ): Promise<string> => {
   const params = {
     prompt,
     referenceImage,
+    sketchImage,
     imageSize,
     aspectRatio,
   };

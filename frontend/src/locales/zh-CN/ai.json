@@ -32,6 +32,11 @@
   "selectImageFirst": "请先选择一个图像图层",
   "drawMaskFirst": "请先使用 AI 画笔绘制遮罩",
   "enterPromptFirst": "请先输入提示词",
-  "pleaseWait": "请稍候，这可能需要一些时间..."
+  "pleaseWait": "请稍候，这可能需要一些时间...",
+  "sketchCanvas": "草图绘制",
+  "sketchHint": "在此绘制草图",
+  "sketchDrawn": "已绘制草图，将用于 AI 生成",
+  "sketchAndReference": "草图和参考图将同时用于 AI 生成",
+  "clearSketch": "清除草图"
 }
 

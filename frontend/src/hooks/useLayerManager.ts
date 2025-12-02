@@ -126,7 +126,7 @@ export function useLayerManager(
     if (saveHistory) {
       // 根据修改的属性生成描述
       const description = attrs.visible !== undefined ? 'history.toggleVisibility' :
-                         attrs.locked !== undefined ? 'history.toggleLock' :
+                         (attrs as any).locked !== undefined ? 'history.toggleLock' :
                          attrs.name !== undefined ? 'history.rename' :
                          attrs.x !== undefined || attrs.y !== undefined ? 'history.move' :
                          attrs.width !== undefined || attrs.height !== undefined ? 'history.resize' :

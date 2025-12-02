@@ -9,6 +9,7 @@ import PropertiesPanel from './src/components/PropertiesPanel';
 import LanguageSwitcher from './src/components/LanguageSwitcher';
 import SettingsPanel from './src/components/SettingsPanel';
 import HistoryPanel from './src/components/HistoryPanel';
+import SketchCanvas from './src/components/SketchCanvas';
 import { LayerData, ToolType, CanvasConfig} from '@/types';
 import { generateImageFromText, editImageWithAI, removeBackgroundWithAI, blendImagesWithAI, enhancePrompt } from '@/services/ai';
 import {
@@ -149,6 +150,7 @@ export default function App() {
   const [aiGenImageSize, setAiGenImageSize] = useState<'1K' | '2K' | '4K'>('1K');
   const [aiGenAspectRatio, setAiGenAspectRatio] = useState<'1:1' | '16:9' | '9:16' | '3:4' | '4:3'>('1:1');
   const [aiGenReferenceImage, setAiGenReferenceImage] = useState<string | null>(null);
+  const [aiGenSketchImage, setAiGenSketchImage] = useState<string | null>(null);
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const aiGenFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -670,15 +672,16 @@ export default function App() {
     }
   };
 
-  const handleAIGenerate = async (prompt: string, referenceImage: string | null, imageSize: '1K' | '2K' | '4K', aspectRatio: '1:1' | '16:9' | '9:16' | '3:4' | '4:3') => {
+  const handleAIGenerate = async (prompt: string, referenceImage: string | null, sketchImage: string | null, imageSize: '1K' | '2K' | '4K', aspectRatio: '1:1' | '16:9' | '9:16' | '3:4' | '4:3') => {
     // 显示全屏 Loading，禁止用户操作
     setProcessingState('generating');
 
     try {
-      // 异步生成图片
+      // 异步生成图片（支持同时使用草图和参考图）
       const base64Image = await generateImageFromText(
         prompt,
         referenceImage || undefined,
+        sketchImage || undefined,
         imageSize,
         aspectRatio
       );
@@ -1857,6 +1860,25 @@ Keep high quality and clarity.`;
                 </div>
               </div>
 
+              {/* Sketch Canvas */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">{t('ai:sketchCanvas')}</label>
+                <div className="w-full">
+                  <SketchCanvas
+                    width={400}
+                    height={225}
+                    onChange={(imageData) => setAiGenSketchImage(imageData)}
+                    initialImage={aiGenSketchImage}
+                  />
+                </div>
+                {/* 预留固定高度的提示文字区域，避免布局抖动 */}
+                <div className="h-5 flex items-center">
+                  {aiGenSketchImage && (
+                    <p className="text-[10px] text-cyan-400">{t('ai:sketchDrawn')}</p>
+                  )}
+                </div>
+              </div>
+
               {/* Reference Image */}
               <div className="space-y-1.5">
                 <label className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">{t('ai:referenceImage')}</label>
@@ -1898,6 +1920,12 @@ Keep high quality and clarity.`;
                     </div>
                   </div>
                 )}
+                {/* 预留固定高度的提示文字区域，避免布局抖动 */}
+                <div className="h-5 flex items-center">
+                  {aiGenReferenceImage && aiGenSketchImage && (
+                    <p className="text-[10px] text-purple-400">{t('ai:sketchAndReference')}</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1906,7 +1934,7 @@ Keep high quality and clarity.`;
               <button
                 onClick={() => {
                   if (!aiGenPrompt.trim()) return;
-                  handleAIGenerate(aiGenPrompt, aiGenReferenceImage, aiGenImageSize, aiGenAspectRatio);
+                  handleAIGenerate(aiGenPrompt, aiGenReferenceImage, aiGenSketchImage, aiGenImageSize, aiGenAspectRatio);
                 }}
                 disabled={processingState !== 'idle' || !aiGenPrompt}
                 className={clsx(
