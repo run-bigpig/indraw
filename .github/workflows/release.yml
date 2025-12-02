@@ -55,6 +55,13 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             libx11-dev
+          # Wails 仍然通过 pkg-config 查找 webkit2gtk-4.0
+          # 在只提供 webkit2gtk-4.1.pc 的系统上，手动建一个 4.0 的别名
+          PKGCFG_DIR="/usr/lib/x86_64-linux-gnu/pkgconfig"
+          if [ -d "$PKGCFG_DIR" ] && [ -f "$PKGCFG_DIR/webkit2gtk-4.1.pc" ] && [ ! -f "$PKGCFG_DIR/webkit2gtk-4.0.pc" ]; then
+            echo "Creating pkg-config alias webkit2gtk-4.0.pc -> webkit2gtk-4.1.pc"
+            sudo ln -s "$PKGCFG_DIR/webkit2gtk-4.1.pc" "$PKGCFG_DIR/webkit2gtk-4.0.pc"
+          fi
 
       - name: Cache npm
         uses: actions/cache@v4
