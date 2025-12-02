@@ -41,9 +41,17 @@
     "openaiTextModel": "文本模型",
     "openaiTextModelHint": "如 gpt-4o, gpt-3.5-turbo",
     "openaiImageModel": "图像模型",
-    "openaiImageModelHint": "如 dall-e-3, dall-e-2",
+    "openaiImageModelHint": "如 dall-e-3, dall-e-2, gpt-4o",
+    "openaiImageMode": "图像接口模式",
+    "openaiImageModeHint": "选择图像生成和编辑使用的 API 接口类型",
+    "openaiImageModeAuto": "自动判断",
+    "openaiImageModeAutoHint": "根据模型名自动选择（dall-e/gpt-image 用专用 API，其他用 Chat API）",
+    "openaiImageModeImageApi": "专用 Image API",
+    "openaiImageModeImageApiHint": "使用 /v1/images/* 端点（适用于 DALL-E、GPT Image 1）",
+    "openaiImageModeChat": "Chat Completion API",
+    "openaiImageModeChatHint": "使用 /v1/chat/completions 端点（适用于第三方多模态 API）",
     "openaiCompatNote": "ℹ️ OpenAI 兼容服务说明",
-    "openaiCompatDesc": "需要兼容 /images/edits 端点的服务才能使用图像编辑、融合、背景移除等功能。"
+    "openaiCompatDesc": "专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。"
   },
   "canvas": {
     "width": "默认宽度",

@@ -626,7 +626,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
           <InputGroup
             label={t('settings.ai.openaiImageModel', '图像模型')}
-            hint={t('settings.ai.openaiImageModelHint', '如 dall-e-3, dall-e-2')}
+            hint={t('settings.ai.openaiImageModelHint', '如 dall-e-3, dall-e-2, gpt-4o')}
           >
             <TextInput
               value={settings.ai.openaiImageModel}
@@ -635,10 +635,42 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             />
           </InputGroup>
 
+          {/* OpenAI 图像接口模式 */}
+          <InputGroup
+            label={t('settings.ai.openaiImageMode', '图像接口模式')}
+            hint={t('settings.ai.openaiImageModeHint', '选择图像生成和编辑使用的 API 接口类型')}
+          >
+            <SelectInput
+              value={settings.ai.openaiImageMode || 'auto'}
+              onChange={(val) => handleUpdateCategory('ai', { openaiImageMode: val as 'auto' | 'image_api' | 'chat' })}
+              options={[
+                { value: 'auto', label: t('settings.ai.openaiImageModeAuto', '自动判断') },
+                { value: 'image_api', label: t('settings.ai.openaiImageModeImageApi', '专用 Image API') },
+                { value: 'chat', label: t('settings.ai.openaiImageModeChat', 'Chat Completion API') },
+              ]}
+            />
+          </InputGroup>
+
+          {/* 模式说明 */}
+          <div className="p-3 bg-tech-800/50 border border-tech-700 rounded text-xs space-y-2">
+            <p className="text-gray-400">
+              <span className="text-cyan-400 font-medium">{t('settings.ai.openaiImageModeAuto', '自动判断')}：</span>
+              {t('settings.ai.openaiImageModeAutoHint', '根据模型名自动选择')}
+            </p>
+            <p className="text-gray-400">
+              <span className="text-cyan-400 font-medium">{t('settings.ai.openaiImageModeImageApi', '专用 Image API')}：</span>
+              {t('settings.ai.openaiImageModeImageApiHint', '使用 /v1/images/* 端点')}
+            </p>
+            <p className="text-gray-400">
+              <span className="text-cyan-400 font-medium">{t('settings.ai.openaiImageModeChat', 'Chat Completion API')}：</span>
+              {t('settings.ai.openaiImageModeChatHint', '使用 /v1/chat/completions 端点')}
+            </p>
+          </div>
+
           {/* OpenAI 兼容服务说明 */}
           <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-400">
             <p className="font-medium mb-1">{t('settings.ai.openaiCompatNote', 'ℹ️ OpenAI 兼容服务说明')}</p>
-            <p className="text-blue-500">{t('settings.ai.openaiCompatDesc', '需要兼容 /images/edits 端点的服务 才能使用图像编辑、融合、背景移除等功能。')}</p>
+            <p className="text-blue-500">{t('settings.ai.openaiCompatDesc', '专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。')}</p>
           </div>
         </>
       )}

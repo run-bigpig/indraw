@@ -31,7 +31,20 @@ type AISettings struct {
 	OpenAIImageBaseURL string `json:"openaiImageBaseUrl"`
 	OpenAITextModel    string `json:"openaiTextModel"`
 	OpenAIImageModel   string `json:"openaiImageModel"`
+
+	// OpenAI 图像模式配置
+	// "image_api" - 使用专用的 Image API（/v1/images/*），适用于 DALL-E 和 GPT Image 1
+	// "chat"      - 使用 Chat Completion API，适用于第三方多模态 API（类似 Gemini）
+	// "auto"      - 根据模型名称自动判断（默认）
+	OpenAIImageMode string `json:"openaiImageMode"`
 }
+
+// OpenAI 图像模式常量
+const (
+	OpenAIImageModeAuto     = "auto"      // 自动判断（默认）
+	OpenAIImageModeImageAPI = "image_api" // 使用专用 Image API
+	OpenAIImageModeChat     = "chat"      // 使用 Chat Completion API
+)
 
 // CanvasSettings 画布默认设置
 type CanvasSettings struct {

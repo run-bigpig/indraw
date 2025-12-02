@@ -10,6 +10,14 @@ export type ShapeType = 'polygon' | 'star' | 'rounded-rect' | 'ellipse' | 'arrow
 export type AIProvider = 'gemini' | 'openai';
 
 /**
+ * OpenAI 图像模式类型
+ * - auto: 自动判断（根据模型名称）
+ * - image_api: 使用专用 Image API（/v1/images/*），适用于 DALL-E 等
+ * - chat: 使用 Chat Completion API，适用于第三方多模态 API
+ */
+export type OpenAIImageMode = 'auto' | 'image_api' | 'chat';
+
+/**
  * AI 服务配置
  */
 export interface AIServiceSettings {
@@ -34,6 +42,12 @@ export interface AIServiceSettings {
   openaiImageBaseUrl?: string;  // 图像 API 独立 Base URL（可选）
   openaiTextModel: string;
   openaiImageModel: string;
+
+  // OpenAI 图像模式配置
+  // "auto"      - 自动判断（默认，根据模型名判断）
+  // "image_api" - 使用专用 Image API（/v1/images/*），适用于 DALL-E 和 GPT Image 1
+  // "chat"      - 使用 Chat Completion API，适用于第三方多模态 API（类似 Gemini）
+  openaiImageMode?: OpenAIImageMode;
 }
 
 /**

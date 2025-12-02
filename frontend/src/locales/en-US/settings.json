@@ -41,9 +41,17 @@
     "openaiTextModel": "Text Model",
     "openaiTextModelHint": "e.g. gpt-4o, gpt-3.5-turbo",
     "openaiImageModel": "Image Model",
-    "openaiImageModelHint": "e.g. dall-e-3, dall-e-2",
+    "openaiImageModelHint": "e.g. dall-e-3, dall-e-2, gpt-4o",
+    "openaiImageMode": "Image API Mode",
+    "openaiImageModeHint": "Select API endpoint type for image generation and editing",
+    "openaiImageModeAuto": "Auto Detect",
+    "openaiImageModeAutoHint": "Auto select based on model name (dall-e/gpt-image uses Image API, others use Chat API)",
+    "openaiImageModeImageApi": "Dedicated Image API",
+    "openaiImageModeImageApiHint": "Use /v1/images/* endpoints (for DALL-E, GPT Image 1)",
+    "openaiImageModeChat": "Chat Completion API",
+    "openaiImageModeChatHint": "Use /v1/chat/completions endpoint (for third-party multimodal APIs)",
     "openaiCompatNote": "ℹ️ OpenAI Compatible Service Note",
-    "openaiCompatDesc": "Requires /images/edits endpoint compatible services for image editing, blending, and background removal features."
+    "openaiCompatDesc": "Dedicated Image API mode requires /v1/images/* compatible endpoints; Chat mode supports full features like image editing and blending."
   },
   "canvas": {
     "width": "Default Width",

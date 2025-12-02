@@ -40,6 +40,12 @@ export const DEFAULT_AI_SETTINGS: AIServiceSettings = {
   openaiImageBaseUrl: '',  // 图像 API 独立 Base URL（可选）
   openaiTextModel: 'gpt-4o',
   openaiImageModel: 'dall-e-3',
+
+  // OpenAI 图像模式
+  // "auto"      - 自动判断（默认，根据模型名判断：dall-e/gpt-image 用 Image API，其他用 Chat）
+  // "image_api" - 使用专用 Image API（/v1/images/*）
+  // "chat"      - 使用 Chat Completion API（适用于第三方多模态 API）
+  openaiImageMode: 'auto',
 };
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasDefaultSettings = {
@@ -131,6 +137,13 @@ function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSett
     openaiImageModel: typeof settings.openaiImageModel === 'string' && settings.openaiImageModel
       ? settings.openaiImageModel
       : DEFAULT_AI_SETTINGS.openaiImageModel,
+
+    // OpenAI 图像模式
+    openaiImageMode: settings.openaiImageMode === 'auto' || 
+                     settings.openaiImageMode === 'image_api' || 
+                     settings.openaiImageMode === 'chat'
+      ? settings.openaiImageMode
+      : DEFAULT_AI_SETTINGS.openaiImageMode,
   };
 }
 
