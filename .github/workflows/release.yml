@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install frontend deps
+        run: |
+          cd frontend
+          npm install
+
+      - name: Install Wails
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+        shell: bash
+
+      - name: Build app
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            wails build -clean -tags production -platform windows/amd64
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            wails build -clean -tags production -platform linux/amd64
+          else
+            wails build -clean -tags production -platform darwin/amd64,darwin/arm64
+          fi
+        shell: bash
+
+      - name: Archive build artifacts
+        run: |
+          ls -R build || echo "No build dir?"
+          zip -r "indraw-${{ runner.os }}.zip" build
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: indraw-${{ runner.os }}
+          path: indraw-${{ runner.os }}.zip
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: indraw-Windows
+          path: artifacts/windows
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: indraw-Linux
+          path: artifacts/linux
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: indraw-macos
+          path: artifacts/macos
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/windows/**
+            artifacts/linux/**
+            artifacts/macos/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
