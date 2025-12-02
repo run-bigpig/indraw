@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LayerData, ToolType } from '@/types';
+import { LayerData, ToolType, ShapeType } from '@/types';
 import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder, FolderOpen, ImageIcon, Maximize } from 'lucide-react';
 import clsx from 'clsx';
 import { ProcessingState } from '../../App.tsx';
@@ -10,6 +10,8 @@ interface PropertiesPanelProps {
   layers: LayerData[];
   selectedIds: string[];
   activeTool: ToolType;
+  shapeType?: ShapeType;
+  onSetShapeType?: (type: ShapeType) => void;
   brushMode: 'normal' | 'ai';
   processingState: ProcessingState;
   brushConfig: { size: number, color: string, opacity: number };
@@ -228,6 +230,8 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   layers,
   selectedIds,
   activeTool,
+  shapeType = 'polygon',
+  onSetShapeType,
   brushMode,
   processingState,
   brushConfig,
@@ -323,6 +327,28 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       {/* Content Scroll Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
 
+        {/* Shape Tool Type Selector */}
+        {activeTool === 'shape' && onSetShapeType && (
+          <div className="p-4 border-b border-tech-700">
+            <InputGroup label={t('properties:shapeType')}>
+              <select
+                value={shapeType}
+                onChange={(e) => onSetShapeType(e.target.value as ShapeType)}
+                className="w-full bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="polygon">{t('toolbar:polygon')}</option>
+                <option value="star">{t('toolbar:star')}</option>
+                <option value="rounded-rect">{t('toolbar:roundedRect')}</option>
+                <option value="ellipse">{t('toolbar:ellipse')}</option>
+                <option value="arrow">{t('toolbar:arrow')}</option>
+                <option value="wedge">{t('toolbar:wedge')}</option>
+                <option value="ring">{t('toolbar:ring')}</option>
+                <option value="arc">{t('toolbar:arc')}</option>
+              </select>
+            </InputGroup>
+          </div>
+        )}
+
         {/* Properties Section */}
         <div className="p-4 border-b border-tech-700">
             <div className="flex items-center justify-between mb-4">
@@ -417,7 +443,8 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                 <Sliders size={14} /> {t('properties:appearance')}
                             </h3>
 
-                            {activeLayer.type !== 'line' && (
+                            {/* 混合模式：只对image类型显示，因为形状的混合模式在Konva中不生效 */}
+                            {activeLayer.type === 'image' && (
                                 <InputGroup label={t('properties:blendMode')}>
                                     <select
                                         value={activeLayer.blendMode || 'source-over'}
@@ -572,7 +599,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                             )}
                     </div>
 
-                    {(activeLayer.type === 'rect' || activeLayer.type === 'circle' || activeLayer.type === 'text') && (
+                    {(activeLayer.type === 'rect' || activeLayer.type === 'circle' || activeLayer.type === 'text' || activeLayer.type === 'polygon' || activeLayer.type === 'star' || activeLayer.type === 'rounded-rect' || activeLayer.type === 'ellipse' || activeLayer.type === 'arrow' || activeLayer.type === 'wedge' || activeLayer.type === 'ring' || activeLayer.type === 'arc') && (
                          <div className="pt-3 border-t border-tech-700 space-y-3">
                              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 mb-2">
                                 <Palette size={14} /> {t('properties:style')}
@@ -582,21 +609,239 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                     <div className="relative w-8 h-8 rounded border border-tech-600 overflow-hidden">
                                         <input
                                             type="color"
-                                            value={activeLayer.fill || '#ffffff'}
-                                            onChange={(e) => onUpdateLayer(activeLayer.id, { fill: e.target.value }, false)}
-                                            onBlur={(e) => onUpdateLayer(activeLayer.id, { fill: e.target.value }, true)}
+                                            value={(() => {
+                                                const fill = activeLayer.fill || '#06B6D4';
+                                                // 如果是rgba格式，提取rgb部分
+                                                if (fill.startsWith('rgba')) {
+                                                    const match = fill.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                                                    if (match) {
+                                                        return `#${parseInt(match[1]).toString(16).padStart(2, '0')}${parseInt(match[2]).toString(16).padStart(2, '0')}${parseInt(match[3]).toString(16).padStart(2, '0')}`;
+                                                    }
+                                                }
+                                                // 如果是hex格式，直接返回
+                                                return fill.startsWith('#') ? fill : '#06B6D4';
+                                            })()}
+                                            onChange={(e) => {
+                                                const rgb = e.target.value;
+                                                const currentFill = activeLayer.fill || '#06B6D4';
+                                                // 如果当前是rgba，保留alpha值
+                                                let alpha = 1;
+                                                if (currentFill.startsWith('rgba')) {
+                                                    const match = currentFill.match(/rgba?\([^)]+,\s*([\d.]+)\)/);
+                                                    if (match) alpha = parseFloat(match[1]);
+                                                }
+                                                const newFill = alpha < 1 ? `rgba(${parseInt(rgb.slice(1, 3), 16)}, ${parseInt(rgb.slice(3, 5), 16)}, ${parseInt(rgb.slice(5, 7), 16)}, ${alpha})` : rgb;
+                                                onUpdateLayer(activeLayer.id, { fill: newFill }, false);
+                                            }}
+                                            onBlur={(e) => {
+                                                const rgb = e.target.value;
+                                                const currentFill = activeLayer.fill || '#06B6D4';
+                                                let alpha = 1;
+                                                if (currentFill.startsWith('rgba')) {
+                                                    const match = currentFill.match(/rgba?\([^)]+,\s*([\d.]+)\)/);
+                                                    if (match) alpha = parseFloat(match[1]);
+                                                }
+                                                const newFill = alpha < 1 ? `rgba(${parseInt(rgb.slice(1, 3), 16)}, ${parseInt(rgb.slice(3, 5), 16)}, ${parseInt(rgb.slice(5, 7), 16)}, ${alpha})` : rgb;
+                                                onUpdateLayer(activeLayer.id, { fill: newFill }, true);
+                                            }}
                                             className="absolute inset-0 w-[150%] h-[150%] -top-[25%] -left-[25%] p-0 m-0 border-0 cursor-pointer"
                                         />
                                     </div>
                                     <input
                                         type="text"
-                                        value={activeLayer.fill}
+                                        value={activeLayer.fill || '#06B6D4'}
                                         onChange={(e) => onUpdateLayer(activeLayer.id, { fill: e.target.value }, false)}
                                         onBlur={(e) => onUpdateLayer(activeLayer.id, { fill: e.target.value }, true)}
+                                        className="flex-1 bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 font-mono"
+                                        placeholder="#RRGGBB or rgba(r,g,b,a)"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] text-gray-500">{t('properties:fillOpacity')}</span>
+                                    <Slider
+                                        value={(() => {
+                                            const fill = activeLayer.fill || '#06B6D4';
+                                            if (fill.startsWith('rgba')) {
+                                                const match = fill.match(/rgba?\([^)]+,\s*([\d.]+)\)/);
+                                                if (match) return parseFloat(match[1]) * 100;
+                                            }
+                                            return 100;
+                                        })()}
+                                        min={0}
+                                        max={100}
+                                        onChange={(v) => {
+                                            const currentFill = activeLayer.fill || '#06B6D4';
+                                            let r = 6, g = 182, b = 212;
+                                            if (currentFill.startsWith('rgba')) {
+                                                const match = currentFill.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                                                if (match) {
+                                                    r = parseInt(match[1]);
+                                                    g = parseInt(match[2]);
+                                                    b = parseInt(match[3]);
+                                                }
+                                            } else if (currentFill.startsWith('#')) {
+                                                r = parseInt(currentFill.slice(1, 3), 16);
+                                                g = parseInt(currentFill.slice(3, 5), 16);
+                                                b = parseInt(currentFill.slice(5, 7), 16);
+                                            }
+                                            const alpha = v / 100;
+                                            const newFill = alpha < 1 ? `rgba(${r}, ${g}, ${b}, ${alpha})` : `rgb(${r}, ${g}, ${b})`;
+                                            onUpdateLayer(activeLayer.id, { fill: newFill }, false);
+                                        }}
+                                        onCommit={(v) => {
+                                            const currentFill = activeLayer.fill || '#06B6D4';
+                                            let r = 6, g = 182, b = 212;
+                                            if (currentFill.startsWith('rgba')) {
+                                                const match = currentFill.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                                                if (match) {
+                                                    r = parseInt(match[1]);
+                                                    g = parseInt(match[2]);
+                                                    b = parseInt(match[3]);
+                                                }
+                                            } else if (currentFill.startsWith('#')) {
+                                                r = parseInt(currentFill.slice(1, 3), 16);
+                                                g = parseInt(currentFill.slice(3, 5), 16);
+                                                b = parseInt(currentFill.slice(5, 7), 16);
+                                            }
+                                            const alpha = v / 100;
+                                            const newFill = alpha < 1 ? `rgba(${r}, ${g}, ${b}, ${alpha})` : `rgb(${r}, ${g}, ${b})`;
+                                            onUpdateLayer(activeLayer.id, { fill: newFill }, true);
+                                        }}
+                                        label="%"
+                                    />
+                                </div>
+                            </InputGroup>
+
+                            {/* Stroke */}
+                            <InputGroup label={t('properties:strokeColor')}>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative w-8 h-8 rounded border border-tech-600 overflow-hidden">
+                                        <input
+                                            type="color"
+                                            value={activeLayer.stroke ?? '#000000'}
+                                            onChange={(e) => onUpdateLayer(activeLayer.id, { stroke: e.target.value }, false)}
+                                            onBlur={(e) => onUpdateLayer(activeLayer.id, { stroke: e.target.value }, true)}
+                                            className="absolute inset-0 w-[150%] h-[150%] -top-[25%] -left-[25%] p-0 m-0 border-0 cursor-pointer"
+                                        />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={activeLayer.stroke ?? '#000000'}
+                                        onChange={(e) => onUpdateLayer(activeLayer.id, { stroke: e.target.value }, false)}
+                                        onBlur={(e) => onUpdateLayer(activeLayer.id, { stroke: e.target.value }, true)}
                                         className="flex-1 bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 font-mono"
                                     />
                                 </div>
                             </InputGroup>
+
+                            <InputGroup label={t('properties:strokeWidth')}>
+                                <NumberInput
+                                    value={activeLayer.strokeWidth ?? 10}
+                                    onChange={(v) => onUpdateLayer(activeLayer.id, { strokeWidth: v }, false)}
+                                    onCommit={(v) => onUpdateLayer(activeLayer.id, { strokeWidth: v }, true)}
+                                    label="PX"
+                                />
+                            </InputGroup>
+
+                            {/* Dash Pattern */}
+                            <InputGroup label={t('properties:dashPattern')}>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => onUpdateLayer(activeLayer.id, { dash: undefined }, true)}
+                                        className={clsx(
+                                            "flex-1 py-1.5 text-xs rounded border transition-colors",
+                                            !activeLayer.dash
+                                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-300"
+                                                : "bg-tech-800 border-tech-700 text-gray-400 hover:border-tech-600"
+                                        )}
+                                    >
+                                        {t('properties:solid')}
+                                    </button>
+                                    <button
+                                        onClick={() => onUpdateLayer(activeLayer.id, { dash: [5, 5] }, true)}
+                                        className={clsx(
+                                            "flex-1 py-1.5 text-xs rounded border transition-colors",
+                                            activeLayer.dash?.length === 2 && activeLayer.dash[0] === 5
+                                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-300"
+                                                : "bg-tech-800 border-tech-700 text-gray-400 hover:border-tech-600"
+                                        )}
+                                    >
+                                        {t('properties:dashed')}
+                                    </button>
+                                    <button
+                                        onClick={() => onUpdateLayer(activeLayer.id, { dash: [2, 2] }, true)}
+                                        className={clsx(
+                                            "flex-1 py-1.5 text-xs rounded border transition-colors",
+                                            activeLayer.dash?.length === 2 && activeLayer.dash[0] === 2
+                                                ? "bg-cyan-500/20 border-cyan-500 text-cyan-300"
+                                                : "bg-tech-800 border-tech-700 text-gray-400 hover:border-tech-600"
+                                        )}
+                                    >
+                                        {t('properties:dotted')}
+                                    </button>
+                                </div>
+                            </InputGroup>
+
+                            {/* Shadow */}
+                            <div className="pt-2 border-t border-tech-700 space-y-3">
+                                <h4 className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">{t('properties:shadow')}</h4>
+                                <InputGroup label={t('properties:shadowColor')}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative w-8 h-8 rounded border border-tech-600 overflow-hidden">
+                                            <input
+                                                type="color"
+                                                value={activeLayer.shadowColor || '#000000'}
+                                                onChange={(e) => onUpdateLayer(activeLayer.id, { shadowColor: e.target.value }, false)}
+                                                onBlur={(e) => onUpdateLayer(activeLayer.id, { shadowColor: e.target.value }, true)}
+                                                className="absolute inset-0 w-[150%] h-[150%] -top-[25%] -left-[25%] p-0 m-0 border-0 cursor-pointer"
+                                            />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={activeLayer.shadowColor || '#000000'}
+                                            onChange={(e) => onUpdateLayer(activeLayer.id, { shadowColor: e.target.value }, false)}
+                                            onBlur={(e) => onUpdateLayer(activeLayer.id, { shadowColor: e.target.value }, true)}
+                                            className="flex-1 bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 font-mono"
+                                        />
+                                    </div>
+                                </InputGroup>
+                                <InputGroup label={t('properties:shadowBlur')}>
+                                    <Slider
+                                        value={activeLayer.shadowBlur || 0}
+                                        min={0}
+                                        max={50}
+                                        onChange={(v) => onUpdateLayer(activeLayer.id, { shadowBlur: v }, false)}
+                                        onCommit={(v) => onUpdateLayer(activeLayer.id, { shadowBlur: v }, true)}
+                                        label="PX"
+                                    />
+                                </InputGroup>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <InputGroup label={t('properties:shadowOffsetX')}>
+                                        <NumberInput
+                                            value={activeLayer.shadowOffsetX || 0}
+                                            onChange={(v) => onUpdateLayer(activeLayer.id, { shadowOffsetX: v }, false)}
+                                            onCommit={(v) => onUpdateLayer(activeLayer.id, { shadowOffsetX: v }, true)}
+                                        />
+                                    </InputGroup>
+                                    <InputGroup label={t('properties:shadowOffsetY')}>
+                                        <NumberInput
+                                            value={activeLayer.shadowOffsetY || 0}
+                                            onChange={(v) => onUpdateLayer(activeLayer.id, { shadowOffsetY: v }, false)}
+                                            onCommit={(v) => onUpdateLayer(activeLayer.id, { shadowOffsetY: v }, true)}
+                                        />
+                                    </InputGroup>
+                                </div>
+                                <InputGroup label={t('properties:shadowOpacity')}>
+                                    <Slider
+                                        value={(activeLayer.shadowOpacity ?? 1) * 100}
+                                        min={0}
+                                        max={100}
+                                        onChange={(v) => onUpdateLayer(activeLayer.id, { shadowOpacity: v / 100 }, false)}
+                                        onCommit={(v) => onUpdateLayer(activeLayer.id, { shadowOpacity: v / 100 }, true)}
+                                        label="%"
+                                    />
+                                </InputGroup>
+                            </div>
                          </div>
                     )}
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ToolType } from '../types';
-import { MousePointer2, Type, Wand2, Brush, Upload, Eraser } from 'lucide-react';
+import { MousePointer2, Type, Wand2, Brush, Upload, Eraser, Shapes } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ToolbarProps {
@@ -127,6 +127,28 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTool, setActiveTool, onUploadCl
         <Type size={20} />
         <span className="absolute left-full ml-4 px-2 py-1 bg-tech-800 text-xs text-cyan-100 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-tech-700 whitespace-nowrap z-50">
           {!isProjectCreated ? t('disabledTooltip') : t('textTool')}
+        </span>
+      </button>
+
+      <div className="w-8 h-px bg-tech-700 my-1"></div>
+
+      {/* Shape Tool */}
+      <button
+        onClick={() => handleToolChange('shape')}
+        disabled={!isProjectCreated}
+        className={clsx(
+          "p-3 rounded-xl border border-transparent transition-all duration-200 group relative focus:outline-none",
+          !isProjectCreated
+            ? "text-gray-700 opacity-40 cursor-not-allowed"
+            : activeTool === 'shape'
+              ? "bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)] border border-cyan-500/30"
+              : "text-gray-500 hover:text-gray-300 hover:bg-tech-800"
+        )}
+        title={!isProjectCreated ? t('disabledTooltip') : t('shapeTooltip')}
+      >
+        <Shapes size={20} />
+        <span className="absolute left-full ml-4 px-2 py-1 bg-tech-800 text-xs text-cyan-100 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-tech-700 whitespace-nowrap z-50">
+          {!isProjectCreated ? t('disabledTooltip') : t('shape')}
         </span>
       </button>
 

@@ -1,5 +1,6 @@
 
-export type ToolType = 'select' | 'text' | 'ai-gen' | 'brush' | 'eraser';
+export type ToolType = 'select' | 'text' | 'ai-gen' | 'brush' | 'eraser' | 'shape';
+export type ShapeType = 'polygon' | 'star' | 'rounded-rect' | 'ellipse' | 'arrow' | 'wedge' | 'ring' | 'arc';
 
 // ==================== Settings Types ====================
 
@@ -109,13 +110,13 @@ export interface HistoryEntry {
 
 export interface LayerData {
   id: string;
-  type: 'image' | 'rect' | 'circle' | 'text' | 'line' | 'group';
+  type: 'image' | 'rect' | 'circle' | 'text' | 'line' | 'group' | 'polygon' | 'star' | 'rounded-rect' | 'ellipse' | 'arrow' | 'wedge' | 'ring' | 'arc';
   name: string;
   x: number;
   y: number;
   width?: number;
   height?: number;
-  points?: number[]; // For lines
+  points?: number[]; // For lines and polygons
   rotation: number;
   scaleX: number;
   scaleY: number;
@@ -144,6 +145,36 @@ export interface LayerData {
   // Eraser mask: store parent layer dimensions at creation time for proper scaling
   originalParentWidth?: number;
   originalParentHeight?: number;
+  // New shape properties
+  cornerRadius?: number; // For rounded-rect
+  numPoints?: number; // For polygon and star
+  innerRadius?: number; // For star and ring
+  outerRadius?: number; // For star and ring
+  radiusX?: number; // For ellipse
+  radiusY?: number; // For ellipse
+  angle?: number; // For arc and wedge
+  pointerLength?: number; // For arrow
+  pointerWidth?: number; // For arrow
+  clockwise?: boolean; // For arc
+  // Gradient fill
+  fillGradient?: {
+    type: 'linear' | 'radial';
+    startX?: number;
+    startY?: number;
+    endX?: number;
+    endY?: number;
+    colorStops: Array<{ offset: number; color: string }>;
+  };
+  // Shadow
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowOpacity?: number;
+  // Stroke dash
+  dash?: number[];
+  lineCap?: 'butt' | 'round' | 'square';
+  lineJoin?: 'miter' | 'round' | 'bevel';
 }
 
 

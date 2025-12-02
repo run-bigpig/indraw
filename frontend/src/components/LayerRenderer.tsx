@@ -4,6 +4,7 @@ import useImage from 'use-image';
 import Konva from 'konva';
 import type { Filter } from 'konva/lib/Node';
 import { LayerData, ToolType } from '../types';
+import { renderPolygon, renderStar, renderRoundedRect, renderEllipse, renderArrow, renderWedge, renderRing, renderArc } from '../utils/shapeRenderer';
 
 /**
  * Scale eraser mask points and strokeWidth based on parent layer's current vs original dimensions.
@@ -541,6 +542,118 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
           isGroupChild={isGroupChild}
         />
       );
+    }
+
+    // 多边形渲染
+    if (layer.type === 'polygon') {
+      return renderPolygon({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 星形渲染
+    if (layer.type === 'star') {
+      return renderStar({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 圆角矩形渲染
+    if (layer.type === 'rounded-rect') {
+      return renderRoundedRect({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 椭圆渲染
+    if (layer.type === 'ellipse') {
+      return renderEllipse({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 箭头渲染
+    if (layer.type === 'arrow') {
+      return renderArrow({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 扇形渲染
+    if (layer.type === 'wedge') {
+      return renderWedge({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 环形渲染
+    if (layer.type === 'ring') {
+      return renderRing({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
+    }
+
+    // 弧形渲染
+    if (layer.type === 'arc') {
+      return renderArc({
+        layer: { ...layer, opacity },
+        isDraggable,
+        activeTool,
+        isGroupChild,
+        opacity,
+        onSelect: (multi) => onSelectLayer(layer.id, multi),
+        onUpdate: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+        onTransformEnd: (newAttrs) => onUpdateLayer(layer.id, newAttrs),
+      });
     }
 
     return null;

@@ -10,7 +10,7 @@ import LanguageSwitcher from './src/components/LanguageSwitcher';
 import SettingsPanel from './src/components/SettingsPanel';
 import HistoryPanel from './src/components/HistoryPanel';
 import SketchCanvas from './src/components/SketchCanvas';
-import { LayerData, ToolType, CanvasConfig} from '@/types';
+import { LayerData, ToolType, CanvasConfig, ShapeType} from '@/types';
 import { generateImageFromText, editImageWithAI, removeBackgroundWithAI, blendImagesWithAI, enhancePrompt } from '@/services/ai';
 import {
   Download,
@@ -79,6 +79,7 @@ export default function App() {
 
   // UI State
   const [activeTool, setActiveTool] = useState<ToolType>('select');
+  const [shapeType, setShapeType] = useState<ShapeType>('polygon');
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [drawingLines, setDrawingLines] = useState<any[]>([]);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -427,6 +428,10 @@ export default function App() {
     if (activeTool !== 'brush' && activeTool !== 'eraser' && activeTool !== 'ai-gen') {
       setActiveTool('select');
     }
+  };
+
+  const handleAddShape = (shape: LayerData) => {
+    addLayer(shape);
   };
 
   const handleSelectLayer = (id: string | null, multi: boolean = false) => {
@@ -1512,6 +1517,7 @@ Keep high quality and clarity.`;
                 layers={layers}
                 selectedIds={selectedIds}
                 activeTool={activeTool}
+                shapeType={shapeType}
                 brushMode={brushMode}
                 drawingLines={drawingLines}
                 brushConfig={brushConfig}
@@ -1522,6 +1528,7 @@ Keep high quality and clarity.`;
                 onUpdateLayer={layerManager.updateLayer}
                 onLineDrawn={handleLineDrawn}
                 onAddText={handleAddTextAt}
+                onAddShape={handleAddShape}
                 onContextMenuAction={handleContextMenuAction}
                 stageRef={stageRef}
                 isDraggingFile={isDraggingFile}
@@ -1577,6 +1584,8 @@ Keep high quality and clarity.`;
             layers={layers}
             selectedIds={selectedIds}
             activeTool={activeTool}
+            shapeType={shapeType}
+            onSetShapeType={setShapeType}
             brushMode={brushMode}
             processingState={processingState}
             brushConfig={brushConfig}

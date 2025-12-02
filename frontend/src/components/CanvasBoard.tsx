@@ -11,6 +11,7 @@ import LayerRenderer from './LayerRenderer';
 import DrawingLayer from './DrawingLayer';
 import TextEditorOverlay, { EditingTextState } from './TextEditorOverlay';
 import ZoomControls from './ZoomControls';
+import { createPolygonLayer, createStarLayer, createRoundedRectLayer, createEllipseLayer, createArrowLayer, createWedgeLayer, createRingLayer, createArcLayer } from '../utils/shapeDrawing';
 
 // Generate a simple checkerboard pattern (16x16)
 const createCheckerboardPattern = () => {
@@ -33,6 +34,7 @@ interface CanvasBoardProps {
     layers: LayerData[];
     selectedIds: string[];
     activeTool: ToolType;
+    shapeType?: 'polygon' | 'star' | 'rounded-rect';
     brushMode: 'normal' | 'ai';
     drawingLines: any[];
     brushConfig: { size: number, color: string, opacity: number };
@@ -43,6 +45,7 @@ interface CanvasBoardProps {
     onUpdateLayer: (id: string, attrs: Partial<LayerData>, saveHistory?: boolean) => void;
     onLineDrawn: (points: number[], strokeWidth: number, options?: { erase?: boolean; targetLayerId?: string }) => void;
     onAddText: (x: number, y: number) => void;
+    onAddShape: (shape: LayerData) => void;
     onContextMenuAction: (action: string) => void;
     stageRef: React.RefObject<Konva.Stage>;
     isDraggingFile?: boolean;
@@ -56,6 +59,7 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
     layers,
     selectedIds,
     activeTool,
+    shapeType = 'polygon',
     brushMode,
     drawingLines,
     brushConfig,
@@ -66,6 +70,7 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
     onUpdateLayer,
     onLineDrawn,
     onAddText,
+    onAddShape,
     onContextMenuAction,
     stageRef,
     isDraggingFile = false,
@@ -91,6 +96,11 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
     const isDrawing = useRef(false);
     // 当前一次擦除操作命中的目标图层（用于图层级橡皮擦）
     const eraseTargetId = useRef<string | null>(null);
+    // 形状绘制状态
+    const shapeDrawingState = useRef<{
+        startPos: { x: number; y: number };
+        currentShape: LayerData | null;
+    } | null>(null);
 
     // ✅ 性能优化：使用 Konva 原生 API 直接绘制
     // 当前正在绘制的线条引用（直接操作 Konva 节点，不触发 React 更新）
@@ -267,6 +277,41 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
             return;
         }
 
+        // 形状工具绘制
+        if (activeTool === 'shape') {
+            shapeDrawingState.current = {
+                startPos: clampedPos,
+                currentShape: null,
+            };
+            isDrawing.current = true;
+            // 创建初始形状（合理的初始尺寸，避免太小）
+            const initialWidth = 100;
+            const initialHeight = 100;
+            let initialShape: LayerData | null = null;
+            if (shapeType === 'polygon') {
+                initialShape = createPolygonLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 6);
+            } else if (shapeType === 'star') {
+                initialShape = createStarLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 5);
+            } else if (shapeType === 'rounded-rect') {
+                initialShape = createRoundedRectLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 10);
+            } else if (shapeType === 'ellipse') {
+                initialShape = createEllipseLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight);
+            } else if (shapeType === 'arrow') {
+                initialShape = createArrowLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight);
+            } else if (shapeType === 'wedge') {
+                initialShape = createWedgeLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 60);
+            } else if (shapeType === 'ring') {
+                initialShape = createRingLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight);
+            } else if (shapeType === 'arc') {
+                initialShape = createArcLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 60);
+            }
+            if (initialShape) {
+                shapeDrawingState.current.currentShape = initialShape;
+                onAddShape(initialShape);
+            }
+            return;
+        }
+
         if (activeTool === 'brush' || activeTool === 'eraser') {
             // 每次新绘制重置目标图层
             eraseTargetId.current = null;
@@ -410,6 +455,27 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                 }
             }
             selectionDrag.current = null;
+        }
+
+        // 形状工具绘制完成
+        if (activeTool === 'shape' && isDrawing.current && shapeDrawingState.current?.currentShape) {
+            const shape = shapeDrawingState.current.currentShape;
+            // 确保形状有最小尺寸，然后保存历史
+            if (shape.width && shape.width > 5 && shape.height && shape.height > 5) {
+                // 触发一次历史保存
+                onUpdateLayer(shape.id, {
+                    x: shape.x,
+                    y: shape.y,
+                    width: shape.width,
+                    height: shape.height,
+                }, true);
+            } else {
+                // 如果形状太小，删除它
+                onUpdateLayer(shape.id, { visible: false }, true);
+            }
+            shapeDrawingState.current = null;
+            isDrawing.current = false;
+            return;
         }
 
         if ((activeTool === 'brush' || activeTool === 'eraser') && isDrawing.current) {
