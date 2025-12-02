@@ -38,8 +38,10 @@ import { compositeInpaint } from '@/utils/imageComposite.ts';
 import { loadAndFitImage } from '@/utils/imageLayout';
 import { scaleImageToFit } from '@/utils/cropImage';
 import { DEFAULT_BRUSH_CONFIG, DEFAULT_ERASER_CONFIG, DEFAULT_LAYER_PROPS, DEFAULT_TEXT_PROPS } from '@/constants';
+import { createLayerName } from '@/utils/layerName';
 import FullScreenLoading from '@/components/FullScreenLoading';
 import ImageCropModal from '@/components/ImageCropModal';
+import Logo from '@/components/Logo';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
 
@@ -76,7 +78,8 @@ export default function App() {
     layers,
     selectedIds,
     layerManager.updateLayersWithHistory,
-    setSelectedIds
+    setSelectedIds,
+    (groupCount) => createLayerName('group', t, groupCount)
   );
 
   // UI State
@@ -462,11 +465,12 @@ export default function App() {
       text: settings.tools.text.defaultText,
       fontSize: settings.tools.text.fontSize,
       fill: settings.tools.text.color,
+      fontFamily: settings.tools.text.fontFamily,
     };
     addLayer({
       id: uuidv4(),
       type: 'text',
-      name: `Text ${layers.length + 1}`,
+      name: createLayerName('text', t, layers.length),
       x, y,
       ...DEFAULT_LAYER_PROPS,
       ...textProps,
@@ -547,7 +551,7 @@ export default function App() {
           const eraseMaskLayer: LayerData = {
             id: uuidv4(),
             type: 'line',
-            name: `Erase Mask`,
+            name: createLayerName('line', t, layers.length, { eraseMask: true }),
             x: 0,
             y: 0,
             points: localPoints,
@@ -586,7 +590,7 @@ export default function App() {
     addLayer({
       id: uuidv4(),
       type: 'line',
-      name: `Brush Stroke`,
+      name: createLayerName('line', t, layers.length),
       x: 0,
       y: 0,
       points,
@@ -618,7 +622,7 @@ export default function App() {
       addLayer({
         id: uuidv4(),
         type: 'image',
-        name: `Image ${layers.length + 1}`,
+        name: createLayerName('image', t, layers.length),
         x: layout.x,
         y: layout.y,
         width: layout.width,
@@ -706,7 +710,7 @@ export default function App() {
       addLayer({
         id: uuidv4(),
         type: 'image',
-        name: `AI Gen ${layers.length + 1}`,
+        name: createLayerName('image', t, layers.length, { aiGen: true }),
         x: layout.x,
         y: layout.y,
         width: layout.width,
@@ -773,7 +777,10 @@ export default function App() {
       const newLayer: LayerData = {
         id: uuidv4(),
         type: 'image',
-        name: `${style} Blend (${selectedImageLayers.length} layers)`,
+        name: createLayerName('image', t, layers.length, { 
+          blendStyle: style, 
+          blendCount: selectedImageLayers.length 
+        }),
         x: layout.x,
         y: layout.y,
         width: layout.width,
@@ -1243,9 +1250,9 @@ Keep high quality and clarity.`;
 	      {/* Top Bar */}
 	      <div className="h-12 bg-tech-900 border-b border-tech-700 flex items-center justify-between px-4 z-30 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center shadow-[0_0_10px_rgba(6,182,212,0.5)]">
-            <Zap size={18} className="text-white" />
-	      </div>
+          <div className="w-8 h-8 flex items-center justify-center">
+            <Logo variant="icon" size={32} />
+          </div>
           <h1 className="font-bold text-lg tracking-tight text-gray-100">INDRAW <span className="text-cyan-400 font-light">EDITOR</span></h1>
 
           {/* 当前项目名称 */}
@@ -1540,8 +1547,8 @@ Keep high quality and clarity.`;
           {!projectManager.isProjectCreated ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-radial-gradient from-tech-800 to-tech-900">
               <div className="mb-8 p-6 bg-tech-800/30 rounded-3xl border border-tech-700 shadow-2xl backdrop-blur-sm animate-in fade-in zoom-in-50 duration-500">
-                <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/20 mx-auto mb-6">
-                  <Zap size={40} className="text-white" />
+                <div className="w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                  <Logo variant="full" size={80} />
                 </div>
                 <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">{t('dialog:welcome.title')}</h1>
                 <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">{t('dialog:welcome.subtitle')}</p>

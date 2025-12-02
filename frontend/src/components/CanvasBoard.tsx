@@ -12,6 +12,7 @@ import DrawingLayer from './DrawingLayer';
 import TextEditorOverlay, { EditingTextState } from './TextEditorOverlay';
 import ZoomControls from './ZoomControls';
 import { createPolygonLayer, createStarLayer, createRoundedRectLayer, createEllipseLayer, createArrowLayer, createWedgeLayer, createRingLayer, createArcLayer } from '../utils/shapeDrawing';
+import { createLayerName } from '../utils/layerName';
 
 // Generate a simple checkerboard pattern (16x16)
 const createCheckerboardPattern = () => {
@@ -79,7 +80,8 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
     onDragLeave,
     onDrop,
 }) => {
-    const { t } = useTranslation(['toolbar']);
+    const { t: tToolbar } = useTranslation(['toolbar']);
+    const { t } = useTranslation('common');
     const [scale, setScale] = useState(1);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -289,21 +291,29 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
             const initialHeight = 100;
             let initialShape: LayerData | null = null;
             if (shapeType === 'polygon') {
-                initialShape = createPolygonLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 6);
+                const name = createLayerName('polygon', t, layers.length, { numPoints: 6 });
+                initialShape = createPolygonLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 6, name);
             } else if (shapeType === 'star') {
-                initialShape = createStarLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 5);
+                const name = createLayerName('star', t, layers.length, { numPoints: 5 });
+                initialShape = createStarLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 5, name);
             } else if (shapeType === 'rounded-rect') {
-                initialShape = createRoundedRectLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 10);
+                const name = createLayerName('rounded-rect', t, layers.length);
+                initialShape = createRoundedRectLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 10, name);
             } else if (shapeType === 'ellipse') {
-                initialShape = createEllipseLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight);
+                const name = createLayerName('ellipse', t, layers.length);
+                initialShape = createEllipseLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, name);
             } else if (shapeType === 'arrow') {
-                initialShape = createArrowLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight);
+                const name = createLayerName('arrow', t, layers.length);
+                initialShape = createArrowLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, name);
             } else if (shapeType === 'wedge') {
-                initialShape = createWedgeLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 60);
+                const name = createLayerName('wedge', t, layers.length);
+                initialShape = createWedgeLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 60, name);
             } else if (shapeType === 'ring') {
-                initialShape = createRingLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight);
+                const name = createLayerName('ring', t, layers.length);
+                initialShape = createRingLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, name);
             } else if (shapeType === 'arc') {
-                initialShape = createArcLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 60);
+                const name = createLayerName('arc', t, layers.length);
+                initialShape = createArcLayer(clampedPos.x, clampedPos.y, initialWidth, initialHeight, 60, name);
             }
             if (initialShape) {
                 shapeDrawingState.current.currentShape = initialShape;

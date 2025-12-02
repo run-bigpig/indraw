@@ -64,6 +64,26 @@
   "history.fitToCanvas": "适配画布",
   "history.moveUp": "上移图层",
   "history.moveDown": "下移图层",
-  "history.invalidTime": "时间无效"
+  "history.invalidTime": "时间无效",
+  "layerTypes": {
+    "image": "图片",
+    "text": "文本",
+    "group": "组",
+    "brushStroke": "画笔描边",
+    "eraseMask": "擦除蒙版",
+    "polygon": "多边形",
+    "star": "星形",
+    "roundedRect": "圆角矩形",
+    "ellipse": "椭圆",
+    "arrow": "箭头",
+    "wedge": "扇形",
+    "ring": "环形",
+    "arc": "弧形",
+    "aiGen": "AI生成",
+    "blend": "融合"
+  },
+  "layerName": {
+    "copy": "副本"
+  }
 }
 

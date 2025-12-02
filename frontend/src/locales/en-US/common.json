@@ -64,6 +64,26 @@
   "history.fitToCanvas": "Fit to Canvas",
   "history.moveUp": "Move Layer Up",
   "history.moveDown": "Move Layer Down",
-  "history.invalidTime": "Invalid Time"
+  "history.invalidTime": "Invalid Time",
+  "layerTypes": {
+    "image": "Image",
+    "text": "Text",
+    "group": "Group",
+    "brushStroke": "Brush Stroke",
+    "eraseMask": "Erase Mask",
+    "polygon": "Polygon",
+    "star": "Star",
+    "roundedRect": "Rounded Rectangle",
+    "ellipse": "Ellipse",
+    "arrow": "Arrow",
+    "wedge": "Wedge",
+    "ring": "Ring",
+    "arc": "Arc",
+    "aiGen": "AI Gen",
+    "blend": "Blend"
+  },
+  "layerName": {
+    "copy": "Copy"
+  }
 }
 

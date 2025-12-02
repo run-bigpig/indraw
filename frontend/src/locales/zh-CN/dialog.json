@@ -14,7 +14,7 @@
   },
   "welcome": {
     "title": "欢迎使用 INDRAW EDITOR",
-    "subtitle": "AI 驱动的编辑器。",
+    "subtitle": "AI 驱动的图像编辑器",  
     "createNew": "创建新项目",
     "openExisting": "打开现有项目",
     "version": "v1.0.0 • Powered by syskey"

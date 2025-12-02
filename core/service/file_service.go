@@ -98,22 +98,16 @@ func (f *FileService) SaveProject(projectDataJSON string, suggestedName string) 
 	return filePath, nil
 }
 
-// LoadProject 从文件加载项目
-// 返回项目数据的 JSON 字符串
+// LoadProject 从项目目录加载项目
+// 用户选择项目目录，返回项目数据的 JSON 字符串和项目路径
 func (f *FileService) LoadProject() (string, error) {
 	if f.ctx == nil {
 		return "", fmt.Errorf("service not initialized")
 	}
 
-	// 显示打开对话框
-	filePath, err := runtime.OpenFileDialog(f.ctx, runtime.OpenDialogOptions{
-		Title: "Open Project",
-		Filters: []runtime.FileFilter{
-			{
-				DisplayName: "Indraw Project Files (*.json)",
-				Pattern:     "*.json",
-			},
-		},
+	// 显示目录选择对话框（选择项目目录）
+	projectPath, err := runtime.OpenDirectoryDialog(f.ctx, runtime.OpenDialogOptions{
+		Title: "Open Project Directory",
 	})
 
 	if err != nil {
@@ -121,23 +115,55 @@ func (f *FileService) LoadProject() (string, error) {
 	}
 
 	// 用户取消了打开
-	if filePath == "" {
+	if projectPath == "" {
 		return "", nil
 	}
 
-	// 读取文件
-	data, err := os.ReadFile(filePath)
+	// 检查是否为有效的项目目录（包含 data.json）
+	dataFile := filepath.Join(projectPath, "data.json")
+	if _, err := os.Stat(dataFile); os.IsNotExist(err) {
+		return "", fmt.Errorf("invalid project directory: data.json not found")
+	}
+
+	// 读取项目数据文件
+	data, err := os.ReadFile(dataFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return "", fmt.Errorf("failed to read project data file: %w", err)
 	}
 
 	// 验证 JSON 格式
 	var projectData ProjectData
 	if err := json.Unmarshal(data, &projectData); err != nil {
-		return "", fmt.Errorf("invalid project file format: %w", err)
+		return "", fmt.Errorf("invalid project data format: %w", err)
 	}
 
-	return string(data), nil
+	// 添加到最近项目列表
+	metaFile := filepath.Join(projectPath, "project.json")
+	if metaData, err := os.ReadFile(metaFile); err == nil {
+		var meta ProjectMeta
+		if json.Unmarshal(metaData, &meta) == nil {
+			_ = f.AddRecentProject(meta.Name, projectPath)
+		}
+	}
+
+	// 返回包含项目路径的响应
+	// 为了让前端知道项目路径，我们需要在返回数据中添加路径信息
+	response := struct {
+		ProjectData
+		ProjectPath string `json:"projectPath"`
+		ProjectName string `json:"projectName"`
+	}{
+		ProjectData: projectData,
+		ProjectPath: projectPath,
+		ProjectName: filepath.Base(projectPath),
+	}
+
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize response: %w", err)
+	}
+
+	return string(responseJSON), nil
 }
 
 // ExportImage 导出图像到文件

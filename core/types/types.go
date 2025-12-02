@@ -65,6 +65,7 @@ type TextSettings struct {
 	FontSize    int    `json:"fontSize"`
 	Color       string `json:"color"`
 	DefaultText string `json:"defaultText"`
+	FontFamily  string `json:"fontFamily"`
 }
 
 // AppSettings 应用设置

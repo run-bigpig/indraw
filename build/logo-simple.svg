@@ -1,0 +1,26 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 极简版：仅保留笔尖轮廓和像素点 -->
+  <g transform="translate(256, 256) rotate(45)">
+    <!-- 笔身轮廓 -->
+    <path d="M -50 -100 L 50 -100 L 50 40 L 0 120 L -50 40 Z" 
+          fill="none" 
+          stroke="url(#grad)" 
+          stroke-width="16" 
+          stroke-linejoin="round" 
+          stroke-linecap="round"/>
+          
+    <!-- 内部填充（半透明） -->
+    <path d="M -50 40 L 50 40 L 0 120 Z" fill="url(#grad)" opacity="0.2"/>
+  </g>
+
+  <!-- 像素点装饰 -->
+  <rect x="380" y="100" width="30" height="30" rx="6" fill="#06b6d4" opacity="0.8"/>
+  <rect x="430" y="150" width="20" height="20" rx="4" fill="#8b5cf6" opacity="0.6"/>
+</svg>

@@ -22,6 +22,7 @@ import {
 import clsx from 'clsx';
 import { useSettings } from '../contexts/SettingsContext';
 import { Settings as SettingsType, SettingsCategory } from '@/types';
+import { AVAILABLE_FONTS, DEFAULT_FONT, isSymbolFont } from '@/constants/fonts';
 
 // ==================== 类型定义 ====================
 
@@ -748,6 +749,26 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       <div>
         <h4 className="text-sm font-medium text-gray-200 mb-3">{t('settings.tools.text', '文本')}</h4>
         <div className="space-y-3 pl-2 border-l-2 border-tech-700">
+          <InputGroup label={t('settings.tools.textFont', '默认字体')}>
+            <select
+              value={settings.tools.text.fontFamily}
+              onChange={(e) => handleUpdateCategory('tools', {
+                text: { ...settings.tools.text, fontFamily: e.target.value }
+              })}
+              className="w-full bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-cyan-500 focus:outline-none"
+              style={{ fontFamily: settings.tools.text.fontFamily }}
+            >
+              {AVAILABLE_FONTS.map((font) => (
+                <option 
+                  key={font} 
+                  value={font} 
+                  style={{ fontFamily: isSymbolFont(font) ? DEFAULT_FONT : font }}
+                >
+                  {font}
+                </option>
+              ))}
+            </select>
+          </InputGroup>
           <InputGroup label={t('settings.tools.textSize', '默认字号')}>
             <NumberInput
               value={settings.tools.text.fontSize}

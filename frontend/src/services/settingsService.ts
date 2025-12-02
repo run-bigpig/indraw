@@ -62,6 +62,7 @@ export const DEFAULT_TOOL_SETTINGS: ToolSettings = {
     fontSize: 32,
     color: '#ffffff',
     defaultText: 'Double click to edit',
+    fontFamily: 'Arial',
   },
 };
 
@@ -184,6 +185,9 @@ function validateToolSettings(settings: Partial<ToolSettings>): ToolSettings {
       defaultText: typeof settings.text?.defaultText === 'string' 
         ? settings.text.defaultText 
         : DEFAULT_TOOL_SETTINGS.text.defaultText,
+      fontFamily: typeof settings.text?.fontFamily === 'string' && settings.text.fontFamily
+        ? settings.text.fontFamily 
+        : DEFAULT_TOOL_SETTINGS.text.fontFamily,
     },
   };
 }

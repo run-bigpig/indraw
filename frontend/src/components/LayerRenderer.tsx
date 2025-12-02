@@ -5,6 +5,7 @@ import Konva from 'konva';
 import type { Filter } from 'konva/lib/Node';
 import { LayerData, ToolType } from '../types';
 import { renderPolygon, renderStar, renderRoundedRect, renderEllipse, renderArrow, renderWedge, renderRing, renderArc } from '../utils/shapeRenderer';
+import { DEFAULT_FONT } from '../constants/fonts';
 
 /**
  * Scale eraser mask points and strokeWidth based on parent layer's current vs original dimensions.
@@ -455,6 +456,9 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
 
     // 文字图层渲染
     if (layer.type === 'text') {
+      // 判断是否启用阴影（任意阴影属性有值时启用）
+      const hasShadow = !!(layer.shadowColor || layer.shadowBlur || layer.shadowOffsetX || layer.shadowOffsetY);
+      
       return (
         <Text
           key={layer.id}
@@ -464,12 +468,21 @@ const LayerRenderer: React.FC<LayerRendererProps> = ({
           y={layer.y}
           text={layer.text || 'Double click to edit'}
           fontSize={layer.fontSize || 32}
-          fontFamily={layer.fontFamily || 'Arial'}
+          fontFamily={layer.fontFamily || DEFAULT_FONT}
           fill={layer.fill || '#ffffff'}
+          stroke={layer.stroke}
+          strokeWidth={layer.strokeWidth || 0}
+          dash={layer.dash && layer.strokeWidth && layer.strokeWidth > 0 ? layer.dash : undefined}
           rotation={layer.rotation}
           scaleX={layer.scaleX}
           scaleY={layer.scaleY}
           opacity={opacity}
+          shadowEnabled={hasShadow}
+          shadowColor={layer.shadowColor || '#000000'}
+          shadowBlur={layer.shadowBlur || 0}
+          shadowOffsetX={layer.shadowOffsetX || 0}
+          shadowOffsetY={layer.shadowOffsetY || 0}
+          shadowOpacity={layer.shadowOpacity ?? 1}
           draggable={isDraggable}
           onClick={(e) => {
             if (activeTool !== 'select') return;

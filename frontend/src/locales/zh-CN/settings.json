@@ -61,6 +61,7 @@
     "eraser": "橡皮擦",
     "eraserSize": "默认大小",
     "text": "文本",
+    "textFont": "默认字体",
     "textSize": "默认字号",
     "textColor": "默认颜色"
   },

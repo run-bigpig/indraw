@@ -151,7 +151,7 @@ export function useProjectManager() {
     }
   }, [canvasConfig, projectInfo]);
 
-  // 加载项目（使用 Wails 后端，弹出对话框）
+  // 加载项目（使用 Wails 后端，弹出目录选择对话框）
   const loadProject = useCallback(async (): Promise<{ layers: LayerData[], config: CanvasConfig }> => {
     try {
       const projectJSON = await LoadProject();
@@ -159,15 +159,30 @@ export function useProjectManager() {
         throw new Error("No project selected");
       }
 
-      const project: ProjectData = JSON.parse(projectJSON);
+      // 解析返回数据，包含项目路径信息
+      const response = JSON.parse(projectJSON) as ProjectData & {
+        projectPath?: string;
+        projectName?: string;
+      };
 
-      if (project.layers && Array.isArray(project.layers)) {
-        const config = project.canvasConfig || canvasConfig;
+      if (response.layers && Array.isArray(response.layers)) {
+        const config = response.canvasConfig || canvasConfig;
         setCanvasConfig(config);
         setIsProjectCreated(true);
-        // 通过对话框加载的项目视为临时项目
-        setProjectInfo(null);
-        return { layers: project.layers, config };
+        
+        // 如果返回了项目路径，设置项目信息
+        if (response.projectPath) {
+          setProjectInfo({
+            name: response.projectName || response.projectPath.split(/[/\\]/).pop() || 'Untitled',
+            path: response.projectPath,
+            isTemporary: false,
+          });
+        } else {
+          // 兼容旧格式，视为临时项目
+          setProjectInfo(null);
+        }
+        
+        return { layers: response.layers, config };
       } else {
         throw new Error("Invalid project file format");
       }

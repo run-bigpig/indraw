@@ -5,6 +5,8 @@ import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, Chevro
 import clsx from 'clsx';
 import { ProcessingState } from '../../App.tsx';
 import ContextMenu from './ContextMenu';
+import { AVAILABLE_FONTS, DEFAULT_FONT, isSymbolFont } from '@/constants/fonts';
+import { getLayerDisplayName } from '@/utils/layerName';
 
 interface PropertiesPanelProps {
   layers: LayerData[];
@@ -141,6 +143,7 @@ const LayerItem = ({
     onReorder, 
     onContextMenu,
 }: any) => {
+    const { t } = useTranslation('common');
     const isGroup = layer.type === 'group';
     const children = allLayers.filter((l: LayerData) => l.parentId === layer.id);
     const sortedChildren = [...children].reverse();
@@ -189,7 +192,7 @@ const LayerItem = ({
                 </div>
 
                 <span className={clsx("text-xs truncate flex-1 font-medium select-none", isSelected ? "text-cyan-100" : "text-gray-400")}>
-                    {layer.name}
+                    {getLayerDisplayName(layer, t)}
                 </span>
 
                 <div className={clsx("flex items-center gap-1", isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
@@ -746,7 +749,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
                             <InputGroup label={t('properties:strokeWidth')}>
                                 <NumberInput
-                                    value={activeLayer.strokeWidth ?? 10}
+                                    value={activeLayer.strokeWidth ?? 0}
                                     onChange={(v) => onUpdateLayer(activeLayer.id, { strokeWidth: v }, false)}
                                     onCommit={(v) => onUpdateLayer(activeLayer.id, { strokeWidth: v }, true)}
                                     label="PX"
@@ -864,6 +867,24 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                                     onBlur={(e) => onUpdateLayer(activeLayer.id, { text: e.target.value }, true)}
                                     className="w-full bg-tech-900 border border-tech-700 rounded px-2 py-2 text-xs text-gray-300 min-h-[60px] resize-none focus:border-cyan-500 focus:outline-none"
                                 />
+                            </InputGroup>
+                            <InputGroup label={t('properties:fontFamily')}>
+                                <select
+                                    value={activeLayer.fontFamily || DEFAULT_FONT}
+                                    onChange={(e) => onUpdateLayer(activeLayer.id, { fontFamily: e.target.value }, true)}
+                                    className="w-full bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-cyan-500 focus:outline-none"
+                                    style={{ fontFamily: activeLayer.fontFamily || DEFAULT_FONT }}
+                                >
+                                    {AVAILABLE_FONTS.map((font) => (
+                                        <option 
+                                            key={font} 
+                                            value={font} 
+                                            style={{ fontFamily: isSymbolFont(font) ? DEFAULT_FONT : font }}
+                                        >
+                                            {font}
+                                        </option>
+                                    ))}
+                                </select>
                             </InputGroup>
                              <InputGroup label={t('properties:fontSize')}>
                                 <NumberInput

@@ -10,7 +10,8 @@ export function useLayerGrouping(
   layers: LayerData[],
   selectedIds: string[],
   onLayersUpdate: (layers: LayerData[], description: string) => void,
-  onSelectionChange: (ids: string[]) => void
+  onSelectionChange: (ids: string[]) => void,
+  getName?: (layerCount: number) => string
 ) {
   // 分组图层
   const groupLayers = useCallback(() => {
@@ -29,10 +30,11 @@ export function useLayerGrouping(
     });
 
     const groupId = uuidv4();
+    const groupCount = layers.filter(l => l.type === 'group').length;
     const groupLayer: LayerData = {
       id: groupId,
       type: 'group',
-      name: `Group`,
+      name: getName ? getName(groupCount) : `Group`,
       x: minX,
       y: minY,
       width: maxX - minX,
@@ -59,7 +61,7 @@ export function useLayerGrouping(
 
     onLayersUpdate([...updatedLayers, groupLayer], 'history.group');
     onSelectionChange([groupId]);
-  }, [layers, selectedIds, onLayersUpdate, onSelectionChange]);
+  }, [layers, selectedIds, onLayersUpdate, onSelectionChange, getName]);
 
   // 解组图层
   const ungroupLayers = useCallback(() => {

@@ -69,6 +69,7 @@ export interface TextSettings {
   fontSize: number;
   color: string;
   defaultText: string;
+  fontFamily: string;
 }
 
 /**

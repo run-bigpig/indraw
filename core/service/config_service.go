@@ -307,6 +307,7 @@ func (c *ConfigService) getDefaultSettings() string {
 				FontSize:    32,
 				Color:       "#ffffff",
 				DefaultText: "Double click to edit",
+				FontFamily:  "Arial",
 			},
 		},
 		App: types.AppSettings{

@@ -15,12 +15,13 @@ export const createPolygonLayer = (
   y: number,
   width: number,
   height: number,
-  numPoints: number = 6
+  numPoints: number = 6,
+  name?: string
 ): LayerData => {
   return {
     id: uuidv4(),
     type: 'polygon',
-    name: `Polygon ${numPoints}`,
+    name: name || `Polygon ${numPoints}`,
     x,
     y,
     width,
@@ -41,7 +42,8 @@ export const createStarLayer = (
   y: number,
   width: number,
   height: number,
-  numPoints: number = 5
+  numPoints: number = 5,
+  name?: string
 ): LayerData => {
   const outerRadius = Math.min(width, height) / 2;
   const innerRadius = outerRadius * 0.5;
@@ -49,7 +51,7 @@ export const createStarLayer = (
   return {
     id: uuidv4(),
     type: 'star',
-    name: `Star ${numPoints}`,
+    name: name || `Star ${numPoints}`,
     x,
     y,
     width,
@@ -72,12 +74,13 @@ export const createRoundedRectLayer = (
   y: number,
   width: number,
   height: number,
-  cornerRadius: number = 10
+  cornerRadius: number = 10,
+  name?: string
 ): LayerData => {
   return {
     id: uuidv4(),
     type: 'rounded-rect',
-    name: 'Rounded Rectangle',
+    name: name || 'Rounded Rectangle',
     x,
     y,
     width,
@@ -97,12 +100,13 @@ export const createEllipseLayer = (
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
+  name?: string
 ): LayerData => {
   return {
     id: uuidv4(),
     type: 'ellipse',
-    name: 'Ellipse',
+    name: name || 'Ellipse',
     x,
     y,
     width,
@@ -123,12 +127,13 @@ export const createArrowLayer = (
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
+  name?: string
 ): LayerData => {
   return {
     id: uuidv4(),
     type: 'arrow',
-    name: 'Arrow',
+    name: name || 'Arrow',
     x,
     y,
     width,
@@ -150,13 +155,14 @@ export const createWedgeLayer = (
   y: number,
   width: number,
   height: number,
-  angle: number = 60
+  angle: number = 60,
+  name?: string
 ): LayerData => {
   const radius = Math.min(width, height) / 2;
   return {
     id: uuidv4(),
     type: 'wedge',
-    name: 'Wedge',
+    name: name || 'Wedge',
     x,
     y,
     width,
@@ -178,14 +184,15 @@ export const createRingLayer = (
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
+  name?: string
 ): LayerData => {
   const outerRadius = Math.min(width, height) / 2;
   const innerRadius = outerRadius * 0.6;
   return {
     id: uuidv4(),
     type: 'ring',
-    name: 'Ring',
+    name: name || 'Ring',
     x,
     y,
     width,
@@ -207,13 +214,14 @@ export const createArcLayer = (
   y: number,
   width: number,
   height: number,
-  angle: number = 60
+  angle: number = 60,
+  name?: string
 ): LayerData => {
   const radius = Math.min(width, height) / 2;
   return {
     id: uuidv4(),
     type: 'arc',
-    name: 'Arc',
+    name: name || 'Arc',
     x,
     y,
     width,

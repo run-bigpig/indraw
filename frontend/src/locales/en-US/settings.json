@@ -61,6 +61,7 @@
     "eraser": "Eraser",
     "eraserSize": "Default Size",
     "text": "Text",
+    "textFont": "Default Font",
     "textSize": "Default Font Size",
     "textColor": "Default Color"
   },
