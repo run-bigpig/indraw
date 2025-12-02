@@ -72,6 +72,7 @@
   "reset": "重置",
   "removeBackground": "移除背景",
   "removing": "移除中...",
+  "cropImage": "裁剪图像",
   "aiBlendWithBelow": "与下层 AI 混合",
   "customInstructions": "自定义说明（可选）...",
   "mergeLayers": "合并图层（AI）",

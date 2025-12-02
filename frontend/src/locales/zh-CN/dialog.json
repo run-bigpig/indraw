@@ -44,6 +44,21 @@
     "timestamp": "保存时间",
     "recover": "恢复",
     "dismiss": "忽略"
+  },
+  "crop": {
+    "title": "裁剪图像",
+    "aspectRatio": "宽高比",
+    "free": "自由",
+    "zoom": "缩放",
+    "rotation": "旋转",
+    "rotateLeft": "向左旋转90°",
+    "rotateRight": "向右旋转90°",
+    "reset": "重置",
+    "confirm": "确认裁剪",
+    "processing": "处理中...",
+    "cropSize": "裁剪框尺寸",
+    "width": "宽",
+    "height": "高"
   }
 }
 

@@ -44,6 +44,21 @@
     "timestamp": "Saved at",
     "recover": "Recover",
     "dismiss": "Dismiss"
+  },
+  "crop": {
+    "title": "Crop Image",
+    "aspectRatio": "Aspect Ratio",
+    "free": "Free",
+    "zoom": "Zoom",
+    "rotation": "Rotation",
+    "rotateLeft": "Rotate Left 90°",
+    "rotateRight": "Rotate Right 90°",
+    "reset": "Reset",
+    "confirm": "Confirm Crop",
+    "processing": "Processing...",
+    "cropSize": "Crop Size",
+    "width": "W",
+    "height": "H"
   }
 }
 

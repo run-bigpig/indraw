@@ -43,7 +43,7 @@ func (c *ConfigService) Startup(ctx context.Context) error {
 	}
 
 	// 创建应用配置目录
-	c.configDir = filepath.Join(userConfigDir, "NebulaAIStudio")
+	c.configDir = filepath.Join(userConfigDir, "IndrawEditor")
 
 	if err := os.MkdirAll(c.configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config dir: %w", err)

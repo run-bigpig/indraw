@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayerData, ToolType, ShapeType } from '@/types';
-import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder, FolderOpen, ImageIcon, Maximize } from 'lucide-react';
+import { Layers, Eye, EyeOff, Trash2, Sliders, Sparkles, Copy, ChevronUp, ChevronDown, Palette, Wand, Merge, Group, Folder, FolderOpen, ImageIcon, Maximize, Crop } from 'lucide-react';
 import clsx from 'clsx';
 import { ProcessingState } from '../../App.tsx';
 import ContextMenu from './ContextMenu';
@@ -26,6 +26,7 @@ interface PropertiesPanelProps {
   onDuplicateLayer: (id: string) => void;
   onUpdateLayer: (id: string, attrs: Partial<LayerData>, saveHistory?: boolean) => void;
   onRemoveBackground: () => void;
+  onCropImage: () => void;
   onAIBlend: (prompt: string, style: string) => void;
   onAITransform: (prompt: string) => void;
   onGroup: () => void;
@@ -246,6 +247,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDuplicateLayer,
   onUpdateLayer,
   onRemoveBackground,
+  onCropImage,
   onAIBlend,
   onAITransform,
   onGroup,
@@ -463,9 +465,17 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
                                 <div className="grid grid-cols-2 gap-2 mb-3">
                                     <button
+                                        onClick={onCropImage}
+                                        disabled={isGlobalProcessing}
+                                        className="flex items-center justify-center gap-2 bg-tech-700 hover:bg-tech-600 text-gray-200 text-[10px] py-1.5 rounded transition-colors disabled:opacity-50"
+                                    >
+                                        <Crop size={12} />
+                                        {t('properties:cropImage')}
+                                    </button>
+                                    <button
                                         onClick={onRemoveBackground}
                                         disabled={isGlobalProcessing}
-                                        className="col-span-2 flex items-center justify-center gap-2 bg-tech-700 hover:bg-tech-600 text-gray-200 text-[10px] py-1.5 rounded transition-colors disabled:opacity-50"
+                                        className="flex items-center justify-center gap-2 bg-tech-700 hover:bg-tech-600 text-gray-200 text-[10px] py-1.5 rounded transition-colors disabled:opacity-50"
                                     >
                                         <Wand size={12} />
                                         {processingState === 'removing-bg' ? t('properties:removing') : t('properties:removeBackground')}

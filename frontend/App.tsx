@@ -36,8 +36,10 @@ import clsx from 'clsx';
 import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAutoSave } from '@/hooks';
 import { compositeInpaint } from '@/utils/imageComposite.ts';
 import { loadAndFitImage } from '@/utils/imageLayout';
+import { scaleImageToFit } from '@/utils/cropImage';
 import { DEFAULT_BRUSH_CONFIG, DEFAULT_ERASER_CONFIG, DEFAULT_LAYER_PROPS, DEFAULT_TEXT_PROPS } from '@/constants';
 import FullScreenLoading from '@/components/FullScreenLoading';
+import ImageCropModal from '@/components/ImageCropModal';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
 
@@ -138,6 +140,9 @@ export default function App() {
   // Recovery Modal State
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+
+  // Image Crop Modal State
+  const [cropModalData, setCropModalData] = useState<{ layerId: string; imageSrc: string } | null>(null);
 
   // 检查是否有可恢复的数据（等待检查完成后再显示弹窗）
   useEffect(() => {
@@ -982,6 +987,53 @@ export default function App() {
     }
   };
 
+  // 打开图像裁剪模态框
+  const handleCropImage = () => {
+    const targetLayer = layers?.find(l => selectedIds.includes(l.id));
+    if (!targetLayer || targetLayer.type !== 'image' || !targetLayer.src) {
+      alert(t('properties:selectImageLayerHint', 'Please select an image layer.'));
+      return;
+    }
+    setCropModalData({
+      layerId: targetLayer.id,
+      imageSrc: targetLayer.src
+    });
+  };
+
+  // 裁剪完成回调
+  const handleCropComplete = async (croppedImage: string) => {
+    if (cropModalData) {
+      const targetLayer = layers?.find(l => l.id === cropModalData.layerId);
+      if (targetLayer) {
+        try {
+          // 获取画布尺寸
+          const canvasConfig = projectManager.canvasConfig;
+          const maxWidth = canvasConfig.width;
+          const maxHeight = canvasConfig.height;
+          
+          // 缩放图像以适应画布尺寸（如果超过画布范围）
+          const { image: finalImage, width, height } = await scaleImageToFit(
+            croppedImage,
+            maxWidth,
+            maxHeight
+          );
+          
+          // 更新图层的图像源和尺寸
+          layerManager.updateLayer(cropModalData.layerId, {
+            src: finalImage,
+            width: width,
+            height: height,
+            name: `${targetLayer.name} (Cropped)`
+          }, true);
+        } catch (error) {
+          console.error('处理裁剪图像失败:', error);
+          alert('处理裁剪图像时出错，请重试');
+        }
+      }
+    }
+    setCropModalData(null);
+  };
+
   // AI Transform: 基于当前图片和提示词生成变换后的新图片（直接替换原图层）
   const handleAITransform = async (prompt: string) => {
     const targetLayer = layers?.find(l => selectedIds.includes(l.id));
@@ -1612,6 +1664,7 @@ Keep high quality and clarity.`;
             onDuplicateLayer={layerManager.duplicateLayer}
             onUpdateLayer={layerManager.updateLayer}
             onRemoveBackground={handleRemoveBackground}
+            onCropImage={handleCropImage}
             onAIBlend={handleAIBlend}
             onAITransform={handleAITransform}
             onGroup={groupingManager.groupLayers}
@@ -2052,6 +2105,15 @@ Keep high quality and clarity.`;
 
       {/* 全屏 Loading 遮罩 - AI 操作期间显示 */}
       <FullScreenLoading processingState={processingState} />
+
+      {/* Image Crop Modal - 图像裁剪模态框 */}
+      {cropModalData && (
+        <ImageCropModal
+          imageSrc={cropModalData.imageSrc}
+          onCropComplete={handleCropComplete}
+          onCancel={() => setCropModalData(null)}
+        />
+      )}
     </div>
   );
 }

@@ -70,7 +70,7 @@ func (f *FileService) SaveProject(projectDataJSON string, suggestedName string) 
 		Title:           "Save Project",
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "Nebula Project Files (*.json)",
+				DisplayName: "Indraw Project Files (*.json)",
 				Pattern:     "*.json",
 			},
 		},
@@ -110,7 +110,7 @@ func (f *FileService) LoadProject() (string, error) {
 		Title: "Open Project",
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "Nebula Project Files (*.json)",
+				DisplayName: "Indraw Project Files (*.json)",
 				Pattern:     "*.json",
 			},
 		},
@@ -244,7 +244,7 @@ func (f *FileService) AutoSave(projectDataJSON string) error {
 	}
 
 	// 创建应用数据目录
-	appDataDir := filepath.Join(userDataDir, "NebulaAIStudio")
+	appDataDir := filepath.Join(userDataDir, "IndrawEditor")
 	if err := os.MkdirAll(appDataDir, 0755); err != nil {
 		return fmt.Errorf("failed to create app data dir: %w", err)
 	}
@@ -281,7 +281,7 @@ func (f *FileService) LoadAutoSave() (string, error) {
 		return "", fmt.Errorf("failed to get user config dir: %w", err)
 	}
 
-	autoSaveFile := filepath.Join(userDataDir, "NebulaAIStudio", "autosave.json")
+	autoSaveFile := filepath.Join(userDataDir, "IndrawEditor", "autosave.json")
 
 	// 检查文件是否存在
 	if _, err := os.Stat(autoSaveFile); os.IsNotExist(err) {
@@ -304,7 +304,7 @@ func (f *FileService) ClearAutoSave() error {
 		return fmt.Errorf("failed to get user config dir: %w", err)
 	}
 
-	autoSaveFile := filepath.Join(userDataDir, "NebulaAIStudio", "autosave.json")
+	autoSaveFile := filepath.Join(userDataDir, "IndrawEditor", "autosave.json")
 
 	// 删除文件（如果存在）
 	if err := os.Remove(autoSaveFile); err != nil && !os.IsNotExist(err) {
@@ -501,7 +501,7 @@ func (f *FileService) getRecentProjectsFile() (string, error) {
 		return "", fmt.Errorf("failed to get user config dir: %w", err)
 	}
 
-	appDataDir := filepath.Join(userDataDir, "NebulaAIStudio")
+	appDataDir := filepath.Join(userDataDir, "IndrawEditor")
 	if err := os.MkdirAll(appDataDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create app data dir: %w", err)
 	}

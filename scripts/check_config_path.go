@@ -17,7 +17,7 @@ func main() {
 	fmt.Printf("✅ User config dir: %s\n", userConfigDir)
 
 	// 应用配置目录
-	appConfigDir := filepath.Join(userConfigDir, "NebulaAIStudio")
+	appConfigDir := filepath.Join(userConfigDir, "IndrawEditor")
 	fmt.Printf("✅ App config dir: %s\n", appConfigDir)
 
 	// 配置文件路径

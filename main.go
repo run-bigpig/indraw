@@ -19,7 +19,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:     "Nebula AI Studio",
+		Title:     "Indraw Editor",
 		Width:     1960,
 		Height:    1280,
 		MinWidth:  1280,
