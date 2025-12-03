@@ -37,6 +37,20 @@
   "sketchHint": "Draw your sketch here",
   "sketchDrawn": "Sketch drawn, will be used for AI generation",
   "sketchAndReference": "Both sketch and reference image will be used for AI generation",
-  "clearSketch": "Clear Sketch"
+  "clearSketch": "Clear Sketch",
+  "promptLibrary": "Prompt Library",
+  "selectPrompt": "Select Prompt",
+  "loadingPrompts": "Loading prompts...",
+  "loadPromptsFailed": "Failed to load prompts",
+  "refreshPrompts": "Refresh",
+  "searchPrompts": "Search prompts...",
+  "allCategories": "All Categories",
+  "noPromptsFound": "No prompts found",
+  "usePrompt": "Use this prompt",
+  "promptAuthor": "Author",
+  "promptCategory": "Category",
+  "showPromptLibrary": "Show",
+  "hidePromptLibrary": "Hide",
+  "loadingMore": "Loading more"
 }
 

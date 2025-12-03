@@ -3,6 +3,7 @@
  * 提供全局配置状态管理
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { Settings, SettingsCategory } from '@/types';
 import {
@@ -48,10 +49,11 @@ function settingsReducer(state: Settings, action: SettingsAction): Settings {
       return { ...state, ...action.payload };
     
     case 'UPDATE_CATEGORY':
+      const currentCategory = state[action.category];
       return {
         ...state,
         [action.category]: {
-          ...state[action.category],
+          ...(currentCategory || {}),
           ...action.payload,
         },
       };
@@ -77,7 +79,7 @@ interface SettingsProviderProps {
   children: ReactNode;
 }
 
-export function SettingsProvider({ children }: SettingsProviderProps) {
+function SettingsProvider({ children }: SettingsProviderProps) {
   const [settings, dispatch] = useReducer(settingsReducer, DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = React.useState(false);
 
@@ -180,6 +182,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     </SettingsContext.Provider>
   );
 }
+
+// 导出组件（确保 Fast Refresh 能正确识别）
+export { SettingsProvider };
 
 // ==================== Hook ====================
 

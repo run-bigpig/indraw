@@ -38,6 +38,10 @@ export function ExportImage(arg1, arg2) {
   return window['go']['core']['App']['ExportImage'](arg1, arg2);
 }
 
+export function FetchPrompts(arg1) {
+  return window['go']['core']['App']['FetchPrompts'](arg1);
+}
+
 export function GenerateImage(arg1) {
   return window['go']['core']['App']['GenerateImage'](arg1);
 }

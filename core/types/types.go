@@ -86,6 +86,7 @@ type AppSettings struct {
 	Language         string `json:"language"`
 	AutoSave         bool   `json:"autoSave"`
 	AutoSaveInterval int    `json:"autoSaveInterval"` // 秒
+	PromptLibraryURL string `json:"promptLibraryUrl"` // 提示词库 URL
 }
 
 // ==================== AI 服务参数结构体 ====================

@@ -51,7 +51,9 @@
     "openaiImageModeChat": "Chat Completion API",
     "openaiImageModeChatHint": "使用 /v1/chat/completions 端点（适用于第三方多模态 API）",
     "openaiCompatNote": "ℹ️ OpenAI 兼容服务说明",
-    "openaiCompatDesc": "专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。"
+    "openaiCompatDesc": "专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。",
+    "promptLibraryUrl": "提示词库 URL",
+    "promptLibraryUrlHint": "提示词库的 JSON 数据地址，用于素材生成器的提示词选择"
   },
   "canvas": {
     "width": "默认宽度",
@@ -91,6 +93,9 @@
   "saveSuccess": "设置已保存",
   "saveError": "保存失败，请重试",
   "unsavedChanges": "有未保存的修改",
-  "discardConfirm": "确定要放弃未保存的修改吗？"
+  "discardTitle": "放弃修改",
+  "discard": "放弃",
+  "discardConfirm": "确定要放弃未保存的修改吗？",
+  "resetTitle": "重置设置"
 }
 

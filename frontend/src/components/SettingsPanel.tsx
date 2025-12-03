@@ -23,6 +23,7 @@ import clsx from 'clsx';
 import { useSettings } from '../contexts/SettingsContext';
 import { Settings as SettingsType, SettingsCategory } from '@/types';
 import { AVAILABLE_FONTS, DEFAULT_FONT, isSymbolFont } from '@/constants/fonts';
+import ConfirmDialog from './ConfirmDialog';
 
 // ==================== 类型定义 ====================
 
@@ -274,6 +275,15 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [vertexCredentialsError, setVertexCredentialsError] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'warning' | 'danger' | 'info';
+    onConfirm: () => void;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // JSON 验证函数
@@ -321,9 +331,20 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   // 取消修改
   const handleCancel = async () => {
     if (hasUnsavedChanges) {
-      if (!confirm(t('settings.discardConfirm', '确定要放弃未保存的修改吗？'))) {
-        return;
-      }
+      setConfirmDialog({
+        isOpen: true,
+        title: t('settings.discardTitle', '放弃修改'),
+        message: t('settings.discardConfirm', '确定要放弃未保存的修改吗？'),
+        confirmText: t('settings.discard', '放弃'),
+        cancelText: t('settings.cancel', '取消'),
+        type: 'warning',
+        onConfirm: async () => {
+          setConfirmDialog(null);
+          await reloadSettings();
+          setHasUnsavedChanges(false);
+        },
+      });
+      return;
     }
     await reloadSettings();
     setHasUnsavedChanges(false);
@@ -332,9 +353,19 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   // 关闭面板时检查未保存的修改
   const handleClose = () => {
     if (hasUnsavedChanges) {
-      if (!confirm(t('settings.discardConfirm', '确定要放弃未保存的修改吗？'))) {
-        return;
-      }
+      setConfirmDialog({
+        isOpen: true,
+        title: t('settings.discardTitle', '放弃修改'),
+        message: t('settings.discardConfirm', '确定要放弃未保存的修改吗？'),
+        confirmText: t('settings.discard', '放弃'),
+        cancelText: t('settings.cancel', '取消'),
+        type: 'warning',
+        onConfirm: () => {
+          setConfirmDialog(null);
+          onClose();
+        },
+      });
+      return;
     }
     onClose();
   };
@@ -385,10 +416,19 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   };
 
   const handleReset = () => {
-    if (confirm(t('settings.resetConfirm', '确定要重置所有设置吗？此操作不可撤销。'))) {
-      resetAllSettings();
-      showMessage('success', t('settings.resetSuccess', '设置已重置'));
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: t('settings.resetTitle', '重置设置'),
+      message: t('settings.resetConfirm', '确定要重置所有设置吗？此操作不可撤销。'),
+      confirmText: t('settings.reset', '重置'),
+      cancelText: t('settings.cancel', '取消'),
+      type: 'danger',
+      onConfirm: () => {
+        setConfirmDialog(null);
+        resetAllSettings();
+        showMessage('success', t('settings.resetSuccess', '设置已重置'));
+      },
+    });
   };
 
   // 渲染 AI 设置
@@ -674,6 +714,25 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           </div>
         </>
       )}
+
+      {/* 提示词库配置 */}
+      <div className="pt-4 border-t border-tech-700">
+        <InputGroup
+          label={t('settings.ai.promptLibraryUrl', '提示词库 URL')}
+          hint={t('settings.ai.promptLibraryUrlHint', '提示词库的 JSON 数据地址，用于素材生成器的提示词选择')}
+        >
+          <TextInput
+            value={settings.app.promptLibraryUrl || ''}
+            onChange={(val) => {
+              handleUpdateCategory('app', {
+                ...settings.app,
+                promptLibraryUrl: val,
+              });
+            }}
+            placeholder="https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json"
+          />
+        </InputGroup>
+      </div>
     </div>
   );
 
@@ -948,6 +1007,20 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           </div>
         </div>
       </div>
+
+      {/* 确认对话框 */}
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText={confirmDialog.cancelText}
+          type={confirmDialog.type}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }

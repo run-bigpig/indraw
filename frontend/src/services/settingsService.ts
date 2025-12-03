@@ -9,6 +9,7 @@ import {
   AIServiceSettings,
   CanvasDefaultSettings,
   ToolSettings,
+  AppSettings,
 } from '@/types';
 import { LoadSettings, SaveSettings } from '../../wailsjs/go/core/App';
 
@@ -72,11 +73,19 @@ export const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   },
 };
 
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  language: 'zh-CN',
+  autoSave: false,
+  autoSaveInterval: 60,
+  promptLibraryUrl: 'https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json',
+};
+
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   ai: DEFAULT_AI_SETTINGS,
   canvas: DEFAULT_CANVAS_SETTINGS,
   tools: DEFAULT_TOOL_SETTINGS,
+  app: DEFAULT_APP_SETTINGS,
 };
 
 // ==================== 加密/解密工具 ====================
@@ -206,6 +215,26 @@ function validateToolSettings(settings: Partial<ToolSettings>): ToolSettings {
 }
 
 /**
+ * 验证应用设置
+ */
+function validateAppSettings(settings: Partial<AppSettings>): AppSettings {
+  return {
+    language: typeof settings.language === 'string' && settings.language
+      ? settings.language
+      : DEFAULT_APP_SETTINGS.language,
+    autoSave: typeof settings.autoSave === 'boolean'
+      ? settings.autoSave
+      : DEFAULT_APP_SETTINGS.autoSave,
+    autoSaveInterval: typeof settings.autoSaveInterval === 'number' && settings.autoSaveInterval > 0
+      ? settings.autoSaveInterval
+      : DEFAULT_APP_SETTINGS.autoSaveInterval,
+    promptLibraryUrl: typeof settings.promptLibraryUrl === 'string'
+      ? settings.promptLibraryUrl
+      : DEFAULT_APP_SETTINGS.promptLibraryUrl,
+  };
+}
+
+/**
  * 验证完整设置
  */
 function validateSettings(settings: Partial<Settings>): Settings {
@@ -214,6 +243,7 @@ function validateSettings(settings: Partial<Settings>): Settings {
     ai: validateAISettings(settings.ai || {}),
     canvas: validateCanvasSettings(settings.canvas || {}),
     tools: validateToolSettings(settings.tools || {}),
+    app: validateAppSettings(settings.app || {}),
   };
 }
 /**

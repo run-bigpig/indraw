@@ -37,6 +37,20 @@
   "sketchHint": "在此绘制草图",
   "sketchDrawn": "已绘制草图，将用于 AI 生成",
   "sketchAndReference": "草图和参考图将同时用于 AI 生成",
-  "clearSketch": "清除草图"
+  "clearSketch": "清除草图",
+  "promptLibrary": "提示词库",
+  "selectPrompt": "选择提示词",
+  "loadingPrompts": "加载提示词中...",
+  "loadPromptsFailed": "加载提示词失败",
+  "refreshPrompts": "刷新",
+  "searchPrompts": "搜索提示词...",
+  "allCategories": "全部分类",
+  "noPromptsFound": "未找到提示词",
+  "usePrompt": "使用此提示词",
+  "promptAuthor": "作者",
+  "promptCategory": "分类",
+  "showPromptLibrary": "展开",
+  "hidePromptLibrary": "隐藏",
+  "loadingMore": "加载更多"
 }
 

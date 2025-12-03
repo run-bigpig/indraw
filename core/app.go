@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"indraw/core/service"
 )
@@ -12,6 +13,7 @@ type App struct {
 	fileService   *service.FileService
 	configService *service.ConfigService
 	aiService     *service.AIService
+	promptService *service.PromptService
 }
 
 // NewApp creates a new App application struct
@@ -20,11 +22,13 @@ func NewApp() *App {
 	configService := service.NewConfigService()
 	fileService := service.NewFileService()
 	aiService := service.NewAIService(configService)
+	promptService := service.NewPromptService(configService)
 
 	return &App{
 		fileService:   fileService,
 		configService: configService,
 		aiService:     aiService,
+		promptService: promptService,
 	}
 }
 
@@ -165,4 +169,22 @@ func (a *App) BlendImages(paramsJSON string) (string, error) {
 // EnhancePrompt 增强提示词
 func (a *App) EnhancePrompt(prompt string) (string, error) {
 	return a.aiService.EnhancePrompt(prompt)
+}
+
+// ===== 提示词服务方法 =====
+
+// FetchPrompts 获取提示词列表
+func (a *App) FetchPrompts(forceRefresh bool) (string, error) {
+	prompts, err := a.promptService.FetchPrompts(forceRefresh)
+	if err != nil {
+		return "", err
+	}
+
+	// 序列化为 JSON
+	data, err := json.Marshal(prompts)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize prompts: %w", err)
+	}
+
+	return string(data), nil
 }

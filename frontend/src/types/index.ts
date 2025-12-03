@@ -96,6 +96,16 @@ export interface ToolSettings {
 }
 
 /**
+ * 应用设置
+ */
+export interface AppSettings {
+  language: string;
+  autoSave: boolean;
+  autoSaveInterval: number; // 秒
+  promptLibraryUrl?: string; // 提示词库 URL
+}
+
+/**
  * 完整设置配置
  */
 export interface Settings {
@@ -103,12 +113,13 @@ export interface Settings {
   ai: AIServiceSettings;
   canvas: CanvasDefaultSettings;
   tools: ToolSettings;
+  app: AppSettings; // 应用设置
 }
 
 /**
  * 设置分类键
  */
-export type SettingsCategory = 'ai' | 'canvas' | 'tools';
+export type SettingsCategory = 'ai' | 'canvas' | 'tools' | 'app';
 
 export interface CanvasConfig {
   width: number;

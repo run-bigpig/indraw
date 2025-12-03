@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Konva from 'konva';
 import { v4 as uuidv4 } from 'uuid';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import HistoryPanel from './src/components/HistoryPanel';
 import SketchCanvas from './src/components/SketchCanvas';
 import { LayerData, ToolType, CanvasConfig, ShapeType} from '@/types';
 import { generateImageFromText, editImageWithAI, removeBackgroundWithAI, blendImagesWithAI, enhancePrompt } from '@/services/ai';
+import { fetchPrompts, filterPromptsByCategory, searchPrompts, getCategories, type PromptItem } from '@/services/promptService';
 import {
   Download,
   Zap,
@@ -30,7 +31,10 @@ import {
   Trash2,
   Loader2,
   History,
-  Clock
+  Clock,
+  Search,
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAutoSave } from '@/hooks';
@@ -46,6 +50,66 @@ import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
 
 export type ProcessingState = 'idle' | 'generating' | 'inpainting' | 'removing-bg' | 'blending' | 'transforming';
+
+// ✅ 性能优化：使用 React.memo 优化提示词列表项组件
+interface PromptListItemProps {
+  item: PromptItem;
+  onClick: () => void;
+  t: (key: string) => string;
+}
+
+const PromptListItem = React.memo<PromptListItemProps>(({ item, onClick, t }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <div
+      className="bg-tech-900 border border-tech-700 rounded-md p-2.5 hover:border-purple-500/50 transition-all cursor-pointer group"
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <h4 className="text-xs font-medium text-gray-200 mb-1 truncate group-hover:text-purple-300 transition-colors">
+            {item.title}
+          </h4>
+          <p className="text-[10px] text-gray-500 line-clamp-2 mb-1.5">
+            {item.prompt}
+          </p>
+          <div className="flex items-center gap-2 text-[10px] text-gray-600">
+            {item.category && (
+              <span className="px-1.5 py-0.5 bg-tech-800 rounded">
+                {item.category}
+                {item.sub_category && ` / ${item.sub_category}`}
+              </span>
+            )}
+            {item.author && (
+              <span className="text-gray-500">
+                {t('ai:promptAuthor')}: {item.author}
+              </span>
+            )}
+          </div>
+        </div>
+        {item.preview && !imageError && (
+          <img
+            src={item.preview}
+            alt={item.title}
+            className={clsx(
+              "w-16 h-16 object-cover rounded border border-tech-700 flex-shrink-0 transition-opacity",
+              imageLoaded ? "opacity-100" : "opacity-0"
+            )}
+            loading="lazy"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+});
+
+PromptListItem.displayName = 'PromptListItem';
 
 export default function App() {
   // i18n
@@ -162,6 +226,76 @@ export default function App() {
   const [aiGenSketchImage, setAiGenSketchImage] = useState<string | null>(null);
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const aiGenFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Prompt Library State
+  const [prompts, setPrompts] = useState<PromptItem[]>([]);
+  const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
+  const [promptSearchKeyword, setPromptSearchKeyword] = useState('');
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState('');
+  const [selectedPromptCategory, setSelectedPromptCategory] = useState<string>('');
+  const [showPromptLibrary, setShowPromptLibrary] = useState(false);
+
+  // ✅ 性能优化：使用 useMemo 缓存分类列表
+  const categories = useMemo(() => getCategories(prompts), [prompts]);
+
+  // ✅ 性能优化：防抖搜索关键词
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchKeyword(promptSearchKeyword);
+    }, 300); // 300ms 防抖延迟
+
+    return () => clearTimeout(timer);
+  }, [promptSearchKeyword]);
+
+  // Load prompts when AI generator panel opens
+  useEffect(() => {
+    if (activeTool === 'ai-gen' && prompts.length === 0 && !isLoadingPrompts) {
+      setIsLoadingPrompts(true);
+      fetchPrompts().then(loadedPrompts => {
+        setPrompts(loadedPrompts);
+        setIsLoadingPrompts(false);
+      }).catch(() => {
+        setIsLoadingPrompts(false);
+      });
+    }
+  }, [activeTool, prompts.length, isLoadingPrompts]);
+
+  // ✅ 性能优化：使用 useMemo 优化筛选逻辑，避免不必要的重新计算
+  const filteredPrompts = useMemo(() => {
+    let filtered = prompts;
+    
+    if (selectedPromptCategory) {
+      filtered = filterPromptsByCategory(filtered, selectedPromptCategory);
+    }
+    
+    if (debouncedSearchKeyword.trim()) {
+      filtered = searchPrompts(filtered, debouncedSearchKeyword);
+    }
+    
+    return filtered;
+  }, [prompts, debouncedSearchKeyword, selectedPromptCategory]);
+
+  // ✅ 性能优化：限制初始渲染数量，使用虚拟滚动效果
+  const [visiblePromptCount, setVisiblePromptCount] = useState(20);
+  const displayedPrompts = useMemo(() => {
+    return filteredPrompts.slice(0, visiblePromptCount);
+  }, [filteredPrompts, visiblePromptCount]);
+
+  // ✅ 性能优化：滚动加载更多
+  const promptListRef = useRef<HTMLDivElement>(null);
+  const handlePromptListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    // 当滚动到底部 50px 内时，加载更多
+    if (scrollBottom < 50 && visiblePromptCount < filteredPrompts.length) {
+      setVisiblePromptCount(prev => Math.min(prev + 20, filteredPrompts.length));
+    }
+  }, [visiblePromptCount, filteredPrompts.length]);
+
+  // ✅ 性能优化：当筛选条件改变时，重置可见数量
+  useEffect(() => {
+    setVisiblePromptCount(20);
+  }, [selectedPromptCategory, debouncedSearchKeyword]);
 
   // Refs
   const stageRef = useRef<Konva.Stage>(null);
@@ -1842,6 +1976,130 @@ Keep high quality and clarity.`;
 
             {/* Content */}
             <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {/* Prompt Library */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-gray-500 font-mono uppercase tracking-wider flex items-center gap-2">
+                    <BookOpen size={12} />
+                    {t('ai:promptLibrary')}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        setIsLoadingPrompts(true);
+                        try {
+                          const refreshedPrompts = await fetchPrompts(true);
+                          setPrompts(refreshedPrompts);
+                        } catch (e) {
+                          console.error('刷新提示词失败', e);
+                        } finally {
+                          setIsLoadingPrompts(false);
+                        }
+                      }}
+                      disabled={isLoadingPrompts}
+                      className="p-1 text-gray-500 hover:text-purple-400 transition-colors"
+                      title={t('ai:refreshPrompts')}
+                    >
+                      <RefreshCw size={12} className={clsx(isLoadingPrompts && "animate-spin")} />
+                    </button>
+                    <button
+                      onClick={() => setShowPromptLibrary(!showPromptLibrary)}
+                      className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+                    >
+                      {showPromptLibrary ? t('ai:hidePromptLibrary') : t('ai:showPromptLibrary')}
+                    </button>
+                  </div>
+                </div>
+                
+                {showPromptLibrary && (
+                  <div className="bg-tech-800 border border-tech-600 rounded-lg p-3 space-y-3">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
+                      <input
+                        type="text"
+                        value={promptSearchKeyword}
+                        onChange={(e) => setPromptSearchKeyword(e.target.value)}
+                        placeholder={t('ai:searchPrompts')}
+                        className="w-full bg-tech-900 border border-tech-700 rounded-md pl-8 pr-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                      />
+                    </div>
+
+                    {/* Category Filter */}
+                    {categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setSelectedPromptCategory('')}
+                          className={clsx(
+                            "px-2 py-1 text-[10px] rounded-md transition-all",
+                            !selectedPromptCategory
+                              ? "bg-purple-600 text-white"
+                              : "bg-tech-700 text-gray-400 hover:text-gray-200"
+                          )}
+                        >
+                          {t('ai:allCategories')}
+                        </button>
+                        {categories.map(({ category }) => (
+                          <button
+                            key={category}
+                            onClick={() => setSelectedPromptCategory(category)}
+                            className={clsx(
+                              "px-2 py-1 text-[10px] rounded-md transition-all",
+                              selectedPromptCategory === category
+                                ? "bg-purple-600 text-white"
+                                : "bg-tech-700 text-gray-400 hover:text-gray-200"
+                            )}
+                          >
+                            {category}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Prompt List */}
+                    <div 
+                      ref={promptListRef}
+                      className="max-h-48 overflow-y-auto custom-scrollbar space-y-2"
+                      onScroll={handlePromptListScroll}
+                    >
+                      {isLoadingPrompts ? (
+                        <div className="flex items-center justify-center py-8 text-gray-500">
+                          <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin mr-2" />
+                          <span className="text-xs">{t('ai:loadingPrompts')}</span>
+                        </div>
+                      ) : filteredPrompts.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500 text-xs">
+                          {prompts.length === 0 ? t('ai:loadPromptsFailed') : t('ai:noPromptsFound')}
+                        </div>
+                      ) : (
+                        <>
+                          {displayedPrompts.map((item) => {
+                            // ✅ 性能优化：使用唯一 key（title + prompt 的前几个字符）
+                            const itemKey = `${item.title}-${item.prompt.substring(0, 20)}`;
+                            return (
+                              <PromptListItem
+                                key={itemKey}
+                                item={item}
+                                onClick={() => {
+                                  setAiGenPrompt(item.prompt);
+                                  setShowPromptLibrary(false);
+                                }}
+                                t={t}
+                              />
+                            );
+                          })}
+                          {visiblePromptCount < filteredPrompts.length && (
+                            <div className="text-center py-2 text-gray-500 text-xs">
+                              {t('ai:loadingMore')}... ({displayedPrompts.length} / {filteredPrompts.length})
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Prompt */}
               <div className="space-y-1.5">
                 <label className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">{t('ai:prompt')}</label>

@@ -51,7 +51,9 @@
     "openaiImageModeChat": "Chat Completion API",
     "openaiImageModeChatHint": "Use /v1/chat/completions endpoint (for third-party multimodal APIs)",
     "openaiCompatNote": "ℹ️ OpenAI Compatible Service Note",
-    "openaiCompatDesc": "Dedicated Image API mode requires /v1/images/* compatible endpoints; Chat mode supports full features like image editing and blending."
+    "openaiCompatDesc": "Dedicated Image API mode requires /v1/images/* compatible endpoints; Chat mode supports full features like image editing and blending.",
+    "promptLibraryUrl": "Prompt Library URL",
+    "promptLibraryUrlHint": "JSON data URL for prompt library, used for prompt selection in material generator"
   },
   "canvas": {
     "width": "Default Width",
@@ -91,6 +93,9 @@
   "saveSuccess": "Settings saved successfully",
   "saveError": "Failed to save settings, please try again",
   "unsavedChanges": "Unsaved changes",
-  "discardConfirm": "Are you sure you want to discard unsaved changes?"
+  "discardTitle": "Discard Changes",
+  "discard": "Discard",
+  "discardConfirm": "Are you sure you want to discard unsaved changes?",
+  "resetTitle": "Reset Settings"
 }
 
