@@ -3,8 +3,7 @@
  * 提供全局配置状态管理
  */
 
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { Settings, SettingsCategory } from '@/types';
 import {
   loadSettings,
@@ -26,7 +25,7 @@ type SettingsAction =
 
 // ==================== Context 类型 ====================
 
-interface SettingsContextType {
+export interface SettingsContextType {
   settings: Settings;
   isLoaded: boolean;
   updateSettings: (updates: Partial<Settings>) => void;
@@ -71,7 +70,7 @@ function settingsReducer(state: Settings, action: SettingsAction): Settings {
 
 // ==================== Context ====================
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+export const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 // ==================== Provider ====================
 
@@ -183,35 +182,9 @@ function SettingsProvider({ children }: SettingsProviderProps) {
   );
 }
 
-// 导出组件（确保 Fast Refresh 能正确识别）
+// 导出组件
 export { SettingsProvider };
 
-// ==================== Hook ====================
-
-/**
- * 使用设置 Hook
- */
-export function useSettings(): SettingsContextType {
-  const context = useContext(SettingsContext);
-  if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
-  return context;
-}
-
-/**
- * 获取特定分类的设置
- */
-export function useSettingsCategory<T extends SettingsCategory>(category: T) {
-  const { settings, updateCategory } = useSettings();
-  
-  const update = useCallback((updates: Partial<Settings[T]>) => {
-    updateCategory(category, updates);
-  }, [category, updateCategory]);
-
-  return {
-    settings: settings[category],
-    update,
-  };
-}
+// 重新导出 hooks（从单独的文件导入以支持 Fast Refresh）
+export { useSettings, useSettingsCategory } from './useSettings';
 

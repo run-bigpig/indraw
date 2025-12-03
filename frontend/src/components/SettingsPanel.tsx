@@ -715,24 +715,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         </>
       )}
 
-      {/* 提示词库配置 */}
-      <div className="pt-4 border-t border-tech-700">
-        <InputGroup
-          label={t('settings.ai.promptLibraryUrl', '提示词库 URL')}
-          hint={t('settings.ai.promptLibraryUrlHint', '提示词库的 JSON 数据地址，用于素材生成器的提示词选择')}
-        >
-          <TextInput
-            value={settings.app.promptLibraryUrl || ''}
-            onChange={(val) => {
-              handleUpdateCategory('app', {
-                ...settings.app,
-                promptLibraryUrl: val,
-              });
-            }}
-            placeholder="https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json"
-          />
-        </InputGroup>
-      </div>
     </div>
   );
 

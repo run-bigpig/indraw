@@ -314,7 +314,7 @@ func (c *ConfigService) getDefaultSettings() string {
 			Language:         "zh-CN",
 			AutoSave:         false,
 			AutoSaveInterval: 60,
-			PromptLibraryURL: "https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json",
+			PromptLibraryURL: "https://raw.githubusercontent.com/run-bigpig/indraw/refs/heads/main/prompts.json",
 		},
 	}
 

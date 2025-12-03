@@ -151,27 +151,8 @@ func (p *PromptService) FetchPrompts(forceRefresh bool) ([]PromptItem, error) {
 	}
 
 	// 本地文件不存在或读取失败，从线上下载
-	// 从配置中获取 URL
-	settingsJSON, err := p.configService.LoadSettings()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load settings: %w", err)
-	}
-
-	var settings struct {
-		App struct {
-			PromptLibraryURL string `json:"promptLibraryUrl"`
-		} `json:"app"`
-	}
-
-	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
-		return nil, fmt.Errorf("failed to parse settings: %w", err)
-	}
-
-	url := settings.App.PromptLibraryURL
-	if url == "" {
-		// 使用默认 URL
-		url = "https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json"
-	}
+	// 使用固定的 URL
+	url := "https://raw.githubusercontent.com/run-bigpig/indraw/refs/heads/main/prompts.json"
 
 	// 从线上下载并保存到本地
 	prompts, err = p.downloadPromptsFromRemote(url, localPath)
