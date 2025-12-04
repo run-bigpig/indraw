@@ -17,13 +17,26 @@ import {
   Upload,
   RotateCcw,
   Check,
-  AlertCircle
+  AlertCircle,
+  Brain,
+  Loader2,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettings } from '../contexts/SettingsContext';
 import { Settings as SettingsType, SettingsCategory } from '@/types';
 import { AVAILABLE_FONTS, DEFAULT_FONT, isSymbolFont } from '@/constants/fonts';
 import ConfirmDialog from './ConfirmDialog';
+import {
+  getAvailableModels,
+  getModelStatus,
+  switchModel,
+  downloadModel,
+  getDownloadConfig,
+  setDownloadConfig,
+  HFDownloadConfig,
+} from '../services/transformersService';
 
 // ==================== 类型定义 ====================
 
@@ -32,7 +45,7 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type TabType = SettingsCategory;
+type TabType = SettingsCategory | 'models';
 
 // ==================== 子组件 ====================
 
@@ -285,6 +298,56 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     onConfirm: () => void;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 模型管理状态
+  const [models, setModels] = useState<Array<{
+    id: string;
+    name: string;
+    description: string;
+    repoId: string;
+    size: number;
+    downloaded: boolean;
+    isDownloading: boolean;
+  }>>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
+  const [downloadConfig, setDownloadConfigState] = useState<HFDownloadConfig>({
+    useMirror: true,
+    proxyUrl: '',
+    insecureSsl: false,
+  });
+
+  // showMessage 函数需要在所有 Hooks 之前定义
+  const showMessage = React.useCallback((type: 'success' | 'error', text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 3000);
+  }, []);
+
+  // 加载模型列表和状态
+  const loadModels = React.useCallback(async () => {
+    setLoadingModels(true);
+    try {
+      // 新 API 直接返回带状态的模型列表
+      const availableModels = await getAvailableModels();
+      setModels(availableModels);
+      
+      // 同时加载下载配置
+      const config = await getDownloadConfig();
+      setDownloadConfigState(config);
+    } catch (error) {
+      console.error('Failed to load models:', error);
+      showMessage('error', '加载模型列表失败');
+    } finally {
+      setLoadingModels(false);
+    }
+  }, [showMessage]);
+
+  // 当切换到模型标签页时加载模型列表
+  React.useEffect(() => {
+    if (activeTab === 'models') {
+      loadModels();
+    }
+  }, [activeTab, loadModels]);
 
   // JSON 验证函数
   const validateJSON = (jsonString: string): boolean => {
@@ -376,12 +439,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { id: 'ai', icon: <Cpu size={16} />, label: t('settings.tabs.ai', 'AI 服务') },
     { id: 'canvas', icon: <Palette size={16} />, label: t('settings.tabs.canvas', '画布') },
     { id: 'tools', icon: <Wrench size={16} />, label: t('settings.tabs.tools', '工具') },
+    { id: 'models', icon: <Brain size={16} />, label: t('settings.tabs.models', '模型') },
   ];
-
-  const showMessage = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  };
 
   const handleExport = () => {
     const json = exportSettingsToJson(false);
@@ -865,11 +924,305 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     </div>
   );
 
+  const handleModelSwitch = async (modelId: string) => {
+    try {
+      const model = models.find(m => m.id === modelId);
+      if (!model) return;
+
+      // 检查模型是否已下载
+      if (!model.downloaded) {
+        setConfirmDialog({
+          isOpen: true,
+          title: '模型未下载',
+          message: `模型 "${model.name}" 尚未下载到本地。是否现在下载？`,
+          confirmText: '下载',
+          cancelText: '取消',
+          type: 'info',
+          onConfirm: async () => {
+            setConfirmDialog(null);
+            await handleModelDownload(modelId);
+            // 下载完成后自动切换
+            await performModelSwitch(modelId);
+          },
+        });
+        return;
+      }
+
+      await performModelSwitch(modelId);
+    } catch (error: any) {
+      console.error('Failed to switch model:', error);
+      showMessage('error', error.message || '切换模型失败');
+    }
+  };
+
+  const performModelSwitch = async (modelId: string) => {
+    try {
+      // 获取模型信息
+      const model = models.find(m => m.id === modelId);
+      if (!model) {
+        throw new Error('模型不存在');
+      }
+
+      // 切换模型（保存到后端）
+      await switchModel(modelId);
+      
+      // 立即更新本地 settings 状态，使 UI 同步
+      // 使用 updateCategory 而不是 handleUpdateCategory，避免设置 hasUnsavedChanges
+      updateCategory('app', {
+        transformers: {
+          ...settings.app.transformers!,
+          currentModelId: modelId,
+        },
+      });
+      
+      showMessage('success', '模型切换成功');
+      await loadModels(); // 重新加载状态
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const handleModelDownload = async (modelId: string) => {
+    setDownloadingModelId(modelId);
+    try {
+      await downloadModel(modelId);
+      showMessage('success', '模型下载完成');
+      await loadModels(); // 重新加载状态
+    } catch (error: any) {
+      console.error('Failed to download model:', error);
+      showMessage('error', error.message || '下载模型失败');
+    } finally {
+      setDownloadingModelId(null);
+    }
+  };
+
+  // 渲染模型设置
+  const renderModelSettings = () => {
+    const currentModelId = settings.app.transformers?.currentModelId || 'rmbg-1.4';
+    const currentModel = models.find(m => m.id === currentModelId);
+
+    // 格式化文件大小
+    const formatSize = (bytes: number) => {
+      if (bytes <= 0) return '未知';
+      const mb = bytes / (1024 * 1024);
+      return `${mb.toFixed(1)} MB`;
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-medium text-gray-200 mb-1">Transformers 模型</h3>
+            <p className="text-xs text-gray-500">选择用于背景移除的 AI 模型（所有模型需先下载到本地）</p>
+          </div>
+        </div>
+
+        {loadingModels ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={20} className="animate-spin text-cyan-400" />
+            <span className="ml-2 text-sm text-gray-400">加载中...</span>
+          </div>
+        ) : models.length === 0 ? (
+          <div className="text-center py-8 text-sm text-gray-500">
+            暂无可用模型
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {models.map((model) => {
+              const isSelected = model.id === currentModelId;
+              const isDownloading = downloadingModelId === model.id || model.isDownloading;
+
+              return (
+                <div
+                  key={model.id}
+                  className={clsx(
+                    "border rounded-lg p-3 transition-all",
+                    isSelected
+                      ? "border-cyan-500 bg-cyan-500/10"
+                      : "border-tech-700 bg-tech-900/50 hover:border-tech-600"
+                  )}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-medium text-gray-200">{model.name}</h4>
+                        {isSelected && (
+                          <CheckCircle2 size={14} className="text-cyan-400" />
+                        )}
+                        {model.size > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-tech-700 text-gray-400 rounded">
+                            {formatSize(model.size)}
+                          </span>
+                        )}
+                      </div>
+                      {model.description && (
+                        <p className="text-xs text-gray-500 mb-2">{model.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 text-xs">
+                        {model.downloaded ? (
+                          <span className="flex items-center gap-1 text-green-400">
+                            <CheckCircle2 size={12} />
+                            已下载
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-yellow-400">
+                            <XCircle size={12} />
+                            未下载
+                          </span>
+                        )}
+                        {model.repoId && (
+                          <span className="text-gray-600">
+                            {model.repoId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      {!model.downloaded && !isDownloading && (
+                        <button
+                          onClick={() => handleModelDownload(model.id)}
+                          className="px-3 py-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white rounded transition-colors"
+                        >
+                          下载
+                        </button>
+                      )}
+                      {isDownloading && (
+                        <div className="flex items-center gap-2 text-xs text-cyan-400">
+                          <Loader2 size={12} className="animate-spin" />
+                          下载中...
+                        </div>
+                      )}
+                      {!isSelected && model.downloaded && (
+                        <button
+                          onClick={() => handleModelSwitch(model.id)}
+                          className="px-3 py-1.5 text-xs bg-tech-700 hover:bg-tech-600 text-gray-300 rounded transition-colors"
+                        >
+                          选择
+                        </button>
+                      )}
+                      {!isSelected && !model.downloaded && !isDownloading && (
+                        <button
+                          onClick={() => handleModelSwitch(model.id)}
+                          className="px-3 py-1.5 text-xs bg-tech-700 hover:bg-tech-600 text-gray-300 rounded transition-colors"
+                        >
+                          选择
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-6 pt-4 border-t border-tech-700">
+          <InputGroup
+            label="模型配置"
+            hint="量化模型可以提高性能并减少内存使用"
+          >
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.app.transformers?.useQuantized ?? true}
+                  onChange={(e) => {
+                    handleUpdateCategory('app', {
+                      transformers: {
+                        ...settings.app.transformers!,
+                        useQuantized: e.target.checked,
+                      },
+                    });
+                  }}
+                  className="w-4 h-4 rounded border-tech-600 bg-tech-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                />
+                使用量化模型 (q8)
+              </label>
+            </div>
+          </InputGroup>
+        </div>
+
+        {/* 下载设置 */}
+        <div className="mt-6 pt-4 border-t border-tech-700">
+          <InputGroup
+            label="下载设置"
+            hint="配置模型下载方式（建议国内用户开启镜像）"
+          >
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={downloadConfig.useMirror}
+                  onChange={async (e) => {
+                    const newConfig = { ...downloadConfig, useMirror: e.target.checked };
+                    setDownloadConfigState(newConfig);
+                    try {
+                      await setDownloadConfig(newConfig);
+                    } catch (error) {
+                      showMessage('error', '保存下载配置失败');
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-tech-600 bg-tech-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                />
+                使用国内镜像 (hf-mirror.com)
+              </label>
+              
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={downloadConfig.insecureSsl}
+                  onChange={async (e) => {
+                    const newConfig = { ...downloadConfig, insecureSsl: e.target.checked };
+                    setDownloadConfigState(newConfig);
+                    try {
+                      await setDownloadConfig(newConfig);
+                    } catch (error) {
+                      showMessage('error', '保存下载配置失败');
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-tech-600 bg-tech-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                />
+                跳过 SSL 验证（解决部分网络环境问题）
+              </label>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-gray-400">代理地址（可选）</label>
+                <input
+                  type="text"
+                  value={downloadConfig.proxyUrl}
+                  onChange={(e) => setDownloadConfigState({ ...downloadConfig, proxyUrl: e.target.value })}
+                  onBlur={async () => {
+                    try {
+                      await setDownloadConfig(downloadConfig);
+                    } catch (error) {
+                      showMessage('error', '保存下载配置失败');
+                    }
+                  }}
+                  placeholder="例如: http://127.0.0.1:7890"
+                  className="w-full bg-tech-900 border border-tech-700 rounded px-3 py-2 text-sm text-gray-300 focus:border-cyan-500 focus:outline-none transition-colors placeholder:text-gray-600"
+                />
+              </div>
+            </div>
+          </InputGroup>
+        </div>
+
+        {/* 说明信息 */}
+        <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-400 mt-4">
+          <p className="font-medium mb-1">ℹ️ 模型管理说明</p>
+          <p className="text-blue-500">
+            所有模型都需要先下载到本地才能使用。模型从 Hugging Face 下载，国内用户建议开启镜像加速。
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'ai': return renderAISettings();
       case 'canvas': return renderCanvasSettings();
       case 'tools': return renderToolSettings();
+      case 'models': return renderModelSettings();
       default: return null;
     }
   };

@@ -81,12 +81,79 @@ type TextSettings struct {
 	FontFamily  string `json:"fontFamily"`
 }
 
+// TransformersModelInfo 模型信息（配置文件中的模型定义）
+type TransformersModelInfo struct {
+	ID          string `json:"id"`          // 模型唯一标识（目录名）
+	Name        string `json:"name"`        // 模型显示名称
+	RepoID      string `json:"repoId"`      // Hugging Face 仓库 ID（用于下载）
+	Description string `json:"description"` // 模型描述
+	Size        int64  `json:"size"`        // 模型大小（字节），-1 表示未知
+}
+
+// ModelInfo 模型信息（带运行时状态，用于前端显示）
+type ModelInfo struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	RepoID        string `json:"repoId"`
+	Size          int64  `json:"size"`
+	Downloaded    bool   `json:"downloaded"`    // 模型是否已下载
+	IsDownloading bool   `json:"isDownloading"` // 是否正在下载
+}
+
+// ModelFile 模型文件信息
+type ModelFile struct {
+	Name string `json:"name"` // 文件名
+	Path string `json:"path"` // 相对路径
+	Size int64  `json:"size"` // 文件大小
+}
+
+// TransformersModelSettings Transformers 模型配置
+type TransformersModelSettings struct {
+	CurrentModelID  string                  `json:"currentModelId"`  // 当前使用的模型ID
+	UseQuantized    bool                    `json:"useQuantized"`    // 是否使用量化模型
+	AvailableModels []TransformersModelInfo `json:"availableModels"` // 可用的模型列表
+}
+
+// ModelStatus 模型状态
+type ModelStatus struct {
+	ModelID       string `json:"modelId"`
+	Exists        bool   `json:"exists"`        // 模型是否已下载到本地
+	IsDownloading bool   `json:"isDownloading"` // 是否正在下载
+	Path          string `json:"path"`          // 模型文件服务路径（如 /models/rmbg-1.4）
+}
+
+// TransformersModelConfig 传递给 transformers.js 的模型配置
+type TransformersModelConfig struct {
+	ModelID      string `json:"modelId"`      // 模型 ID
+	ModelPath    string `json:"modelPath"`    // 模型文件服务路径（如 /models/rmbg-1.4）
+	UseQuantized bool   `json:"useQuantized"` // 是否使用量化模型
+	Exists       bool   `json:"exists"`       // 模型是否已下载
+}
+
+// HFDownloadConfig Hugging Face 下载配置
+type HFDownloadConfig struct {
+	UseMirror   bool   `json:"useMirror"`   // 是否使用国内镜像 (hf-mirror.com)
+	ProxyURL    string `json:"proxyUrl"`    // 代理地址（可选，如 "http://127.0.0.1:7890"）
+	InsecureSSL bool   `json:"insecureSsl"` // 是否跳过 SSL 验证（解决某些网络环境的 SSL 问题）
+}
+
+// DownloadProgress 下载进度信息
+type DownloadProgress struct {
+	ModelID     string  `json:"modelId"`
+	FileName    string  `json:"fileName"`
+	TotalFiles  int     `json:"totalFiles"`
+	CurrentFile int     `json:"currentFile"`
+	FileSize    int64   `json:"fileSize"`
+	Downloaded  int64   `json:"downloaded"`
+	Progress    float64 `json:"progress"` // 0-1
+	Status      string  `json:"status"`   // "downloading", "completed", "failed", "skipped"
+}
+
 // AppSettings 应用设置
+// 注意：language 由前端 i18n 库管理，存储在 localStorage
 type AppSettings struct {
-	Language         string `json:"language"`
-	AutoSave         bool   `json:"autoSave"`
-	AutoSaveInterval int    `json:"autoSaveInterval"` // 秒
-	PromptLibraryURL string `json:"promptLibraryUrl"` // 提示词库 URL
+	Transformers *TransformersModelSettings `json:"transformers,omitempty"` // Transformers 模型配置
 }
 
 // ==================== AI 服务参数结构体 ====================

@@ -48,6 +48,7 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
   // 处理状态
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOpenCVReady, setIsOpenCVReady] = useState(false);
+  const [processingMethod, setProcessingMethod] = useState<'transformers' | 'opencv' | null>(null);
   
   // 切片结果
   const [slices, setSlices] = useState<GridSlice[]>([]);
@@ -90,8 +91,16 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
     setIsProcessing(true);
     setSlices([]);
     setSelectedIds(new Set());
+    setProcessingMethod(null);
     
     try {
+      // 智能切割模式会优先使用 transformers.js
+      if (mode === ProcessMode.SMART_EXTRACT) {
+        setProcessingMethod('transformers');
+      } else {
+        setProcessingMethod('opencv');
+      }
+      
       const result = await processImage(
         imageSrc, 
         mode, 
@@ -102,6 +111,10 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
       setSelectedIds(new Set(result.map(s => s.id)));
     } catch (error) {
       console.error('图片切割失败:', error);
+      // 如果 transformers.js 失败，可能会回退到 OpenCV
+      if (mode === ProcessMode.SMART_EXTRACT) {
+        setProcessingMethod('opencv');
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -414,6 +427,11 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
             <div className="h-full flex flex-col items-center justify-center">
               <Loader2 size={40} className="text-violet-400 animate-spin mb-4" />
               <p className="text-gray-400">{t('dialog:slice.processing')}</p>
+              {processingMethod === 'transformers' && (
+                <p className="text-xs text-gray-500 mt-2">
+                  使用 AI 模型进行智能抠图...
+                </p>
+              )}
             </div>
           ) : slices.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center">

@@ -10,6 +10,7 @@ import {
   CanvasDefaultSettings,
   ToolSettings,
   AppSettings,
+  TransformersModelSettings,
 } from '@/types';
 import { LoadSettings, SaveSettings } from '../../wailsjs/go/core/App';
 
@@ -73,11 +74,22 @@ export const DEFAULT_TOOL_SETTINGS: ToolSettings = {
   },
 };
 
+export const DEFAULT_TRANSFORMERS_MODEL_SETTINGS: TransformersModelSettings = {
+  currentModelId: 'rmbg-1.4',
+  useQuantized: true,
+  availableModels: [
+    {
+      id: 'rmbg-1.4',
+      name: 'RMBG-1.4',
+      repoId: 'briaai/RMBG-1.4',
+      description: 'BRIA 背景移除模型 v1.4 - 高质量背景移除',
+      size: 176000000, // ~176MB
+    },
+  ],
+};
+
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  language: 'zh-CN',
-  autoSave: false,
-  autoSaveInterval: 60,
-  promptLibraryUrl: 'https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json',
+  transformers: DEFAULT_TRANSFORMERS_MODEL_SETTINGS,
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -215,22 +227,50 @@ function validateToolSettings(settings: Partial<ToolSettings>): ToolSettings {
 }
 
 /**
+ * 验证 Transformers 模型设置
+ */
+function validateTransformersModelSettings(settings: Partial<TransformersModelSettings>): TransformersModelSettings {
+  const defaultSettings = DEFAULT_TRANSFORMERS_MODEL_SETTINGS;
+  
+  // 验证并处理 availableModels（使用新的字段结构）
+  const availableModels = Array.isArray(settings.availableModels) && settings.availableModels.length > 0
+    ? settings.availableModels.map(model => ({
+        id: typeof model.id === 'string' ? model.id : '',
+        name: typeof model.name === 'string' ? model.name : '',
+        repoId: typeof model.repoId === 'string' ? model.repoId : '',
+        description: typeof model.description === 'string' ? model.description : undefined,
+        size: typeof model.size === 'number' ? model.size : undefined,
+      })).filter(model => model.id && model.name)
+    : defaultSettings.availableModels;
+  
+  // 确定 currentModelId
+  let currentModelId = typeof settings.currentModelId === 'string' && settings.currentModelId
+    ? settings.currentModelId
+    : defaultSettings.currentModelId;
+  
+  // 验证 currentModelId 是否在 availableModels 中存在
+  const modelExists = availableModels.some(m => m.id === currentModelId);
+  if (!modelExists && availableModels.length > 0) {
+    currentModelId = availableModels[0].id;
+  }
+  
+  return {
+    currentModelId,
+    useQuantized: typeof settings.useQuantized === 'boolean'
+      ? settings.useQuantized
+      : defaultSettings.useQuantized,
+    availableModels,
+  };
+}
+
+/**
  * 验证应用设置
  */
 function validateAppSettings(settings: Partial<AppSettings>): AppSettings {
   return {
-    language: typeof settings.language === 'string' && settings.language
-      ? settings.language
-      : DEFAULT_APP_SETTINGS.language,
-    autoSave: typeof settings.autoSave === 'boolean'
-      ? settings.autoSave
-      : DEFAULT_APP_SETTINGS.autoSave,
-    autoSaveInterval: typeof settings.autoSaveInterval === 'number' && settings.autoSaveInterval > 0
-      ? settings.autoSaveInterval
-      : DEFAULT_APP_SETTINGS.autoSaveInterval,
-    promptLibraryUrl: typeof settings.promptLibraryUrl === 'string'
-      ? settings.promptLibraryUrl
-      : DEFAULT_APP_SETTINGS.promptLibraryUrl,
+    transformers: settings.transformers
+      ? validateTransformersModelSettings(settings.transformers)
+      : DEFAULT_TRANSFORMERS_MODEL_SETTINGS,
   };
 }
 

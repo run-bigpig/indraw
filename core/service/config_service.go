@@ -311,10 +311,19 @@ func (c *ConfigService) getDefaultSettings() string {
 			},
 		},
 		App: types.AppSettings{
-			Language:         "zh-CN",
-			AutoSave:         false,
-			AutoSaveInterval: 60,
-			PromptLibraryURL: "https://raw.githubusercontent.com/run-bigpig/indraw/refs/heads/main/prompts.json",
+			Transformers: &types.TransformersModelSettings{
+				CurrentModelID: "rmbg-1.4",
+				UseQuantized:   true,
+				AvailableModels: []types.TransformersModelInfo{
+					{
+						ID:          "rmbg-1.4",
+						Name:        "RMBG-1.4",
+						RepoID:      "briaai/RMBG-1.4",
+						Description: "BRIA 背景移除模型 v1.4 - 高质量背景移除",
+						Size:        176000000, // ~176MB
+					},
+				},
+			},
 		},
 	}
 

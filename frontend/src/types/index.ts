@@ -96,13 +96,47 @@ export interface ToolSettings {
 }
 
 /**
+ * Transformers 模型配置
+ * 
+ * 架构说明：
+ * - 所有模型必须先下载到后端存储
+ * - 前端通过 /models/{modelId}/ 路径访问模型
+ * - 消除了 "远程" vs "本地" 模型的区分
+ */
+export interface TransformersModelSettings {
+  /** 当前使用的模型ID */
+  currentModelId: string;
+  /** 是否使用量化模型（q8） */
+  useQuantized: boolean;
+  /** 可用的模型列表（用于切换） */
+  availableModels: Array<{
+    id: string;
+    name: string;
+    repoId: string; // Hugging Face 仓库 ID（用于下载）
+    description?: string;
+    size?: number; // 模型大小（字节）
+  }>;
+}
+
+/**
+ * 模型信息（带运行时状态）
+ */
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  repoId: string;
+  size: number;
+  downloaded: boolean;
+  isDownloading: boolean;
+}
+
+/**
  * 应用设置
+ * 注意：language 由 i18n 库管理，存储在 localStorage
  */
 export interface AppSettings {
-  language: string;
-  autoSave: boolean;
-  autoSaveInterval: number; // 秒
-  promptLibraryUrl?: string; // 提示词库 URL
+  transformers?: TransformersModelSettings; // Transformers 模型配置
 }
 
 /**

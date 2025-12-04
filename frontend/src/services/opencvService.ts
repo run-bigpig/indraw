@@ -2,10 +2,11 @@
  * OpenCV 图片处理服务
  * 提供基于 OpenCV.js 的图像处理功能
  * - 九宫格切割（3x3 Grid）
- * - 智能元素提取（Smart Extraction）
+ * - 智能元素提取（Smart Extraction）- 优先使用 Transformers.js + RMBG-1.4，失败时回退到 OpenCV
  */
 
 import { GridSlice, ProcessMode, SmartExtractParams, DEFAULT_SMART_PARAMS } from '@/types';
+import { processSmartExtractionWithTransformers, checkTransformersReady } from './transformersService';
 
 // Declare cv on window interface as it is loaded via script tag
 declare global {
@@ -258,15 +259,41 @@ export const processImage = async (
   smartParams?: SmartExtractParams
 ): Promise<GridSlice[]> => {
   const cv = window.cv;
+  
+  // 智能切割模式：优先使用 Transformers.js + RMBG-1.4
+  if (mode === ProcessMode.SMART_EXTRACT) {
+    // 检查 transformers.js 是否可用
+    if (checkTransformersReady()) {
+      try {
+        console.log('[OpenCVService] 使用 Transformers.js + RMBG-1.4 进行智能切割');
+        const minAreaRatio = smartParams?.minAreaRatio ?? DEFAULT_SMART_PARAMS.minAreaRatio;
+        return await processSmartExtractionWithTransformers(imageSrc, minAreaRatio);
+      } catch (error) {
+        console.warn('[OpenCVService] Transformers.js 处理失败，回退到 OpenCV:', error);
+        // 回退到 OpenCV 方法
+      }
+    } else {
+      console.log('[OpenCVService] Transformers.js 不可用，使用 OpenCV 方法');
+    }
+    
+    // 使用 OpenCV 方法（回退或默认）
+    const imgElement = await loadImage(imageSrc);
+    const src = cv.imread(imgElement);
+    try {
+      return await processSmartExtraction(src, smartParams);
+    } catch (err) {
+      console.error("OpenCV 处理错误:", err);
+      throw err;
+    } finally {
+      src.delete();
+    }
+  }
+  
+  // 九宫格模式：使用 OpenCV
   const imgElement = await loadImage(imageSrc);
   const src = cv.imread(imgElement);
-
   try {
-    if (mode === ProcessMode.GRID_3X3) {
-      return await processGridSplit(src);
-    } else {
-      return await processSmartExtraction(src, smartParams);
-    }
+    return await processGridSplit(src);
   } catch (err) {
     console.error("OpenCV 处理错误:", err);
     throw err;

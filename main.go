@@ -18,6 +18,7 @@ func main() {
 	app := core.NewApp()
 
 	// Create application with options
+	// 注意：模型文件服务器在 App.Startup 中启动，使用独立端口
 	err := wails.Run(&options.App{
 		Title:     "Indraw Editor",
 		Width:     1960,

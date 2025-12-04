@@ -5,15 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"indraw/core/service"
+	"indraw/core/types"
+	"os"
+	"path/filepath"
+	"runtime"
 )
 
 // App struct - 主应用结构
 type App struct {
-	ctx           context.Context
-	fileService   *service.FileService
-	configService *service.ConfigService
-	aiService     *service.AIService
-	promptService *service.PromptService
+	ctx             context.Context
+	fileService     *service.FileService
+	configService   *service.ConfigService
+	aiService       *service.AIService
+	promptService   *service.PromptService
+	modelService    *service.ModelService
+	modelFileServer *service.ModelFileServer
 }
 
 // NewApp creates a new App application struct
@@ -23,13 +29,44 @@ func NewApp() *App {
 	fileService := service.NewFileService()
 	aiService := service.NewAIService(configService)
 	promptService := service.NewPromptService(configService)
+	modelService := service.NewModelService(configService)
+
+	// 初始化模型存储目录
+	modelsDir := getModelsDir()
+
+	// 创建模型文件服务器
+	modelFileServer := service.NewModelFileServer(modelsDir)
 
 	return &App{
-		fileService:   fileService,
-		configService: configService,
-		aiService:     aiService,
-		promptService: promptService,
+		fileService:     fileService,
+		configService:   configService,
+		aiService:       aiService,
+		promptService:   promptService,
+		modelService:    modelService,
+		modelFileServer: modelFileServer,
 	}
+}
+
+// getModelsDir 获取模型存储目录
+func getModelsDir() string {
+	var baseDir string
+	if runtime.GOOS == "windows" {
+		baseDir = os.Getenv("APPDATA")
+	} else if runtime.GOOS == "darwin" {
+		baseDir = filepath.Join(os.Getenv("HOME"), "Library", "Application Support")
+	} else {
+		baseDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
+	}
+
+	modelsDir := filepath.Join(baseDir, "IndrawEditor", "models")
+	// 确保目录存在
+	os.MkdirAll(modelsDir, 0755)
+	return modelsDir
+}
+
+// GetModelFileServer 获取模型文件服务器（供 main.go 使用）
+func (a *App) GetModelFileServer() *service.ModelFileServer {
+	return a.modelFileServer
 }
 
 // startup is called when the app starts. The context is saved
@@ -37,12 +74,20 @@ func NewApp() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
+	// 启动模型文件服务器
+	if err := a.modelFileServer.Start(); err != nil {
+		fmt.Printf("Failed to start model file server: %v\n", err)
+	}
+
 	// 初始化各个服务
 	a.fileService.Startup(ctx)
 	if err := a.configService.Startup(ctx); err != nil {
 		fmt.Printf("Failed to initialize config service: %v\n", err)
 	}
 	a.aiService.Startup(ctx)
+	if err := a.modelService.Startup(ctx); err != nil {
+		fmt.Printf("Failed to initialize model service: %v\n", err)
+	}
 }
 
 // ===== 文件管理服务方法 =====
@@ -192,4 +237,116 @@ func (a *App) FetchPrompts(forceRefresh bool) (string, error) {
 	}
 
 	return string(data), nil
+}
+
+// ===== 模型管理服务方法 =====
+
+// CheckModelExists 检查模型是否存在
+func (a *App) CheckModelExists(modelPath string) (bool, error) {
+	return a.modelService.CheckModelExists(modelPath)
+}
+
+// GetModelStatus 获取模型状态
+func (a *App) GetModelStatus(modelID string) (string, error) {
+	status, err := a.modelService.GetModelStatus(modelID)
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.Marshal(status)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize model status: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// DownloadModel 下载模型
+func (a *App) DownloadModel(modelID string) error {
+	return a.modelService.DownloadModel(modelID, nil)
+}
+
+// GetModelConfig 获取当前模型配置（用于传递给 transformers.js）
+func (a *App) GetModelConfig() (string, error) {
+	config, err := a.modelService.GetModelConfig()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize model config: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// GetModelBaseURL 获取模型文件服务的基础 URL
+// 前端使用此 URL 来加载模型文件
+func (a *App) GetModelBaseURL() string {
+	// 返回模型服务器的完整 URL
+	return a.modelFileServer.GetBaseURL()
+}
+
+// GetModelsDir 获取模型存储目录路径
+func (a *App) GetModelsDir() string {
+	return a.modelFileServer.GetModelsDir()
+}
+
+// ListModelFiles 列出指定模型目录下的所有文件
+func (a *App) ListModelFiles(modelID string) (string, error) {
+	files, err := a.modelService.ListModelFiles(modelID)
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.Marshal(files)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize file list: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// DownloadModelFromHF 从 Hugging Face 下载模型
+func (a *App) DownloadModelFromHF(modelID string, repoID string) error {
+	return a.modelService.DownloadModelFromHuggingFace(modelID, repoID)
+}
+
+// GetAvailableModels 获取所有可用模型及其状态
+func (a *App) GetAvailableModels() (string, error) {
+	models, err := a.modelService.GetAvailableModels()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.Marshal(models)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize models: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// GetDownloadConfig 获取当前下载配置
+func (a *App) GetDownloadConfig() (string, error) {
+	config := a.modelService.GetDownloadConfig()
+
+	data, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize download config: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// SetDownloadConfig 设置下载配置
+func (a *App) SetDownloadConfig(configJSON string) error {
+	var config types.HFDownloadConfig
+	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+		return fmt.Errorf("invalid config format: %w", err)
+	}
+
+	a.modelService.SetDownloadConfig(config)
+	return nil
 }
