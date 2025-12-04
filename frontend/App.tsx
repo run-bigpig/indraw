@@ -45,6 +45,7 @@ import { DEFAULT_BRUSH_CONFIG, DEFAULT_ERASER_CONFIG, DEFAULT_LAYER_PROPS, DEFAU
 import { createLayerName } from '@/utils/layerName';
 import FullScreenLoading from '@/components/FullScreenLoading';
 import ImageCropModal from '@/components/ImageCropModal';
+import ImageSliceModal from '@/components/ImageSliceModal';
 import Logo from '@/components/Logo';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
@@ -210,6 +211,9 @@ export default function App() {
 
   // Image Crop Modal State
   const [cropModalData, setCropModalData] = useState<{ layerId: string; imageSrc: string } | null>(null);
+
+  // Image Slice Modal State
+  const [sliceModalData, setSliceModalData] = useState<{ imageSrc: string } | null>(null);
 
   // 检查是否有可恢复的数据（等待检查完成后再显示弹窗）
   useEffect(() => {
@@ -1175,6 +1179,55 @@ export default function App() {
     setCropModalData(null);
   };
 
+  // 打开图像切割模态框
+  const handleSliceImage = () => {
+    const targetLayer = layers?.find(l => selectedIds.includes(l.id));
+    if (!targetLayer || targetLayer.type !== 'image' || !targetLayer.src) {
+      alert(t('properties:selectImageLayerHint', 'Please select an image layer.'));
+      return;
+    }
+    setSliceModalData({
+      imageSrc: targetLayer.src
+    });
+  };
+
+  // 切割完成回调 - 将切片导入为新图层
+  const handleSliceComplete = async (slices: { dataUrl: string; width: number; height: number }[]) => {
+    const canvasConfig = projectManager.canvasConfig;
+    const startX = 50;
+    const startY = 50;
+    const spacing = 20;
+    
+    // 为每个切片创建新图层
+    for (let i = 0; i < slices.length; i++) {
+      const slice = slices[i];
+      // 计算位置（错开排列避免重叠）
+      const row = Math.floor(i / 3);
+      const col = i % 3;
+      const x = Math.min(startX + col * (slice.width + spacing), canvasConfig.width - slice.width);
+      const y = Math.min(startY + row * (slice.height + spacing), canvasConfig.height - slice.height);
+      
+      const newLayer: LayerData = {
+        id: uuidv4(),
+        type: 'image',
+        name: createLayerName('image', t, layers.length + i),
+        src: slice.dataUrl,
+        x,
+        y,
+        width: slice.width,
+        height: slice.height,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        opacity: 1,
+        visible: true,
+        blendMode: 'source-over',
+      };
+      layerManager.addLayer(newLayer, i === slices.length - 1); // 最后一个保存历史
+    }
+    setSliceModalData(null);
+  };
+
   // AI Transform: 基于当前图片和提示词生成变换后的新图片（直接替换原图层）
   const handleAITransform = async (prompt: string) => {
     const targetLayer = layers?.find(l => selectedIds.includes(l.id));
@@ -1806,6 +1859,7 @@ Keep high quality and clarity.`;
             onUpdateLayer={layerManager.updateLayer}
             onRemoveBackground={handleRemoveBackground}
             onCropImage={handleCropImage}
+            onSliceImage={handleSliceImage}
             onAIBlend={handleAIBlend}
             onAITransform={handleAITransform}
             onGroup={groupingManager.groupLayers}
@@ -2377,6 +2431,15 @@ Keep high quality and clarity.`;
           imageSrc={cropModalData.imageSrc}
           onCropComplete={handleCropComplete}
           onCancel={() => setCropModalData(null)}
+        />
+      )}
+
+      {/* Image Slice Modal - 图像切割模态框 */}
+      {sliceModalData && (
+        <ImageSliceModal
+          imageSrc={sliceModalData.imageSrc}
+          onSliceComplete={handleSliceComplete}
+          onCancel={() => setSliceModalData(null)}
         />
       )}
     </div>

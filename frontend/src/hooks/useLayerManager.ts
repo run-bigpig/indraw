@@ -88,7 +88,7 @@ export function useLayerManager(
   }, [debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   // 添加图层 - 使用函数式更新
-  // 注意：添加图层需要立即保存历史（不使用防抖），因为这是一次性操作
+  // ✅ 性能优化：使用防抖保存历史，避免重复保存
   const addLayer = useCallback((layer: LayerData) => {
     setLayers(prevLayers => {
       const newLayers = [...prevLayers, layer];
@@ -98,20 +98,14 @@ export function useLayerManager(
                          layer.type === 'circle' ? 'history.addCircle' :
                          layer.type === 'line' ? 'history.addLine' :
                          'history.addLayer';
-      // 添加图层是即时操作，但仍然使用 requestIdleCallback 异步保存
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => {
-          onHistorySaveRef.current?.(newLayers, description);
-        }, { timeout: 100 });
-      } else {
-        setTimeout(() => {
-          onHistorySaveRef.current?.(newLayers, description);
-        }, 16);
-      }
+      // ✅ 使用防抖保存历史，避免重复保存
+      setTimeout(() => {
+        debouncedHistorySave(newLayers, description);
+      }, 0);
       return newLayers;
     });
     setSelectedIds([layer.id]);
-  }, []); // 空依赖数组
+  }, [debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   // ✅ 性能优化：更新单个图层 - 使用防抖异步保存历史记录
   // 对于拖拽、缩放等连续操作，使用防抖机制避免频繁保存
@@ -132,16 +126,15 @@ export function useLayerManager(
                          attrs.width !== undefined || attrs.height !== undefined ? 'history.resize' :
                          attrs.rotation !== undefined ? 'history.rotate' :
                          'history.updateLayer';
-      // 使用 queueMicrotask 确保在当前宏任务结束后立即执行
-      // 这比 requestAnimationFrame 更快响应，且不会阻塞 UI
-      queueMicrotask(() => {
+      // 使用 setTimeout 确保在状态更新后触发防抖保存（而不是 queueMicrotask，避免同一微任务队列中重复调用）
+      setTimeout(() => {
         debouncedHistorySave(layersRef.current, description);
-      });
+      }, 0);
     }
   }, [debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   // 删除图层（包括子图层）- 使用函数式更新
-  // ✅ 性能优化：使用异步保存历史
+  // ✅ 性能优化：使用防抖保存历史，避免重复保存
   const deleteLayers = useCallback((ids: string[]) => {
     setLayers(prevLayers => {
       const idsToDelete = new Set(ids);
@@ -162,20 +155,16 @@ export function useLayerManager(
       const newLayers = prevLayers.filter(l => !idsToDelete.has(l.id));
       const description = ids.length > 1 ? 'history.deleteLayers' : 'history.deleteLayer';
       
-      // ✅ 性能优化：异步保存历史
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => {
-          onHistorySaveRef.current?.(newLayers, description);
-        }, { timeout: 100 });
-      } else {
-        setTimeout(() => {
-          onHistorySaveRef.current?.(newLayers, description);
-        }, 16);
-      }
+      // ✅ 性能优化：使用防抖保存历史，避免重复保存
+      // 使用 setTimeout 确保在状态更新后触发防抖保存（而不是 queueMicrotask，避免同一微任务队列中重复调用）
+      setTimeout(() => {
+        debouncedHistorySave(newLayers, description);
+      }, 0);
+      
       return newLayers;
     });
     setSelectedIds([]);
-  }, []); // 空依赖数组
+  }, [debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   // 切换可见性 - 使用 ref 获取最新 layers
   const toggleVisibility = useCallback((id: string) => {
@@ -186,7 +175,7 @@ export function useLayerManager(
   }, [updateLayer]);
 
   // 复制图层 - 使用 ref 获取最新 layers
-  // ✅ 性能优化：使用异步保存历史
+  // ✅ 性能优化：使用防抖保存历史，避免重复保存
   const duplicateLayer = useCallback((id: string) => {
     const layer = layersRef.current.find(l => l.id === id);
     if (!layer) return;
@@ -203,23 +192,17 @@ export function useLayerManager(
     setLayers(prevLayers => {
       const newLayers = [...prevLayers, newLayer];
       
-      // ✅ 性能优化：异步保存历史
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => {
-          onHistorySaveRef.current?.(newLayers, 'history.duplicate');
-        }, { timeout: 100 });
-      } else {
-        setTimeout(() => {
-          onHistorySaveRef.current?.(newLayers, 'history.duplicate');
-        }, 16);
-      }
+      // ✅ 使用防抖保存历史，避免重复保存
+      setTimeout(() => {
+        debouncedHistorySave(newLayers, 'history.duplicate');
+      }, 0);
       return newLayers;
     });
     setSelectedIds([newLayer.id]);
-  }, []);
+  }, [debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   // 图层排序 - 使用函数式更新
-  // ✅ 性能优化：使用异步保存历史
+  // ✅ 性能优化：使用防抖保存历史，避免重复保存
   const reorderLayer = useCallback((id: string, direction: 'up' | 'down') => {
     setLayers(prevLayers => {
       const subject = prevLayers.find(l => l.id === id);
@@ -241,19 +224,13 @@ export function useLayerManager(
 
       const description = direction === 'up' ? 'history.moveUp' : 'history.moveDown';
       
-      // ✅ 性能优化：异步保存历史
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => {
-          onHistorySaveRef.current?.(newLayers, description);
-        }, { timeout: 100 });
-      } else {
-        setTimeout(() => {
-          onHistorySaveRef.current?.(newLayers, description);
-        }, 16);
-      }
+      // ✅ 使用防抖保存历史，避免重复保存
+      setTimeout(() => {
+        debouncedHistorySave(newLayers, description);
+      }, 0);
       return newLayers;
     });
-  }, []); // 空依赖数组
+  }, [debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   // 复制到剪贴板 - 使用 ref 获取最新 layers
   const copyToClipboard = useCallback(() => {
@@ -264,7 +241,7 @@ export function useLayerManager(
   }, [selectedIds]);
 
   // 从剪贴板粘贴 - 使用函数式更新
-  // ✅ 性能优化：使用异步保存历史
+  // ✅ 性能优化：使用防抖保存历史，避免重复保存
   const pasteFromClipboard = useCallback(() => {
     if (clipboard && clipboard.length > 0) {
       const newLayersToAdd = clipboard.map(l => ({
@@ -278,21 +255,15 @@ export function useLayerManager(
       setLayers(prevLayers => {
         const updatedLayers = [...prevLayers, ...newLayersToAdd];
         
-        // ✅ 性能优化：异步保存历史
-        if ('requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(() => {
-            onHistorySaveRef.current?.(updatedLayers, 'history.paste');
-          }, { timeout: 100 });
-        } else {
-          setTimeout(() => {
-            onHistorySaveRef.current?.(updatedLayers, 'history.paste');
-          }, 16);
-        }
+        // ✅ 使用防抖保存历史，避免重复保存
+        setTimeout(() => {
+          debouncedHistorySave(updatedLayers, 'history.paste');
+        }, 0);
         return updatedLayers;
       });
       setSelectedIds(newLayersToAdd.map(l => l.id));
     }
-  }, [clipboard]);
+  }, [clipboard, debouncedHistorySave]); // 依赖 debouncedHistorySave
 
   return {
     layers,

@@ -62,6 +62,11 @@ func (a *App) ExportImage(imageDataURL string, suggestedName string) (string, er
 	return a.fileService.ExportImage(imageDataURL, suggestedName)
 }
 
+// ExportSliceImages 批量导出切片图像
+func (a *App) ExportSliceImages(slicesJSON string) (string, error) {
+	return a.fileService.ExportSliceImages(slicesJSON)
+}
+
 // AutoSave 自动保存
 func (a *App) AutoSave(projectDataJSON string) error {
 	return a.fileService.AutoSave(projectDataJSON)

@@ -238,6 +238,101 @@ func (f *FileService) ExportImage(imageDataURL string, suggestedName string) (st
 	return filePath, nil
 }
 
+// ExportSliceImages 批量导出切片图像到指定目录
+// slicesJSON: 包含切片数据的 JSON 字符串，格式为 [{"dataUrl": "...", "id": 0}, ...]
+// 返回保存的文件路径列表的 JSON 字符串
+func (f *FileService) ExportSliceImages(slicesJSON string) (string, error) {
+	if f.ctx == nil {
+		return "", fmt.Errorf("service not initialized")
+	}
+
+	// 解析切片数据
+	var slices []struct {
+		DataURL string `json:"dataUrl"`
+		ID      int    `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(slicesJSON), &slices); err != nil {
+		return "", fmt.Errorf("invalid slices data: %w", err)
+	}
+
+	if len(slices) == 0 {
+		return "", fmt.Errorf("no slices to export")
+	}
+
+	// 让用户选择保存目录
+	dirPath, err := runtime.OpenDirectoryDialog(f.ctx, runtime.OpenDialogOptions{
+		Title: "选择保存切片图像的目录",
+	})
+	if err != nil {
+		return "", fmt.Errorf("directory dialog error: %w", err)
+	}
+
+	// 用户取消了选择
+	if dirPath == "" {
+		return "", nil
+	}
+
+	// 保存的文件路径列表
+	savedPaths := make([]string, 0, len(slices))
+
+	// 保存每个切片
+	for _, slice := range slices {
+		// 解析 base64 数据
+		const base64Prefix = "data:image/"
+		if len(slice.DataURL) < len(base64Prefix) {
+			continue // 跳过无效的数据
+		}
+
+		// 找到 base64 数据的起始位置
+		base64Start := 0
+		for i, c := range slice.DataURL {
+			if c == ',' {
+				base64Start = i + 1
+				break
+			}
+		}
+
+		if base64Start == 0 {
+			continue // 跳过无效格式
+		}
+
+		// 解码 base64
+		imageData, err := base64.StdEncoding.DecodeString(slice.DataURL[base64Start:])
+		if err != nil {
+			continue // 跳过解码失败的数据
+		}
+
+		// 生成文件名
+		fileName := fmt.Sprintf("slice-%d.png", slice.ID+1)
+		filePath := filepath.Join(dirPath, fileName)
+
+		// 写入文件
+		if err := os.WriteFile(filePath, imageData, 0644); err != nil {
+			continue // 跳过写入失败的文件
+		}
+
+		savedPaths = append(savedPaths, filePath)
+	}
+
+	// 返回保存的文件路径列表
+	result := struct {
+		Directory string   `json:"directory"`
+		Files     []string `json:"files"`
+		Count     int      `json:"count"`
+	}{
+		Directory: dirPath,
+		Files:     savedPaths,
+		Count:     len(savedPaths),
+	}
+
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize result: %w", err)
+	}
+
+	return string(resultJSON), nil
+}
+
 // SelectDirectory 选择目录
 // 返回用户选择的目录路径
 func (f *FileService) SelectDirectory(title string) (string, error) {

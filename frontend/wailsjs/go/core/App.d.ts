@@ -19,6 +19,8 @@ export function EnhancePrompt(arg1:string):Promise<string>;
 
 export function ExportImage(arg1:string,arg2:string):Promise<string>;
 
+export function ExportSliceImages(arg1:string):Promise<string>;
+
 export function FetchPrompts(arg1:boolean):Promise<string>;
 
 export function GenerateImage(arg1:string):Promise<string>;

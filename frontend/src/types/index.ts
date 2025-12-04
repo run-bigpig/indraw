@@ -213,3 +213,58 @@ export interface AppState {
   prompt: string;
   canvasConfig: CanvasConfig;
 }
+
+// ==================== OpenCV / Image Slicing Types ====================
+
+/**
+ * 图片处理模式
+ */
+export enum ProcessMode {
+  /** 九宫格切割：将图片裁剪为正方形后分割成3x3的9等份 */
+  GRID_3X3 = 'grid_3x3',
+  /** 智能提取：使用计算机视觉算法检测并提取图片中的独立元素 */
+  SMART_EXTRACT = 'smart_extract',
+}
+
+/**
+ * 智能提取参数配置
+ */
+export interface SmartExtractParams {
+  /** 最小面积比例（相对于整图面积），小于此比例的区域会被过滤，默认 0.001 */
+  minAreaRatio: number;
+  /** 形态学内核大小，用于噪点去除和轮廓连接，默认 5 */
+  morphKernelSize: number;
+  /** 最小宽高比，过滤过于细长的区域，默认 0.1 */
+  minAspectRatio: number;
+  /** 最大宽高比，过滤过于扁平的区域，默认 10 */
+  maxAspectRatio: number;
+  /** 是否使用详细轮廓（更精确但更慢），默认 false */
+  useDetailedContours: boolean;
+}
+
+/**
+ * 默认的智能提取参数
+ */
+export const DEFAULT_SMART_PARAMS: SmartExtractParams = {
+  minAreaRatio: 0.001,
+  morphKernelSize: 5,
+  minAspectRatio: 0.1,
+  maxAspectRatio: 10,
+  useDetailedContours: false,
+};
+
+/**
+ * 切片结果数据
+ */
+export interface GridSlice {
+  /** 切片序号 */
+  id: number;
+  /** Base64 数据 URL */
+  dataUrl: string;
+  /** Blob 对象，用于下载或进一步处理 */
+  blob: Blob;
+  /** 切片宽度 */
+  width: number;
+  /** 切片高度 */
+  height: number;
+}

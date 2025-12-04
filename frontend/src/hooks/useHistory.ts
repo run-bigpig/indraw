@@ -33,6 +33,13 @@ export function useHistory(
 
   // ✅ 性能优化：跟踪待执行的保存回调
   const pendingAutoSaveRef = useRef<number | null>(null);
+  
+  // ✅ 防重复保存：跟踪最近一次保存的信息
+  const lastSaveRef = useRef<{
+    description: string;
+    timestamp: number;
+    layersHash: string;
+  } | null>(null);
 
   historyRef.current = history;
   historyStepRef.current = historyStep;
@@ -49,13 +56,31 @@ export function useHistory(
 
   // 保存到历史记录 - 使用函数式更新避免闭包陷阱
   // ✅ 性能优化：同步更新状态，异步触发自动保存
+  // ✅ 防重复保存：检查是否是重复调用
   const saveToHistory = useCallback((newLayers: LayerData[], description: string = 'history.unknown') => {
+    const timestamp = Date.now();
+    
+    // ✅ 防重复保存：生成图层数据的简单哈希（使用长度和ID列表）
+    const layersHash = `${newLayers.length}-${newLayers.map(l => l.id).join(',')}`;
+    
+    // ✅ 防重复保存：检查是否是相同的操作（相同描述、相同图层，且在 50ms 内）
+    const lastSave = lastSaveRef.current;
+    if (lastSave && 
+        lastSave.description === description &&
+        lastSave.layersHash === layersHash &&
+        timestamp - lastSave.timestamp < 50) {
+      console.log('[useHistory] 检测到重复保存，已跳过:', { description, timestamp });
+      return; // 跳过重复保存
+    }
+    
+    // 更新最近保存的信息
+    lastSaveRef.current = { description, timestamp, layersHash };
+    
     // 同步更新历史状态，确保 UI 立即反映变化
     setHistory(prevHistory => {
       const currentStep = historyStepRef.current;
       // 截断当前步骤之后的历史，添加新状态
       const newHistory = prevHistory.slice(0, currentStep + 1);
-      const timestamp = Date.now();
       newHistory.push({
         layers: newLayers,
         description,
@@ -99,7 +124,23 @@ export function useHistory(
     if (currentStep > 0) {
       const prevStep = currentStep - 1;
       setHistoryStep(prevStep);
-      return currentHistory[prevStep].layers;
+      const prevLayers = currentHistory[prevStep].layers;
+      
+      // ✅ 触发自动保存
+      if (onHistorySaveRef.current) {
+        const callback = onHistorySaveRef.current;
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            callback();
+          }, { timeout: 1000 });
+        } else {
+          setTimeout(() => {
+            callback();
+          }, 100);
+        }
+      }
+      
+      return prevLayers;
     }
     return null;
   }, []);
@@ -111,7 +152,23 @@ export function useHistory(
     if (currentStep < currentHistory.length - 1) {
       const nextStep = currentStep + 1;
       setHistoryStep(nextStep);
-      return currentHistory[nextStep].layers;
+      const nextLayers = currentHistory[nextStep].layers;
+      
+      // ✅ 触发自动保存
+      if (onHistorySaveRef.current) {
+        const callback = onHistorySaveRef.current;
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            callback();
+          }, { timeout: 1000 });
+        } else {
+          setTimeout(() => {
+            callback();
+          }, 100);
+        }
+      }
+      
+      return nextLayers;
     }
     return null;
   }, []);
@@ -133,7 +190,23 @@ export function useHistory(
     const currentHistory = historyRef.current;
     if (step >= 0 && step < currentHistory.length) {
       setHistoryStep(step);
-      return currentHistory[step].layers;
+      const targetLayers = currentHistory[step].layers;
+      
+      // ✅ 触发自动保存
+      if (onHistorySaveRef.current) {
+        const callback = onHistorySaveRef.current;
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            callback();
+          }, { timeout: 1000 });
+        } else {
+          setTimeout(() => {
+            callback();
+          }, 100);
+        }
+      }
+      
+      return targetLayers;
     }
     return null;
   }, []);

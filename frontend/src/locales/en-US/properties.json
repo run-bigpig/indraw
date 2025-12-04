@@ -73,6 +73,7 @@
   "removeBackground": "Remove Background",
   "removing": "Removing...",
   "cropImage": "Crop Image",
+  "sliceImage": "Slice Image",
   "aiBlendWithBelow": "AI Blend with Below",
   "customInstructions": "Custom instructions (optional)...",
   "mergeLayers": "Merge Layers (AI)",

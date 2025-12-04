@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, './src'),
         }
       },
+      optimizeDeps: {
+        // 排除 OpenCV.js 从预构建，因为它很大且需要特殊处理
+        exclude: ['@techstark/opencv-js'],
+      },
       build: {
         outDir: 'dist',
         sourcemap: false,
@@ -28,9 +32,13 @@ export default defineConfig(({ mode }) => {
               'react-vendor': ['react', 'react-dom'],
               'konva-vendor': ['konva', 'react-konva', 'use-image'],
               'ai-vendor': ['@google/genai'],
+              // OpenCV.js 单独打包，因为文件很大
+              'opencv-vendor': ['@techstark/opencv-js'],
             }
           }
-        }
+        },
+        // 增加 chunk 大小限制，因为 OpenCV.js 很大
+        chunkSizeWarningLimit: 1000,
       }
     };
 });

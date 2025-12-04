@@ -59,6 +59,37 @@
     "cropSize": "裁剪框尺寸",
     "width": "宽",
     "height": "高"
+  },
+  "slice": {
+    "title": "图片切割",
+    "subtitle": "将图片分割成多个独立部分",
+    "modeGrid": "九宫格",
+    "modeGridDesc": "将图片裁剪为正方形后等分成 3×3 的 9 份",
+    "modeSmart": "智能切割",
+    "modeSmartDesc": "使用 AI 视觉算法自动检测并提取图像元素",
+    "preview": "预览",
+    "noResults": "未检测到独立元素，请尝试调整参数或使用九宫格模式",
+    "processing": "处理中...",
+    "loadingOpenCV": "正在加载 OpenCV...",
+    "selectSlices": "选择要导入的切片",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "importSelected": "导入选中",
+    "exportSelected": "导出选中",
+    "importAll": "全部导入",
+    "sliceCount": "共 {{count}} 个切片",
+    "selectedCount": "已选 {{count}} 个",
+    "params": {
+      "title": "高级参数",
+      "minAreaRatio": "最小面积比",
+      "minAreaRatioDesc": "相对于整图的最小面积比例",
+      "morphKernel": "形态学内核",
+      "morphKernelDesc": "用于噪点过滤和轮廓连接",
+      "aspectRatio": "宽高比范围",
+      "aspectRatioDesc": "过滤过于细长或扁平的区域",
+      "detailedContours": "精细轮廓",
+      "detailedContoursDesc": "更精确但处理更慢"
+    }
   }
 }
 

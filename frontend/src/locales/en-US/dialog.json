@@ -59,6 +59,37 @@
     "cropSize": "Crop Size",
     "width": "W",
     "height": "H"
+  },
+  "slice": {
+    "title": "Image Slice",
+    "subtitle": "Split image into multiple parts",
+    "modeGrid": "3×3 Grid",
+    "modeGridDesc": "Crop to square and split into 9 equal parts",
+    "modeSmart": "Smart Slice",
+    "modeSmartDesc": "Use AI vision to detect and extract image elements",
+    "preview": "Preview",
+    "noResults": "No elements detected. Try adjusting parameters or use grid mode",
+    "processing": "Processing...",
+    "loadingOpenCV": "Loading OpenCV...",
+    "selectSlices": "Select slices to import",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "importSelected": "Import Selected",
+    "exportSelected": "Export Selected",
+    "importAll": "Import All",
+    "sliceCount": "{{count}} slices",
+    "selectedCount": "{{count}} selected",
+    "params": {
+      "title": "Advanced Parameters",
+      "minAreaRatio": "Min Area Ratio",
+      "minAreaRatioDesc": "Minimum area relative to image",
+      "morphKernel": "Morph Kernel",
+      "morphKernelDesc": "For noise filtering and contour connection",
+      "aspectRatio": "Aspect Ratio Range",
+      "aspectRatioDesc": "Filter elongated or flat regions",
+      "detailedContours": "Detailed Contours",
+      "detailedContoursDesc": "More precise but slower"
+    }
   }
 }
 
