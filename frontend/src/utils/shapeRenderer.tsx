@@ -27,7 +27,7 @@ export const applyGradientFill = (node: Konva.Shape, gradient?: LayerData['fillG
 
   if (gradient.type === 'linear') {
     // Konva 使用 fillLinearGradientColorStops
-    const colorStops: number[] = [];
+    const colorStops: (string | number)[] = [];
     gradient.colorStops.forEach(stop => {
       colorStops.push(stop.offset, stop.color);
     });
@@ -35,7 +35,7 @@ export const applyGradientFill = (node: Konva.Shape, gradient?: LayerData['fillG
     node.fillLinearGradientEndPoint({ x: gradient.endX || 0, y: gradient.endY || 0 });
     node.fillLinearGradientColorStops(colorStops);
   } else if (gradient.type === 'radial') {
-    const colorStops: number[] = [];
+    const colorStops: (string | number)[] = [];
     gradient.colorStops.forEach(stop => {
       colorStops.push(stop.offset, stop.color);
     });

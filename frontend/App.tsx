@@ -1223,7 +1223,7 @@ export default function App() {
         visible: true,
         blendMode: 'source-over',
       };
-      layerManager.addLayer(newLayer, i === slices.length - 1); // 最后一个保存历史
+      layerManager.addLayer(newLayer);
     }
     setSliceModalData(null);
   };

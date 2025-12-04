@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 build
+*.zip
+*.tar.gz
+*.exe
+*.app
+*.dmg
+*.deb
+*.rpm
+*.tar.bz2
+*.tar.xz
+*.tar.lzma
+*.tar.lz
+*.tar.gz.part

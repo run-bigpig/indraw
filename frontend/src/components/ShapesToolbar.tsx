@@ -5,48 +5,48 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ToolType } from '../types';
+import { ShapeType } from '../types';
 import { Triangle, Star, Square } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ShapesToolbarProps {
-  activeTool: ToolType;
-  setActiveTool: (tool: ToolType) => void;
+  shapeType: ShapeType;
+  onSetShapeType: (shapeType: ShapeType) => void;
   isProjectCreated?: boolean;
 }
 
 const ShapesToolbar: React.FC<ShapesToolbarProps> = ({ 
-  activeTool, 
-  setActiveTool, 
+  shapeType, 
+  onSetShapeType, 
   isProjectCreated = true 
 }) => {
   const { t } = useTranslation(['toolbar', 'shapes']);
 
-  const handleToolChange = (tool: ToolType) => {
+  const handleShapeChange = (newShapeType: ShapeType) => {
     if (!isProjectCreated) return;
-    setActiveTool(tool);
+    onSetShapeType(newShapeType);
   };
 
   const shapeTools: Array<{
-    tool: ToolType;
+    shapeType: ShapeType;
     icon: React.ReactNode;
     labelKey: string;
     tooltipKey: string;
   }> = [
     {
-      tool: 'polygon',
+      shapeType: 'polygon',
       icon: <Triangle size={20} />,
       labelKey: 'polygon',
       tooltipKey: 'polygonTooltip',
     },
     {
-      tool: 'star',
+      shapeType: 'star',
       icon: <Star size={20} />,
       labelKey: 'star',
       tooltipKey: 'starTooltip',
     },
     {
-      tool: 'rounded-rect',
+      shapeType: 'rounded-rect',
       icon: <Square size={20} />,
       labelKey: 'roundedRect',
       tooltipKey: 'roundedRectTooltip',
@@ -55,12 +55,12 @@ const ShapesToolbar: React.FC<ShapesToolbarProps> = ({
 
   return (
     <div className="flex flex-col gap-2">
-      {shapeTools.map(({ tool, icon, labelKey, tooltipKey }) => {
-        const isActive = activeTool === tool;
+      {shapeTools.map(({ shapeType: toolShapeType, icon, labelKey, tooltipKey }) => {
+        const isActive = shapeType === toolShapeType;
         return (
           <button
-            key={tool}
-            onClick={() => handleToolChange(tool)}
+            key={toolShapeType}
+            onClick={() => handleShapeChange(toolShapeType)}
             disabled={!isProjectCreated}
             className={clsx(
               "p-3 rounded-xl border border-transparent transition-all duration-200 group relative focus:outline-none",

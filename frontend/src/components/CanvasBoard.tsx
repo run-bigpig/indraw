@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Stage, Layer, Rect, Transformer, Group, Circle, Line } from 'react-konva';
 import useImage from 'use-image';
-import { LayerData, ToolType, CanvasConfig } from '../types';
+import { LayerData, ToolType, ShapeType, CanvasConfig } from '../types';
 import Konva from 'konva';
 import { Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +35,7 @@ interface CanvasBoardProps {
     layers: LayerData[];
     selectedIds: string[];
     activeTool: ToolType;
-    shapeType?: 'polygon' | 'star' | 'rounded-rect';
+    shapeType?: ShapeType;
     brushMode: 'normal' | 'ai';
     drawingLines: any[];
     brushConfig: { size: number, color: string, opacity: number };
