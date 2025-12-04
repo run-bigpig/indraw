@@ -17,12 +17,14 @@ const TASK = 'image-segmentation';
 type WorkerMessage = 
   | { type: 'INIT'; modelConfig?: { modelId: string; modelBaseUrl: string; useQuantized: boolean } }
   | { type: 'PROCESS'; imageSrc: string; minAreaRatio: number }
+  | { type: 'REMOVE_BACKGROUND'; imageSrc: string }
   | { type: 'UPDATE_CONFIG'; modelConfig: { modelId: string; modelBaseUrl: string; useQuantized: boolean } }
   | { type: 'TERMINATE' };
 
 type WorkerResponse =
   | { type: 'PROGRESS'; stage: string; progress: number }
   | { type: 'SUCCESS'; slices: any[] }
+  | { type: 'REMOVE_BACKGROUND_SUCCESS'; result: any }
   | { type: 'ERROR'; error: string };
 
 // 配置 transformers.js 环境
@@ -584,6 +586,125 @@ const resizeImageForInference = async (
 };
 
 /**
+ * 处理背景移除（只返回 RGBA 图像）
+ */
+const processBackgroundRemoval = async (imageSrc: string) => {
+  sendProgress('正在加载图片...', 0.1);
+
+  // 在 Worker 中加载图片为 ImageBitmap
+  let imageBitmap: ImageBitmap;
+  let imageWidth: number;
+  let imageHeight: number;
+
+  try {
+    // 如果是 base64，先转换为 Blob
+    let blob: Blob;
+    if (imageSrc.startsWith('data:')) {
+      const response = await fetch(imageSrc);
+      blob = await response.blob();
+    } else {
+      const response = await fetch(imageSrc);
+      blob = await response.blob();
+    }
+    
+    imageBitmap = await createImageBitmap(blob);
+    imageWidth = imageBitmap.width;
+    imageHeight = imageBitmap.height;
+  } catch (error) {
+    console.error('[TransformersWorker] 图片加载失败:', error);
+    throw new Error(`无法加载图片: ${error}`);
+  }
+
+  sendProgress('正在初始化模型...', 0.3);
+  const pipe = await getPipeline();
+
+  sendProgress('正在执行背景移除...', 0.5);
+  
+  // 将 ImageBitmap 转换为可以传递给 pipeline 的格式
+  let output: any;
+  try {
+    // 将 ImageBitmap 转换为 data URL 以便传递给 pipeline
+    const canvas = new OffscreenCanvas(imageWidth, imageHeight);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('无法获取 canvas 上下文');
+    }
+    ctx.drawImage(imageBitmap, 0, 0);
+    
+    // 转换为 Blob 然后转换为 data URL
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binary);
+    const imageDataUrl = `data:image/png;base64,${base64}`;
+    
+    // 使用图片进行推理
+    output = await pipe(imageDataUrl) as any;
+  } catch (error: any) {
+    console.error('[TransformersWorker] 推理失败:', error);
+    throw error;
+  }
+
+  sendProgress('正在处理分割结果...', 0.7);
+
+  // 获取原始图片的 ImageData
+  const canvas = new OffscreenCanvas(imageWidth, imageHeight);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('无法获取 canvas 上下文');
+  }
+  ctx.drawImage(imageBitmap, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  // 处理分割结果，获取遮罩
+  let mask: ImageData | Float32Array | Uint8Array;
+
+  if (Array.isArray(output)) {
+    const firstMask = output[0];
+    if (firstMask && (firstMask as any).mask) {
+      const maskData = (firstMask as any).mask;
+      mask = await convertMaskToImageData(maskData, imageWidth, imageHeight);
+    } else if (firstMask instanceof ImageData) {
+      mask = firstMask;
+    } else if ((firstMask as any)?.data) {
+      mask = await convertMaskToImageData(firstMask, imageWidth, imageHeight);
+    } else {
+      mask = await convertMaskToImageData(firstMask, imageWidth, imageHeight);
+    }
+  } else if (output && (output as any).mask) {
+    const maskData = (output as any).mask;
+    mask = await convertMaskToImageData(maskData, imageWidth, imageHeight);
+  } else if (output instanceof ImageData) {
+    mask = output;
+  } else if ((output as any)?.data) {
+    mask = await convertMaskToImageData(output, imageWidth, imageHeight);
+  } else {
+    const maskData = (output as any).data || output;
+    if (maskData instanceof ImageData || maskData instanceof Float32Array || maskData instanceof Uint8Array) {
+      mask = maskData;
+    } else {
+      console.error('[TransformersWorker] 无法解析分割结果格式，输出:', output);
+      throw new Error(`无法解析分割结果格式`);
+    }
+  }
+
+  sendProgress('正在应用遮罩...', 0.85);
+  
+  // 应用遮罩，生成 RGBA 图像
+  const maskedImage = applyMaskToImage(imageData, mask);
+  
+  // 转换为切片格式（用于返回）
+  const result = await imageDataToSlice(maskedImage, 0);
+
+  sendProgress('处理完成', 1.0);
+  return result;
+};
+
+/**
  * 处理图片提取
  */
 const processImage = async (imageSrc: string, minAreaRatio: number) => {
@@ -784,6 +905,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     } else if (message.type === 'PROCESS') {
       const slices = await processImage(message.imageSrc, message.minAreaRatio);
       self.postMessage({ type: 'SUCCESS', slices } as WorkerResponse);
+    } else if (message.type === 'REMOVE_BACKGROUND') {
+      const result = await processBackgroundRemoval(message.imageSrc);
+      self.postMessage({ type: 'REMOVE_BACKGROUND_SUCCESS', result } as WorkerResponse);
     } else if (message.type === 'TERMINATE') {
       self.close();
     }
