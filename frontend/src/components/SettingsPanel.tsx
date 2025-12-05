@@ -766,6 +766,33 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             </p>
           </div>
 
+          {/* OpenAI 流式模式配置 */}
+          <InputGroup
+            label={t('settings.ai.openaiStreamMode', '流式模式配置')}
+            hint={t('settings.ai.openaiStreamModeHint', '某些第三方 OpenAI 中继服务仅提供流式接口')}
+          >
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.ai.openaiTextStream ?? false}
+                  onChange={(e) => handleUpdateCategory('ai', { openaiTextStream: e.target.checked })}
+                  className="w-4 h-4 rounded border-tech-600 bg-tech-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                />
+                <span>{t('settings.ai.openaiTextStream', '文本/聊天模型使用流式请求')}</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.ai.openaiImageStream ?? false}
+                  onChange={(e) => handleUpdateCategory('ai', { openaiImageStream: e.target.checked })}
+                  className="w-4 h-4 rounded border-tech-600 bg-tech-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+                />
+                <span>{t('settings.ai.openaiImageStream', '图像模型使用流式请求')}</span>
+              </label>
+            </div>
+          </InputGroup>
+
           {/* OpenAI 兼容服务说明 */}
           <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-400">
             <p className="font-medium mb-1">{t('settings.ai.openaiCompatNote', 'ℹ️ OpenAI 兼容服务说明')}</p>

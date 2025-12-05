@@ -52,6 +52,10 @@
     "openaiImageModeChatHint": "Use /v1/chat/completions endpoint (for third-party multimodal APIs)",
     "openaiCompatNote": "ℹ️ OpenAI Compatible Service Note",
     "openaiCompatDesc": "Dedicated Image API mode requires /v1/images/* compatible endpoints; Chat mode supports full features like image editing and blending.",
+    "openaiStreamMode": "Stream Mode Configuration",
+    "openaiStreamModeHint": "Some third-party OpenAI relay services only provide streaming interfaces",
+    "openaiTextStream": "Use streaming requests for text/chat models",
+    "openaiImageStream": "Use streaming requests for image models",
     "promptLibraryUrl": "Prompt Library URL",
     "promptLibraryUrlHint": "JSON data URL for prompt library, used for prompt selection in material generator"
   },

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"indraw/core/types"
+	"io"
 	"strings"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -236,7 +237,17 @@ func (p *OpenAIProvider) generateImageViaChat(ctx context.Context, params types.
 				MultiContent: multiContent,
 			},
 		},
-		MaxTokens: 4096,
+		MaxTokens: 131072,
+	}
+
+	// 根据配置决定是否使用流式请求（图像模型流式模式）
+	if p.settings.OpenAIImageStream {
+		content, err := p.createChatCompletionStream(ctx, p.imageClient, req)
+		if err != nil {
+			return "", err
+		}
+		// 从流式响应中提取图像
+		return extractImageFromChatContent(content)
 	}
 
 	// 调用图像 API（使用 imageClient，因为这是图像生成操作）
@@ -338,6 +349,16 @@ func (p *OpenAIProvider) editImageViaChat(ctx context.Context, params types.Edit
 		MaxTokens: 4096,
 	}
 
+	// 根据配置决定是否使用流式请求（图像模型流式模式）
+	if p.settings.OpenAIImageStream {
+		content, err := p.createChatCompletionStream(ctx, p.imageClient, req)
+		if err != nil {
+			return "", err
+		}
+		// 从流式响应中提取图像
+		return extractImageFromChatContent(content)
+	}
+
 	// 调用图像 API（使用 imageClient，因为这是图像编辑操作）
 	resp, err := p.imageClient.CreateChatCompletion(ctx, req)
 	if err != nil {
@@ -405,6 +426,16 @@ func (p *OpenAIProvider) editMultiImagesViaChat(ctx context.Context, params type
 		MaxTokens: 4096,
 	}
 
+	// 根据配置决定是否使用流式请求（图像模型流式模式）
+	if p.settings.OpenAIImageStream {
+		content, err := p.createChatCompletionStream(ctx, p.imageClient, req)
+		if err != nil {
+			return "", err
+		}
+		// 从流式响应中提取图像
+		return extractImageFromChatContent(content)
+	}
+
 	// 调用图像 API（使用 imageClient，因为这是多图编辑操作）
 	resp, err := p.imageClient.CreateChatCompletion(ctx, req)
 	if err != nil {
@@ -440,6 +471,11 @@ func (p *OpenAIProvider) EnhancePrompt(ctx context.Context, prompt string) (stri
 		},
 		Temperature: 0.7,
 		MaxTokens:   500,
+	}
+
+	// 根据配置决定是否使用流式请求
+	if p.settings.OpenAITextStream {
+		return p.createChatCompletionStream(ctx, p.chatClient, req)
 	}
 
 	// 调用 Chat API（使用 chatClient，因为这是文本处理操作）
@@ -572,4 +608,62 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+// ==================== 流式请求处理 ====================
+
+// createChatCompletionStream 创建流式 Chat Completion 请求并收集完整响应
+// 用于支持仅提供流式接口的第三方 OpenAI 中继服务
+func (p *OpenAIProvider) createChatCompletionStream(ctx context.Context, client *openai.Client, req openai.ChatCompletionRequest) (string, error) {
+	// 创建流式请求
+	stream, err := client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("failed to create chat completion stream: %w", err)
+	}
+	defer stream.Close()
+
+	// 收集流式响应内容
+	var fullContent strings.Builder
+	for {
+		response, err := stream.Recv()
+		if err == io.EOF {
+			// 流结束
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("stream receive error: %w", err)
+		}
+
+		// 提取增量内容
+		if len(response.Choices) > 0 {
+			delta := response.Choices[0].Delta.Content
+			if delta != "" {
+				fullContent.WriteString(delta)
+			}
+		}
+	}
+
+	return fullContent.String(), nil
+}
+
+// extractImageFromChatContent 从 Chat Completion 的文本内容中提取图像
+// 用于处理流式响应返回的文本内容
+func extractImageFromChatContent(content string) (string, error) {
+	// 检查是否是 base64 图像
+	if strings.HasPrefix(content, "data:image/") {
+		return content, nil
+	}
+
+	// 检查内容是否看起来像 base64（无前缀）
+	if looksLikeBase64Image(content) {
+		return "data:image/png;base64," + content, nil
+	}
+
+	// 尝试从 markdown 图片标记中提取
+	if imageURL := extractImageFromMarkdown(content); imageURL != "" {
+		return imageURL, nil
+	}
+
+	// 如果响应只是文本，返回错误
+	return "", fmt.Errorf("chat response does not contain image data. Response: %s", truncateString(content, 200))
 }

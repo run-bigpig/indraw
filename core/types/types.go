@@ -37,6 +37,11 @@ type AISettings struct {
 	// "chat"      - 使用 Chat Completion API，适用于第三方多模态 API（类似 Gemini）
 	// "auto"      - 根据模型名称自动判断（默认）
 	OpenAIImageMode string `json:"openaiImageMode"`
+
+	// OpenAI 流式模式配置
+	// 某些第三方 OpenAI 中继服务仅提供流式接口
+	OpenAITextStream  bool `json:"openaiTextStream"`  // 文本/聊天模型是否使用流式请求（默认 false）
+	OpenAIImageStream bool `json:"openaiImageStream"` // 图像模型是否使用流式请求（默认 false）
 }
 
 // OpenAI 图像模式常量

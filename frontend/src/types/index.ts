@@ -48,6 +48,11 @@ export interface AIServiceSettings {
   // "image_api" - 使用专用 Image API（/v1/images/*），适用于 DALL-E 和 GPT Image 1
   // "chat"      - 使用 Chat Completion API，适用于第三方多模态 API（类似 Gemini）
   openaiImageMode?: OpenAIImageMode;
+
+  // OpenAI 流式模式配置
+  // 某些第三方 OpenAI 中继服务仅提供流式接口
+  openaiTextStream?: boolean;  // 文本/聊天模型是否使用流式请求（默认 false）
+  openaiImageStream?: boolean;  // 图像模型是否使用流式请求（默认 false）
 }
 
 /**

@@ -52,6 +52,10 @@
     "openaiImageModeChatHint": "使用 /v1/chat/completions 端点（适用于第三方多模态 API）",
     "openaiCompatNote": "ℹ️ OpenAI 兼容服务说明",
     "openaiCompatDesc": "专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。",
+    "openaiStreamMode": "流式模式配置",
+    "openaiStreamModeHint": "某些第三方 OpenAI 中继服务仅提供流式接口",
+    "openaiTextStream": "文本/聊天模型使用流式请求",
+    "openaiImageStream": "图像模型使用流式请求",
     "promptLibraryUrl": "提示词库 URL",
     "promptLibraryUrlHint": "提示词库的 JSON 数据地址，用于素材生成器的提示词选择"
   },

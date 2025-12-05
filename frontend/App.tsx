@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Konva from 'konva';
 import { v4 as uuidv4 } from 'uuid';
@@ -489,7 +489,19 @@ export default function App() {
   // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+      // 更全面的输入框检测：包括 INPUT、TEXTAREA、contenteditable 元素
+      const activeElement = document.activeElement;
+      const isInput = 
+        activeElement?.tagName === 'INPUT' || 
+        activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.getAttribute('contenteditable') === 'true' ||
+        (activeElement as HTMLElement)?.isContentEditable;
+      
+      // 如果焦点在输入框中，不处理快捷键（让浏览器处理默认行为）
+      if (isInput) {
+        return;
+      }
+
       const key = e.key.toLowerCase();
 
       if ((e.metaKey || e.ctrlKey) && key === 'g' && !e.shiftKey) {
@@ -504,38 +516,46 @@ export default function App() {
       }
 
       if ((e.metaKey || e.ctrlKey) && key === 'c') {
-        if (isInput) return;
+        e.preventDefault();
         layerManager.copyToClipboard();
         return;
       }
 
       if ((e.metaKey || e.ctrlKey) && key === 'v') {
-        if (isInput) return;
+        e.preventDefault();
         layerManager.pasteFromClipboard();
         return;
       }
 
       if ((key === 'delete' || key === 'backspace') && selectedIds.length > 0) {
-        if (isInput) return;
+        e.preventDefault();
         layerManager.deleteLayers(selectedIds);
+        return;
       }
+      
       if (key === 'escape') {
         setSelectedIds([]);
         if (activeTool === 'brush') {
           setDrawingLines([]);
           setActiveTool('select');
         }
+        return;
       }
+      
       if ((e.metaKey || e.ctrlKey) && key === 'z') {
+        e.preventDefault();
         if (e.shiftKey) {
           handleRedo();
         } else {
           handleUndo();
         }
+        return;
       }
+      
       if ((e.metaKey || e.ctrlKey) && key === 's') {
         e.preventDefault();
         handleSaveProject();
+        return;
       }
     };
 

@@ -48,6 +48,11 @@ export const DEFAULT_AI_SETTINGS: AIServiceSettings = {
   // "image_api" - 使用专用 Image API（/v1/images/*）
   // "chat"      - 使用 Chat Completion API（适用于第三方多模态 API）
   openaiImageMode: 'auto',
+
+  // OpenAI 流式模式配置
+  // 某些第三方 OpenAI 中继服务仅提供流式接口
+  openaiTextStream: false,  // 文本/聊天模型是否使用流式请求（默认 false）
+  openaiImageStream: false, // 图像模型是否使用流式请求（默认 false）
 };
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasDefaultSettings = {
@@ -165,6 +170,14 @@ function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSett
                      settings.openaiImageMode === 'chat'
       ? settings.openaiImageMode
       : DEFAULT_AI_SETTINGS.openaiImageMode,
+
+    // OpenAI 流式模式配置
+    openaiTextStream: typeof settings.openaiTextStream === 'boolean'
+      ? settings.openaiTextStream
+      : DEFAULT_AI_SETTINGS.openaiTextStream,
+    openaiImageStream: typeof settings.openaiImageStream === 'boolean'
+      ? settings.openaiImageStream
+      : DEFAULT_AI_SETTINGS.openaiImageStream,
   };
 }
 
