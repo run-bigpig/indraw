@@ -77,12 +77,12 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
     initOpenCV();
   }, []);
 
-  // 当模式或参数变化时自动处理
+  // 当模式或图片源变化时自动处理
   useEffect(() => {
     if (isOpenCVReady && imageSrc) {
       handleProcess();
     }
-  }, [mode, isOpenCVReady, imageSrc]); // 不包含 smartParams，需要手动触发
+  }, [mode, isOpenCVReady, imageSrc]); // 不包含 smartParams，使用防抖实时预览
 
   // 处理图片切割
   const handleProcess = useCallback(async () => {
@@ -197,13 +197,31 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
     }
   }, [slices, selectedIds]);
 
-  // 更新智能参数
+  // 更新智能参数（带防抖的实时预览）
   const updateSmartParam = useCallback(<K extends keyof SmartExtractParams>(
     key: K, 
     value: SmartExtractParams[K]
   ) => {
     setSmartParams(prev => ({ ...prev, [key]: value }));
   }, []);
+
+  // 参数变化时的防抖实时预览
+  useEffect(() => {
+    // 只在智能切割模式下启用实时预览
+    if (mode !== ProcessMode.SMART_EXTRACT || !isOpenCVReady || !imageSrc) {
+      return;
+    }
+
+    // 防抖：300ms 后自动触发预览
+    const debounceTimer = setTimeout(() => {
+      handleProcess();
+    }, 300);
+
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [smartParams, mode, isOpenCVReady, imageSrc]); // 当 smartParams 变化时触发（handleProcess 已在依赖中通过 smartParams 间接包含）
 
   // 计算九宫格布局
   const gridLayout = useMemo(() => {
@@ -319,96 +337,200 @@ const ImageSliceModal: React.FC<ImageSliceModalProps> = ({
               </button>
               
               {showAdvancedParams && (
-                <div className="mt-3 p-4 bg-slate-800/40 rounded-xl border border-slate-700/30 grid grid-cols-2 gap-4">
-                  {/* 最小面积比 */}
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">
-                      {t('dialog:slice.params.minAreaRatio')}
-                      <span className="text-gray-600 ml-1">({(smartParams.minAreaRatio * 100).toFixed(1)}%)</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={0.0001}
-                      max={0.01}
-                      step={0.0001}
-                      value={smartParams.minAreaRatio}
-                      onChange={(e) => updateSmartParam('minAreaRatio', Number(e.target.value))}
-                      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
-                    />
-                    <p className="text-[10px] text-gray-600 mt-1">{t('dialog:slice.params.minAreaRatioDesc')}</p>
-                  </div>
-
-                  {/* 形态学内核 */}
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">
-                      {t('dialog:slice.params.morphKernel')}
-                      <span className="text-gray-600 ml-1">({smartParams.morphKernelSize}px)</span>
-                    </label>
-                    <input
-                      type="range"
-                      min={3}
-                      max={15}
-                      step={2}
-                      value={smartParams.morphKernelSize}
-                      onChange={(e) => updateSmartParam('morphKernelSize', Number(e.target.value))}
-                      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
-                    />
-                    <p className="text-[10px] text-gray-600 mt-1">{t('dialog:slice.params.morphKernelDesc')}</p>
-                  </div>
-
-                  {/* 宽高比范围 */}
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">
-                      {t('dialog:slice.params.aspectRatio')}
-                      <span className="text-gray-600 ml-1">({smartParams.minAspectRatio} - {smartParams.maxAspectRatio})</span>
-                    </label>
-                    <div className="flex gap-2">
+                <div className="mt-3 p-4 bg-slate-800/40 rounded-xl border border-slate-700/30 space-y-4">
+                  {/* 基础参数组 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* 最小面积比 */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1.5">
+                        {t('dialog:slice.params.minAreaRatio', '最小面积比')}
+                        <span className="text-gray-600 ml-1">({(smartParams.minAreaRatio * 100).toFixed(2)}%)</span>
+                      </label>
                       <input
-                        type="number"
-                        min={0.01}
-                        max={1}
-                        step={0.01}
-                        value={smartParams.minAspectRatio}
-                        onChange={(e) => updateSmartParam('minAspectRatio', Number(e.target.value))}
-                        className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-slate-600 rounded text-gray-300"
+                        type="range"
+                        min={0.0001}
+                        max={0.01}
+                        step={0.0001}
+                        value={smartParams.minAreaRatio}
+                        onChange={(e) => updateSmartParam('minAreaRatio', Number(e.target.value))}
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
                       />
-                      <span className="text-gray-500">-</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={20}
-                        step={0.5}
-                        value={smartParams.maxAspectRatio}
-                        onChange={(e) => updateSmartParam('maxAspectRatio', Number(e.target.value))}
-                        className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-slate-600 rounded text-gray-300"
-                      />
+                      <p className="text-[10px] text-gray-600 mt-1">过滤过小的噪点区域</p>
                     </div>
-                    <p className="text-[10px] text-gray-600 mt-1">{t('dialog:slice.params.aspectRatioDesc')}</p>
-                  </div>
 
-                  {/* 精细轮廓 */}
-                  <div>
-                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                    {/* 形态学内核 */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1.5">
+                        {t('dialog:slice.params.morphKernel', '形态学内核')}
+                        <span className="text-gray-600 ml-1">({smartParams.morphKernelSize}px)</span>
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={smartParams.useDetailedContours}
-                        onChange={(e) => updateSmartParam('useDetailedContours', e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+                        type="range"
+                        min={3}
+                        max={15}
+                        step={2}
+                        value={smartParams.morphKernelSize}
+                        onChange={(e) => updateSmartParam('morphKernelSize', Number(e.target.value))}
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
                       />
-                      <span>{t('dialog:slice.params.detailedContours')}</span>
-                    </label>
-                    <p className="text-[10px] text-gray-600 mt-1 ml-6">{t('dialog:slice.params.detailedContoursDesc')}</p>
+                      <p className="text-[10px] text-gray-600 mt-1">噪点去除和轮廓连接强度</p>
+                    </div>
+
+                    {/* 宽高比范围 */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1.5">
+                        {t('dialog:slice.params.aspectRatio', '宽高比范围')}
+                        <span className="text-gray-600 ml-1">({smartParams.minAspectRatio} - {smartParams.maxAspectRatio})</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min={0.01}
+                          max={1}
+                          step={0.01}
+                          value={smartParams.minAspectRatio}
+                          onChange={(e) => updateSmartParam('minAspectRatio', Number(e.target.value))}
+                          className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-slate-600 rounded text-gray-300"
+                        />
+                        <span className="text-gray-500">-</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          step={0.5}
+                          value={smartParams.maxAspectRatio}
+                          onChange={(e) => updateSmartParam('maxAspectRatio', Number(e.target.value))}
+                          className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-slate-600 rounded text-gray-300"
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1">过滤过于细长或扁平的区域</p>
+                    </div>
+
+                    {/* 处理尺寸限制 */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1.5">
+                        处理尺寸限制
+                        <span className="text-gray-600 ml-1">({smartParams.maxSize}px)</span>
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={2400}
+                        step={100}
+                        value={smartParams.maxSize}
+                        onChange={(e) => updateSmartParam('maxSize', Number(e.target.value))}
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
+                      />
+                      <p className="text-[10px] text-gray-600 mt-1">
+                        {smartParams.maxSize === 0 ? '不缩放（较慢）' : '缩放后处理（更快）'}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* 重新处理按钮 */}
-                  <div className="col-span-2 flex justify-end">
-                    <button
-                      onClick={handleProcess}
-                      disabled={isProcessing}
-                      className="px-4 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {isProcessing ? t('dialog:slice.processing') : t('dialog:slice.preview')}
-                    </button>
+                  {/* 边缘检测参数组 */}
+                  <div className="pt-2 border-t border-slate-700/30">
+                    <div className="mb-3">
+                      <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={smartParams.useCannyEdge}
+                          onChange={(e) => updateSmartParam('useCannyEdge', e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+                        />
+                        <span>使用 Canny 边缘检测</span>
+                      </label>
+                      <p className="text-[10px] text-gray-600 mt-1 ml-6">更精确的边缘检测，但处理速度较慢</p>
+                    </div>
+
+                    {smartParams.useCannyEdge && (
+                      <div className="grid grid-cols-2 gap-4 ml-6 mt-3">
+                        {/* Canny 低阈值 */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1.5">
+                            Canny 低阈值
+                            <span className="text-gray-600 ml-1">({smartParams.cannyLowThreshold})</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={10}
+                            max={100}
+                            step={5}
+                            value={smartParams.cannyLowThreshold}
+                            onChange={(e) => updateSmartParam('cannyLowThreshold', Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
+                          />
+                          <p className="text-[10px] text-gray-600 mt-1">边缘检测敏感度下限</p>
+                        </div>
+
+                        {/* Canny 高阈值 */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1.5">
+                            Canny 高阈值
+                            <span className="text-gray-600 ml-1">({smartParams.cannyHighThreshold})</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={50}
+                            max={300}
+                            step={10}
+                            value={smartParams.cannyHighThreshold}
+                            onChange={(e) => updateSmartParam('cannyHighThreshold', Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
+                          />
+                          <p className="text-[10px] text-gray-600 mt-1">边缘检测敏感度上限</p>
+                        </div>
+
+                        {/* 膨胀迭代次数 */}
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1.5">
+                            膨胀迭代次数
+                            <span className="text-gray-600 ml-1">({smartParams.dilateIter})</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={5}
+                            step={1}
+                            value={smartParams.dilateIter}
+                            onChange={(e) => updateSmartParam('dilateIter', Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-500"
+                          />
+                          <p className="text-[10px] text-gray-600 mt-1">连接断开的边缘</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 其他选项 */}
+                  <div className="pt-2 border-t border-slate-700/30">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* 精细轮廓 */}
+                      <div>
+                        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={smartParams.useDetailedContours}
+                            onChange={(e) => updateSmartParam('useDetailedContours', e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+                          />
+                          <span>{t('dialog:slice.params.detailedContours', '精细轮廓')}</span>
+                        </label>
+                        <p className="text-[10px] text-gray-600 mt-1 ml-6">更精确但更慢的轮廓检测</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 实时预览提示 */}
+                  <div className="pt-2 border-t border-slate-700/30 flex justify-end items-center gap-2">
+                    {isProcessing && (
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Loader2 size={12} className="animate-spin" />
+                        {t('dialog:slice.processing')}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-gray-600">
+                      {t('dialog:slice.params.realTimePreview', '实时预览已启用')}
+                    </span>
                   </div>
                 </div>
               )}

@@ -145,14 +145,49 @@ export const blendImagesWithAI = async (
 
 /**
  * 移除背景
- * @param base64Image 原始图像（base64 格式）
- * @returns 移除背景后的图像（base64 格式）
+ * 优先使用本地 Transformer.js 模型，失败时回退到远程 API 服务
+ * @param base64Image 原始图像（base64 格式或 data URL）
+ * @returns 移除背景后的图像（base64 格式的 data URL，如 data:image/png;base64,...）
  */
 export const removeBackgroundWithAI = async (base64Image: string): Promise<string> => {
+  // 优先尝试使用本地 Transformer.js 背景移除
   try {
-    return await RemoveBackground(base64Image);
+    const { removeBackground, checkBackgroundRemovalReady } = await import('../backgroundRemovalService');
+    
+    if (checkBackgroundRemovalReady()) {
+      console.log('[AIService] 尝试使用本地 Transformer.js 进行背景移除...');
+      try {
+        const result = await removeBackground(base64Image);
+        console.log('[AIService] 本地 Transformer.js 背景移除成功');
+        // 返回 dataUrl（格式：data:image/png;base64,...）
+        return result.dataUrl;
+      } catch (localProcessError) {
+        // 本地处理失败，回退到远程 API
+        console.warn('[AIService] 本地 Transformer.js 处理失败，回退到远程 API:', localProcessError);
+        throw localProcessError; // 抛出错误以触发回退逻辑
+      }
+    } else {
+      console.log('[AIService] 本地 Transformer.js 不可用，使用远程 API');
+    }
+  } catch (localError) {
+    // 本地服务不可用或初始化失败，回退到远程 API
+    console.warn('[AIService] 本地 Transformer.js 服务不可用，回退到远程 API:', localError);
+  }
+
+  // 回退到远程 API 服务
+  try {
+    console.log('[AIService] 使用远程 API 进行背景移除');
+    const remoteResult = await RemoveBackground(base64Image);
+    
+    // 确保返回格式一致：如果远程 API 返回的是纯 base64，转换为 data URL
+    if (remoteResult && !remoteResult.startsWith('data:')) {
+      // 假设远程 API 返回的是 PNG 格式的 base64
+      return `data:image/png;base64,${remoteResult}`;
+    }
+    
+    return remoteResult;
   } catch (error) {
-    console.error('移除背景失败:', error);
+    console.error('[AIService] 远程 API 背景移除失败:', error);
     throw error;
   }
 };

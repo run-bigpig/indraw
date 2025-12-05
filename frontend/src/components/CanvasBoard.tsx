@@ -360,27 +360,26 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
             currentPointsRef.current = [clampedPos.x, clampedPos.y];
 
             // ✅ 性能优化：使用 Konva 原生 API 直接创建线条
-            // 对于 AI 画笔模式，仍然使用 React 状态（因为需要特殊渲染）
-            if (brushMode === 'ai') {
+            // 对于 AI 画笔模式或橡皮擦工具，使用 React 状态（因为需要特殊渲染/蒙层显示）
+            if (brushMode === 'ai' || activeTool === 'eraser') {
                 onSetDrawingLines([
                     ...drawingLines,
                     { points: [clampedPos.x, clampedPos.y], mode: currentModeRef.current },
                 ]);
             } else {
-                // 普通画笔/橡皮擦：直接操作 Konva 节点
+                // 普通画笔：直接操作 Konva 节点
                 const layer = drawingLayerRef.current;
                 if (layer) {
-                    const isErase = activeTool === 'eraser';
                     const line = new Konva.Line({
                         points: currentPointsRef.current,
-                        stroke: isErase ? '#000000' : brushConfig.color,
-                        strokeWidth: (isErase ? eraserConfig.size : brushConfig.size) / scale,
+                        stroke: brushConfig.color,
+                        strokeWidth: brushConfig.size / scale,
                         tension: 0.5,
                         lineCap: 'round',
                         lineJoin: 'round',
                         listening: false,
                         perfectDrawEnabled: false,
-                        globalCompositeOperation: isErase ? 'destination-out' : 'source-over',
+                        globalCompositeOperation: 'source-over',
                     });
                     layer.add(line);
                     currentLineRef.current = line;
@@ -412,14 +411,16 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
         }
 
         if ((activeTool === 'brush' || activeTool === 'eraser') && isDrawing.current) {
-            // ✅ 性能优化：对于 AI 画笔模式，使用 React 状态
-            if (brushMode === 'ai') {
+            // ✅ 性能优化：对于 AI 画笔模式或橡皮擦工具，使用 React 状态（需要显示蒙层）
+            if (brushMode === 'ai' || activeTool === 'eraser') {
                 const lastLine = drawingLines[drawingLines.length - 1];
-                lastLine.points.push(clampedPos.x, clampedPos.y);
-                const newLines = [...drawingLines];
-                onSetDrawingLines(newLines);
+                if (lastLine) {
+                    lastLine.points.push(clampedPos.x, clampedPos.y);
+                    const newLines = [...drawingLines];
+                    onSetDrawingLines(newLines);
+                }
             } else {
-                // ✅ 性能优化：普通画笔/橡皮擦直接操作 Konva 节点
+                // ✅ 性能优化：普通画笔直接操作 Konva 节点
                 // 将点添加到 ref 中
                 currentPointsRef.current.push(clampedPos.x, clampedPos.y);
 
@@ -497,26 +498,68 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                 rafIdRef.current = null;
             }
 
-            if (brushMode === 'normal') {
-                // ✅ 性能优化：从 Konva 节点获取最终的点数据
+            // 橡皮擦工具或 AI 画笔模式：从 drawingLines 获取数据
+            if (activeTool === 'eraser' || brushMode === 'ai') {
+                const lastLine = drawingLines[drawingLines.length - 1];
+                if (lastLine && lastLine.points.length > 2) {
+                    const isErase = activeTool === 'eraser';
+                    const strokeSize = isErase ? eraserConfig.size : brushConfig.size;
+                    
+                    console.log('[mouseUp] finalize stroke', {
+                        activeTool,
+                        brushMode,
+                        isErase,
+                        pointsLen: lastLine.points.length,
+                        eraseTargetId: eraseTargetId.current,
+                        strokeSize,
+                    });
+
+                    const finalPoints = [...lastLine.points];
+                    const finalEraseTargetId = eraseTargetId.current;
+
+                    // 延迟执行创建图层和保存历史记录
+                    if ('requestIdleCallback' in window) {
+                        (window as any).requestIdleCallback(() => {
+                            onLineDrawn(finalPoints, strokeSize / scale, {
+                                erase: isErase,
+                                targetLayerId: isErase ? finalEraseTargetId || undefined : undefined,
+                            });
+                        }, { timeout: 50 });
+                    } else {
+                        // 降级方案：使用 setTimeout
+                        setTimeout(() => {
+                            onLineDrawn(finalPoints, strokeSize / scale, {
+                                erase: isErase,
+                                targetLayerId: isErase ? finalEraseTargetId || undefined : undefined,
+                            });
+                        }, 0);
+                    }
+                }
+                
+                // 橡皮擦工具：清空 drawingLines（AI 模式不清空，由外部控制）
+                if (activeTool === 'eraser') {
+                    onSetDrawingLines([]);
+                }
+                
+                // 重置状态
+                eraseTargetId.current = null;
+            } else {
+                // 普通画笔模式：从 Konva 节点获取最终的点数据
                 const points = currentPointsRef.current;
-                const isErase = currentModeRef.current === 'erase' || activeTool === 'eraser';
-                const strokeSize = activeTool === 'eraser' ? eraserConfig.size : brushConfig.size;
+                const strokeSize = brushConfig.size;
 
                 if (points.length > 2) {
                     console.log('[mouseUp] finalize stroke', {
                         activeTool,
                         brushMode,
-                        isErase,
+                        isErase: false,
                         pointsLen: points.length,
-                        eraseTargetId: eraseTargetId.current,
                         strokeSize,
                     });
 
                     // 使用 requestIdleCallback 延迟执行耗时操作
                     // 这样可以让 UI 先响应，然后在空闲时执行
                     const finalPoints = [...points]; // 复制一份，因为 ref 会被重置
-                    const finalEraseTargetId = eraseTargetId.current;
 
                     // 立即清理临时绘制的线条
                     if (currentLineRef.current) {
@@ -529,16 +572,14 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                     if ('requestIdleCallback' in window) {
                         (window as any).requestIdleCallback(() => {
                             onLineDrawn(finalPoints, strokeSize / scale, {
-                                erase: isErase,
-                                targetLayerId: activeTool === 'eraser' ? finalEraseTargetId || undefined : undefined,
+                                erase: false,
                             });
                         }, { timeout: 50 });
                     } else {
                         // 降级方案：使用 setTimeout
                         setTimeout(() => {
                             onLineDrawn(finalPoints, strokeSize / scale, {
-                                erase: isErase,
-                                targetLayerId: activeTool === 'eraser' ? finalEraseTargetId || undefined : undefined,
+                                erase: false,
                             });
                         }, 0);
                     }
@@ -553,14 +594,6 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
 
                 // 重置状态
                 currentPointsRef.current = [];
-                eraseTargetId.current = null;
-            } else {
-                // AI 画笔模式：使用原有逻辑
-                const lastLine = drawingLines[drawingLines.length - 1];
-                if (lastLine && lastLine.points.length > 2) {
-                    // AI 模式不在这里处理，由外部处理
-                }
-                // AI 模式不清空 drawingLines，由外部控制
             }
         }
     };

@@ -75,19 +75,20 @@ const DrawingLayer: React.FC<DrawingLayerProps> = React.memo(({
       ))}
 
       {eraseLines.length > 0 && (
-        <Group globalCompositeOperation="destination-out">
+        <Group>
           {eraseLines.map((line, i) => (
             <Line
               key={`erase-${i}-${line.points.length}`}
               points={line.points}
-              stroke="#000000"
+              stroke="#EF4444"
               strokeWidth={eraserConfig.size / scale}
               tension={0.5}
               lineCap="round"
               lineJoin="round"
-              opacity={1}
+              opacity={0.5}
               listening={false}
               perfectDrawEnabled={false}
+              globalCompositeOperation="source-over"
             />
           ))}
         </Group>

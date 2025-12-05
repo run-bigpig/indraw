@@ -6,7 +6,7 @@
  */
 
 import { GridSlice, ProcessMode, SmartExtractParams, DEFAULT_SMART_PARAMS } from '@/types';
-import { removeBackground, checkBackgroundRemovalReady } from './backgroundRemovalService';
+import { removeBackground, checkBackgroundRemovalReady, BackgroundRemovalResult } from './backgroundRemovalService';
 
 // Declare cv on window interface as it is loaded via script tag
 declare global {
@@ -20,6 +20,38 @@ declare global {
  */
 export const checkOpenCVReady = (): boolean => {
   return typeof window.cv !== 'undefined' && window.cv.Mat;
+};
+
+/**
+ * 背景移除结果缓存
+ * key: imageSrc, value: BackgroundRemovalResult
+ */
+const backgroundRemovalCache = new Map<string, BackgroundRemovalResult>();
+
+/**
+ * 清除背景移除缓存
+ * @param imageSrc 可选，指定要清除的图片源。如果不提供，清除所有缓存
+ */
+export const clearBackgroundRemovalCache = (imageSrc?: string): void => {
+  if (imageSrc) {
+    backgroundRemovalCache.delete(imageSrc);
+  } else {
+    backgroundRemovalCache.clear();
+  }
+};
+
+/**
+ * 获取缓存的背景移除结果
+ */
+const getCachedBackgroundRemoval = (imageSrc: string): BackgroundRemovalResult | null => {
+  return backgroundRemovalCache.get(imageSrc) || null;
+};
+
+/**
+ * 缓存背景移除结果
+ */
+const cacheBackgroundRemoval = (imageSrc: string, result: BackgroundRemovalResult): void => {
+  backgroundRemovalCache.set(imageSrc, result);
 };
 
 /**
@@ -101,178 +133,278 @@ const processGridSplit = async (src: any): Promise<GridSlice[]> => {
 };
 
 /**
- * 模式 2：智能元素提取（重构版）
+ * 模式 2：智能元素提取（优化版）
  * 结合 Transformer 背景移除和 OpenCV 处理
  * 工作流程：
- * 1. 使用 RMBG 模型进行背景移除，输出 RGBA 图像
- * 2. 从 RGBA 图像中提取 Alpha 通道
- * 3. 对 Alpha 通道应用形态学操作（膨胀或腐蚀）
- * 4. 使用 OpenCV findContours 检测所有独立的白色区域
- * 5. 为每个检测到的轮廓计算边界矩形，并裁剪原图
+ * 1. 使用 RMBG 模型进行背景移除，输出 RGBA 图像（带缓存）
+ * 2. 等比例缩放优化（所有运算在缩放图上进行，提高性能）
+ * 3. 从 RGBA 图像中提取 Alpha 通道
+ * 4. 预处理流程（两种模式）：
+ *    - 传统模式：形态学操作（膨胀+闭运算）→ 二值化
+ *    - Canny 模式：灰度化 → 高斯模糊 → Canny边缘检测 → 形态学膨胀 → Otsu二值化
+ * 5. 使用 OpenCV findContours 检测所有独立的区域
+ * 6. 过滤轮廓（面积、宽高比）并将坐标映射回原图
+ * 7. 从原图提取高分辨率 ROI 区域
+ * @param imageSrc 图片源
+ * @param params 智能提取参数
+ * @param cachedBgRemoval 可选的已缓存的背景移除结果，如果提供则跳过背景移除步骤
  */
 const processSmartExtraction = async (
   imageSrc: string,
-  params: SmartExtractParams = DEFAULT_SMART_PARAMS
+  params: SmartExtractParams = DEFAULT_SMART_PARAMS,
+  cachedBgRemoval?: BackgroundRemovalResult | null
 ): Promise<GridSlice[]> => {
   const cv = window.cv;
   const slices: GridSlice[] = [];
 
   try {
-    // Step 1: 使用 Transformer 背景移除获取 RGBA 图像
-    if (!checkBackgroundRemovalReady()) {
-      throw new Error('背景移除服务不可用');
+    // Step 1: 使用 Transformer 背景移除获取 RGBA 图像（带缓存）
+    let bgRemovalResult: BackgroundRemovalResult;
+    
+    if (cachedBgRemoval) {
+      // 使用提供的缓存结果
+      bgRemovalResult = cachedBgRemoval;
+    } else {
+      // 检查缓存
+      const cached = getCachedBackgroundRemoval(imageSrc);
+      if (cached) {
+        bgRemovalResult = cached;
+      } else {
+        // 执行背景移除并缓存结果
+        if (!checkBackgroundRemovalReady()) {
+          throw new Error('背景移除服务不可用');
+        }
+        bgRemovalResult = await removeBackground(imageSrc);
+        cacheBackgroundRemoval(imageSrc, bgRemovalResult);
+      }
     }
 
-    const bgRemovalResult = await removeBackground(imageSrc);
-
-    // Step 2: 加载 RGBA 图像到 OpenCV Mat
+    // Step 2: 加载 RGBA 图像到 OpenCV Mat（原图分辨率）
     const rgbaImage = await loadImage(bgRemovalResult.dataUrl);
-    const rgbaMat = cv.imread(rgbaImage);
+    const rgbaMatOriginal = cv.imread(rgbaImage);
 
     try {
-      // Step 3: 提取 Alpha 通道
-      const channels = new cv.MatVector();
-      cv.split(rgbaMat, channels);
-      
-      // Alpha 通道通常是第 4 个通道（索引 3）
-      let alphaChannel: any;
-      if (channels.size() >= 4) {
-        alphaChannel = channels.get(3);
-      } else {
-        // 如果没有 Alpha 通道，创建一个全白的通道（表示所有像素都是前景）
-        alphaChannel = new cv.Mat.zeros(rgbaMat.rows, rgbaMat.cols, cv.CV_8UC1);
-        alphaChannel.setTo(new cv.Scalar(255));
-      }
+      // Step 3: 等比例缩放优化（所有运算在缩放图上进行，提高性能）
+      let scale = 1.0;
+      let rgbaMat = rgbaMatOriginal;
+      let shouldDeleteScaled = false;
 
-      // Step 4: 形态学操作
-      // 确保内核大小为奇数
-      const kSize = Math.max(3, (Math.floor(params.morphKernelSize) % 2 === 0) 
-        ? params.morphKernelSize + 1 
-        : params.morphKernelSize);
-      const kernel = cv.Mat.ones(kSize, kSize, cv.CV_8U);
-      
-      const morphResult = new cv.Mat();
-      
-      // 膨胀操作：分离连接的阴影或合并碎片对象
-      cv.dilate(alphaChannel, morphResult, kernel, new cv.Point(-1, -1), 1);
-      
-      // 闭运算连接对象内部的空隙
-      cv.morphologyEx(morphResult, morphResult, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 1);
-
-      // Step 5: 轮廓检测
-      const contours = new cv.MatVector();
-      const hierarchy = new cv.Mat();
-      
-      // 二值化 Alpha 通道（确保是二值图像）
-      const binary = new cv.Mat();
-      cv.threshold(morphResult, binary, 127, 255, cv.THRESH_BINARY);
-      
-      // 查找轮廓（只查找外部轮廓）
-      const approxMethod = params.useDetailedContours 
-        ? cv.CHAIN_APPROX_NONE 
-        : cv.CHAIN_APPROX_SIMPLE;
-      cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, approxMethod);
-
-      // Step 6: 过滤和裁剪
-      const totalArea = rgbaMat.rows * rgbaMat.cols;
-      const minArea = totalArea * params.minAreaRatio;
-      
-      // 收集有效的边界矩形
-      const validRects: Array<{ rect: any; area: number; index: number }> = [];
-
-      for (let i = 0; i < contours.size(); ++i) {
-        const contour = contours.get(i);
-        const area = cv.contourArea(contour);
-
-        if (area > minArea) {
-          const rect = cv.boundingRect(contour);
-          
-          // 宽高比过滤
-          const aspect = rect.width / rect.height;
-          if (aspect >= params.minAspectRatio && aspect <= params.maxAspectRatio) {
-            validRects.push({ rect, area, index: i });
-          }
+      if (params.maxSize > 0) {
+        const maxDim = Math.max(rgbaMatOriginal.cols, rgbaMatOriginal.rows);
+        if (maxDim > params.maxSize) {
+          scale = params.maxSize / maxDim;
+          const dsize = new cv.Size(
+            Math.round(rgbaMatOriginal.cols * scale),
+            Math.round(rgbaMatOriginal.rows * scale)
+          );
+          rgbaMat = new cv.Mat();
+          cv.resize(rgbaMatOriginal, rgbaMat, dsize, 0, 0, cv.INTER_AREA);
+          shouldDeleteScaled = true;
         }
-        contour.delete();
       }
-
-      // 按面积降序排序
-      validRects.sort((a, b) => b.area - a.area);
-      
-      // 限制最多 20 个结果
-      const topRects = validRects.slice(0, 20);
-
-      // Step 7: 裁剪原图
-      // 注意：这里我们需要从原始图像（imageSrc）裁剪，而不是从 RGBA 图像裁剪
-      // 因为用户可能想要保留原始图像质量
-      const originalImage = await loadImage(imageSrc);
-      const originalMat = cv.imread(originalImage);
 
       try {
+        // Step 4: 提取 Alpha 通道
+        const channels = new cv.MatVector();
+        cv.split(rgbaMat, channels);
+        
+        // Alpha 通道通常是第 4 个通道（索引 3）
+        let alphaChannel: any;
+        if (channels.size() >= 4) {
+          alphaChannel = channels.get(3);
+        } else {
+          // 如果没有 Alpha 通道，创建一个全白的通道（表示所有像素都是前景）
+          alphaChannel = new cv.Mat.zeros(rgbaMat.rows, rgbaMat.cols, cv.CV_8UC1);
+          alphaChannel.setTo(new cv.Scalar(255));
+        }
+
+        // Step 5: 预处理流程
+        let processed: any;
+        let gray: any = null;
+        let blurred: any = null;
+        let edges: any = null;
+        let binary: any;
+
+        if (params.useCannyEdge) {
+          // 改进的预处理流程：灰度化 → 高斯模糊 → Canny边缘 → 形态学操作 → 二值化
+          gray = new cv.Mat();
+          blurred = new cv.Mat();
+          edges = new cv.Mat();
+          
+          // 灰度化
+          cv.cvtColor(rgbaMat, gray, cv.COLOR_RGBA2GRAY, 0);
+          
+          // 高斯模糊（降噪）
+          cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+          
+          // Canny 边缘检测
+          cv.Canny(blurred, edges, params.cannyLowThreshold, params.cannyHighThreshold);
+          
+          // 形态学膨胀（连接边缘）
+          const dilateIter = Math.max(0, Math.min(5, Math.floor(params.dilateIter) || 0));
+          if (dilateIter > 0) {
+            const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+            cv.dilate(edges, edges, kernel, new cv.Point(-1, -1), dilateIter);
+            kernel.delete();
+          }
+          
+          // Otsu 二值化
+          binary = new cv.Mat();
+          cv.threshold(edges, binary, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+          
+          processed = binary;
+        } else {
+          // 传统流程：直接使用 Alpha 通道进行形态学操作
+          // 确保内核大小为奇数
+          const kSize = Math.max(3, (Math.floor(params.morphKernelSize) % 2 === 0) 
+            ? params.morphKernelSize + 1 
+            : params.morphKernelSize);
+          const kernel = cv.Mat.ones(kSize, kSize, cv.CV_8U);
+          
+          const morphResult = new cv.Mat();
+          
+          // 膨胀操作：分离连接的阴影或合并碎片对象
+          cv.dilate(alphaChannel, morphResult, kernel, new cv.Point(-1, -1), 1);
+          
+          // 闭运算连接对象内部的空隙
+          cv.morphologyEx(morphResult, morphResult, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 1);
+          
+          // 二值化 Alpha 通道（确保是二值图像）
+          binary = new cv.Mat();
+          cv.threshold(morphResult, binary, 127, 255, cv.THRESH_BINARY);
+          
+          processed = binary;
+          morphResult.delete();
+          kernel.delete();
+        }
+
+        // Step 6: 轮廓检测
+        const contours = new cv.MatVector();
+        const hierarchy = new cv.Mat();
+        
+        // 查找轮廓（只查找外部轮廓）
+        const approxMethod = params.useDetailedContours 
+          ? cv.CHAIN_APPROX_NONE 
+          : cv.CHAIN_APPROX_SIMPLE;
+        cv.findContours(processed, contours, hierarchy, cv.RETR_EXTERNAL, approxMethod);
+
+        // Step 7: 过滤和坐标映射
+        const imgArea = rgbaMat.rows * rgbaMat.cols;
+        const minArea = imgArea * params.minAreaRatio;
+        
+        // 收集有效的边界矩形（缩放图坐标）
+        const validRects: Array<{ 
+          rectScaled: any; 
+          rectOriginal: any; 
+          area: number; 
+          index: number 
+        }> = [];
+
+        for (let i = 0; i < contours.size(); ++i) {
+          const contour = contours.get(i);
+          const area = cv.contourArea(contour);
+
+          if (area > minArea) {
+            const rectScaled = cv.boundingRect(contour);
+            
+            // 宽高比过滤
+            const aspect = rectScaled.width / rectScaled.height;
+            if (aspect >= params.minAspectRatio && aspect <= params.maxAspectRatio) {
+              // 映射回原图坐标
+              let origX = Math.round(rectScaled.x / scale);
+              let origY = Math.round(rectScaled.y / scale);
+              let origW = Math.round(rectScaled.width / scale);
+              let origH = Math.round(rectScaled.height / scale);
+              
+              // 边界裁剪，防止溢出
+              origX = Math.max(0, Math.min(origX, rgbaMatOriginal.cols - 1));
+              origY = Math.max(0, Math.min(origY, rgbaMatOriginal.rows - 1));
+              if (origX + origW > rgbaMatOriginal.cols) origW = rgbaMatOriginal.cols - origX;
+              if (origY + origH > rgbaMatOriginal.rows) origH = rgbaMatOriginal.rows - origY;
+              
+              if (origW > 0 && origH > 0) {
+                const rectOriginal = { x: origX, y: origY, width: origW, height: origH };
+                validRects.push({ 
+                  rectScaled, 
+                  rectOriginal, 
+                  area, 
+                  index: i 
+                });
+              }
+            }
+          }
+          contour.delete();
+        }
+
+        // 按面积降序排序
+        validRects.sort((a, b) => b.area - a.area);
+        
+        // 限制最多 20 个结果
+        const topRects = validRects.slice(0, 20);
+
+        // Step 8: 从原图提取高分辨率 ROI
+        // 注意：这里我们从背景移除后的原图（rgbaMatOriginal）裁剪，保留完整质量
         for (let i = 0; i < topRects.length; i++) {
-          const { rect } = topRects[i];
+          const { rectOriginal } = topRects[i];
           
           // 添加边距
           const padding = 5;
-          const xPos = Math.max(0, rect.x - padding);
-          const yPos = Math.max(0, rect.y - padding);
-          const w = Math.min(originalMat.cols - xPos, rect.width + (padding * 2));
-          const h = Math.min(originalMat.rows - yPos, rect.height + (padding * 2));
+          const xPos = Math.max(0, rectOriginal.x - padding);
+          const yPos = Math.max(0, rectOriginal.y - padding);
+          const w = Math.min(rgbaMatOriginal.cols - xPos, rectOriginal.width + (padding * 2));
+          const h = Math.min(rgbaMatOriginal.rows - yPos, rectOriginal.height + (padding * 2));
 
           const roiRect = new cv.Rect(xPos, yPos, w, h);
           
-          // 裁剪原图
-          const croppedMat = originalMat.roi(roiRect);
+          // 从原图裁剪 ROI（高分辨率）
+          const roiOrig = rgbaMatOriginal.roi(roiRect);
+          const roiClone = roiOrig.clone(); // 深拷贝，避免后续删除原图后失效
+          roiOrig.delete();
           
-          // 裁剪对应的处理后的 Alpha 通道（使用形态学操作后的结果）
-          const croppedAlphaRect = new cv.Rect(xPos, yPos, w, h);
-          const croppedAlpha = morphResult.roi(croppedAlphaRect);
-          
-          // 将 Alpha 通道合并到裁剪后的图像
-          const croppedChannels = new cv.MatVector();
-          cv.split(croppedMat, croppedChannels);
-          
-          // 如果原图是 RGB（3 通道），添加 Alpha；如果是 RGBA（4 通道），替换 Alpha
-          if (croppedChannels.size() === 3) {
-            croppedChannels.push_back(croppedAlpha);
-          } else if (croppedChannels.size() === 4) {
-            const oldAlpha = croppedChannels.get(3);
-            oldAlpha.delete();
-            croppedChannels.set(3, croppedAlpha);
-          }
-          
-          const resultMat = new cv.Mat();
-          cv.merge(croppedChannels, resultMat);
-          
-          const slice = await matToSlice(resultMat, i);
+          const slice = await matToSlice(roiClone, i);
           slices.push(slice);
           
           // 清理
-          croppedMat.delete();
-          croppedAlpha.delete();
-          croppedChannels.delete();
-          resultMat.delete();
+          roiClone.delete();
         }
+
+        // 清理预处理相关资源
+        // 注意：需要先删除 channels 中的其他通道，再删除 alphaChannel
+        if (channels.size() >= 4) {
+          // 删除除了 alphaChannel 之外的其他通道
+          for (let i = 0; i < channels.size(); i++) {
+            if (i !== 3) {
+              channels.get(i).delete();
+            }
+          }
+        } else {
+          // 如果没有 4 个通道，删除所有通道
+          for (let i = 0; i < channels.size(); i++) {
+            channels.get(i).delete();
+          }
+        }
+        channels.delete();
+        alphaChannel.delete();
+        binary.delete();
+        if (gray) gray.delete();
+        if (blurred) blurred.delete();
+        if (edges) edges.delete();
+        contours.delete();
+        hierarchy.delete();
       } finally {
-        originalMat.delete();
+        // 清理缩放图（如果创建了）
+        if (shouldDeleteScaled) {
+          rgbaMat.delete();
+        }
       }
 
       if (slices.length === 0) {
         // 如果没有找到轮廓，返回整张图片作为单个切片
-        const fullSlice = await matToSlice(rgbaMat, 0);
+        const fullSlice = await matToSlice(rgbaMatOriginal, 0);
         slices.push(fullSlice);
       }
-
-      // 清理
-      channels.delete();
-      alphaChannel.delete();
-      kernel.delete();
-      morphResult.delete();
-      binary.delete();
-      contours.delete();
-      hierarchy.delete();
     } finally {
-      rgbaMat.delete();
+      rgbaMatOriginal.delete();
     }
 
     return slices;

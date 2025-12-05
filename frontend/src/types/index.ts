@@ -274,6 +274,16 @@ export interface SmartExtractParams {
   maxAspectRatio: number;
   /** 是否使用详细轮廓（更精确但更慢），默认 false */
   useDetailedContours: boolean;
+  /** 处理时缩放后的最长边像素（用于性能优化），默认 1200。设为 0 则不缩放 */
+  maxSize: number;
+  /** 形态学膨胀迭代次数（0-5），用于边缘连接，默认 1 */
+  dilateIter: number;
+  /** 是否使用 Canny 边缘检测（更精确但更慢），默认 false */
+  useCannyEdge: boolean;
+  /** Canny 边缘检测低阈值，默认 50 */
+  cannyLowThreshold: number;
+  /** Canny 边缘检测高阈值，默认 150 */
+  cannyHighThreshold: number;
 }
 
 /**
@@ -285,6 +295,11 @@ export const DEFAULT_SMART_PARAMS: SmartExtractParams = {
   minAspectRatio: 0.1,
   maxAspectRatio: 10,
   useDetailedContours: false,
+  maxSize: 1200,
+  dilateIter: 1,
+  useCannyEdge: false,
+  cannyLowThreshold: 50,
+  cannyHighThreshold: 150,
 };
 
 /**
