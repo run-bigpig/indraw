@@ -500,10 +500,11 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       >
         <SelectInput
           value={settings.ai.provider}
-          onChange={(val) => handleUpdateCategory('ai', { provider: val as 'gemini' | 'openai' })}
+          onChange={(val) => handleUpdateCategory('ai', { provider: val as 'gemini' | 'openai' | 'cloud' })}
           options={[
             { value: 'gemini', label: t('settings.ai.providerGemini', 'Google Gemini') },
             { value: 'openai', label: t('settings.ai.providerOpenai', 'OpenAI 兼容') },
+            { value: 'cloud', label: t('settings.ai.providerCloud', '云服务') },
           ]}
         />
       </InputGroup>
@@ -797,6 +798,28 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-xs text-blue-400">
             <p className="font-medium mb-1">{t('settings.ai.openaiCompatNote', 'ℹ️ OpenAI 兼容服务说明')}</p>
             <p className="text-blue-500">{t('settings.ai.openaiCompatDesc', '专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。')}</p>
+          </div>
+        </>
+      )}
+
+      {/* Cloud 云服务配置 */}
+      {settings.ai.provider === 'cloud' && (
+        <>
+          <InputGroup
+            label={t('settings.ai.cloudEndpointUrl', '云服务端点 URL')}
+            hint={t('settings.ai.cloudEndpointUrlHint', '配置云服务 API 端点地址（无需 API Key）')}
+          >
+            <TextInput
+              value={settings.ai.cloudEndpointUrl || ''}
+              onChange={(val) => handleUpdateCategory('ai', { cloudEndpointUrl: val })}
+              placeholder="https://api.example.com/v1"
+            />
+          </InputGroup>
+
+          {/* 云服务说明 */}
+          <div className="p-3 bg-green-900/20 border border-green-700/50 rounded text-xs text-green-400">
+            <p className="font-medium mb-1">{t('settings.ai.cloudNote', 'ℹ️ 云服务说明')}</p>
+            <p className="text-green-500">{t('settings.ai.cloudDesc', '云服务将处理所有 AI 处理任务，本地客户端仅负责转发请求和处理响应。云服务应提供与 Gemini API 兼容的接口。')}</p>
           </div>
         </>
       )}

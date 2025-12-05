@@ -53,6 +53,9 @@ export const DEFAULT_AI_SETTINGS: AIServiceSettings = {
   // 某些第三方 OpenAI 中继服务仅提供流式接口
   openaiTextStream: false,  // 文本/聊天模型是否使用流式请求（默认 false）
   openaiImageStream: false, // 图像模型是否使用流式请求（默认 false）
+
+  // Cloud 云服务配置
+  cloudEndpointUrl: '',  // 云服务端点 URL（无需 API Key）
 };
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasDefaultSettings = {
@@ -117,7 +120,7 @@ export const DEFAULT_SETTINGS: Settings = {
 function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSettings {
   return {
     // 服务提供商
-    provider: settings.provider === 'gemini' || settings.provider === 'openai'
+    provider: settings.provider === 'gemini' || settings.provider === 'openai' || settings.provider === 'cloud'
       ? settings.provider
       : DEFAULT_AI_SETTINGS.provider,
 
@@ -178,6 +181,11 @@ function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSett
     openaiImageStream: typeof settings.openaiImageStream === 'boolean'
       ? settings.openaiImageStream
       : DEFAULT_AI_SETTINGS.openaiImageStream,
+
+    // Cloud 云服务配置
+    cloudEndpointUrl: typeof settings.cloudEndpointUrl === 'string'
+      ? settings.cloudEndpointUrl
+      : DEFAULT_AI_SETTINGS.cloudEndpointUrl,
   };
 }
 

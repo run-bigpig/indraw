@@ -42,6 +42,9 @@ type AISettings struct {
 	// 某些第三方 OpenAI 中继服务仅提供流式接口
 	OpenAITextStream  bool `json:"openaiTextStream"`  // 文本/聊天模型是否使用流式请求（默认 false）
 	OpenAIImageStream bool `json:"openaiImageStream"` // 图像模型是否使用流式请求（默认 false）
+
+	// Cloud 云服务配置
+	CloudEndpointURL string `json:"cloudEndpointUrl"` // 云服务端点 URL（无需 API Key）
 }
 
 // OpenAI 图像模式常量

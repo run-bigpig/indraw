@@ -7,7 +7,7 @@ export type ShapeType = 'polygon' | 'star' | 'rounded-rect' | 'ellipse' | 'arrow
 /**
  * AI 服务提供商类型
  */
-export type AIProvider = 'gemini' | 'openai';
+export type AIProvider = 'gemini' | 'openai' | 'cloud';
 
 /**
  * OpenAI 图像模式类型
@@ -53,6 +53,9 @@ export interface AIServiceSettings {
   // 某些第三方 OpenAI 中继服务仅提供流式接口
   openaiTextStream?: boolean;  // 文本/聊天模型是否使用流式请求（默认 false）
   openaiImageStream?: boolean;  // 图像模型是否使用流式请求（默认 false）
+
+  // Cloud 云服务配置
+  cloudEndpointUrl?: string;  // 云服务端点 URL（无需 API Key）
 }
 
 /**

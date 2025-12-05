@@ -287,6 +287,9 @@ func (c *ConfigService) getDefaultSettings() string {
 			OpenAIBaseURL:    "https://api.openai.com/v1",
 			OpenAITextModel:  "gpt-4o",
 			OpenAIImageModel: "dall-e-3",
+
+			// Cloud 云服务默认配置
+			CloudEndpointURL: "",
 		},
 		Canvas: types.CanvasSettings{
 			Width:           1080,

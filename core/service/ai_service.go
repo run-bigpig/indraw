@@ -93,6 +93,8 @@ func (a *AIService) createProvider(name string) (provider.AIProvider, error) {
 		aiProvider, err = provider.NewGeminiProvider(a.ctx, aiSettings)
 	case "openai":
 		aiProvider, err = provider.NewOpenAIProvider(a.ctx, aiSettings)
+	case "cloud":
+		aiProvider, err = provider.NewCloudProvider(a.ctx, aiSettings)
 	default:
 		return nil, fmt.Errorf("unsupported AI provider: %s", name)
 	}
