@@ -181,6 +181,14 @@ func (c *ConfigService) SaveSettings(settingsJSON string) error {
 		settings.AI.OpenAIImageAPIKey = encrypted
 	}
 
+	if settings.AI.CloudToken != "" {
+		encrypted, err := c.encrypt(settings.AI.CloudToken)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt Cloud token: %w", err)
+		}
+		settings.AI.CloudToken = encrypted
+	}
+
 	// 序列化
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
@@ -261,6 +269,15 @@ func (c *ConfigService) LoadSettings() (string, error) {
 		}
 	}
 
+	if settings.AI.CloudToken != "" {
+		decrypted, err := c.decrypt(settings.AI.CloudToken)
+		if err != nil {
+			settings.AI.CloudToken = ""
+		} else {
+			settings.AI.CloudToken = decrypted
+		}
+	}
+
 	// 重新序列化（包含解密后的数据）
 	result, err := json.Marshal(settings)
 	if err != nil {
@@ -290,6 +307,7 @@ func (c *ConfigService) getDefaultSettings() string {
 
 			// Cloud 云服务默认配置
 			CloudEndpointURL: "",
+			CloudToken:       "",
 		},
 		Canvas: types.CanvasSettings{
 			Width:           1080,

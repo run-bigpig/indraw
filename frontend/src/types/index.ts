@@ -55,7 +55,8 @@ export interface AIServiceSettings {
   openaiImageStream?: boolean;  // 图像模型是否使用流式请求（默认 false）
 
   // Cloud 云服务配置
-  cloudEndpointUrl?: string;  // 云服务端点 URL（无需 API Key）
+  cloudEndpointUrl?: string;  // 云服务端点 URL
+  cloudToken?: string;         // 云服务认证 Token
 }
 
 /**

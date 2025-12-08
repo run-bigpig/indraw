@@ -18,7 +18,9 @@
     "uploadFailed": "上传失败",
     "processingFailed": "处理失败",
     "selectMultipleImages": "请至少选择2个图片图层进行AI融合",
-    "blendSameGroup": "只能融合同一组/层级内的图层"
+    "blendSameGroup": "只能融合同一组/层级内的图层",
+    "opencvNotReady": "OpenCV 未加载，请稍后再试",
+    "healFailed": "智能修补失败，请稍后再试"
   },
   "shortcuts": {
     "multiSelect": "+ CLICK TO MULTI-SELECT",

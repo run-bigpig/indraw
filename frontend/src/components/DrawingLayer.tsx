@@ -4,7 +4,7 @@ import { CanvasConfig } from '../types';
 
 interface DrawingLayerProps {
   drawingLines: any[];
-  brushMode: 'normal' | 'ai';
+  brushMode: 'normal' | 'ai' | 'heal';
   activeTool: string;
   brushConfig: { size: number; color: string; opacity: number };
   eraserConfig: { size: number };
@@ -46,15 +46,17 @@ const DrawingLayer: React.FC<DrawingLayerProps> = React.memo(({
   }, [drawingLines]);
 
   // ✅ 优化2: 缓存画笔颜色和透明度
-  const brushStroke = useMemo(() =>
-    brushMode === 'ai' ? '#EF4444' : brushConfig.color,
-    [brushMode, brushConfig.color]
-  );
+  const brushStroke = useMemo(() => {
+    if (brushMode === 'ai') return '#EF4444';
+    if (brushMode === 'heal') return '#10B981'; // 绿色表示修复模式
+    return brushConfig.color;
+  }, [brushMode, brushConfig.color]);
 
-  const brushOpacity = useMemo(() =>
-    brushMode === 'ai' ? 0.5 : 1,
-    [brushMode]
-  );
+  const brushOpacity = useMemo(() => {
+    if (brushMode === 'ai') return 0.5;
+    if (brushMode === 'heal') return 0.6; // 稍微透明，便于看到修复区域
+    return 1;
+  }, [brushMode]);
 
   return (
     <Group clipX={0} clipY={0} clipWidth={canvasConfig.width} clipHeight={canvasConfig.height}>

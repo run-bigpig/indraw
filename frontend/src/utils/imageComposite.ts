@@ -1,6 +1,6 @@
 /**
  * 图像合成工具函数
- * 用于 AI Inpaint 的像素级精确合成
+ * 用于 AI Local Redraw 的像素级精确合成
  *
  * ✅ 性能优化：使用 Promise.all 并行加载图片
  */
@@ -28,7 +28,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
  * @param height 图像高度
  * @returns 合成后的图像 base64
  */
-export const compositeInpaint = async (
+export const compositeLocalRedraw = async (
   cleanBase64: string,
   aiBase64: string,
   maskBase64: string,

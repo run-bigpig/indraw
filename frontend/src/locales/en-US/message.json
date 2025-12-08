@@ -18,7 +18,9 @@
     "uploadFailed": "Upload failed",
     "processingFailed": "Processing failed",
     "selectMultipleImages": "Please select at least 2 image layers for AI blend",
-    "blendSameGroup": "Can only blend layers within the same group/level"
+    "blendSameGroup": "Can only blend layers within the same group/level",
+    "opencvNotReady": "OpenCV is not ready, please try again later",
+    "healFailed": "Heal failed, please try again later"
   },
   "shortcuts": {
     "multiSelect": "+ CLICK TO MULTI-SELECT",

@@ -132,6 +132,11 @@ func (p *CloudProvider) callCloudAPI(ctx context.Context, endpoint string, reque
 	// 设置请求头
 	req.Header.Set("Content-Type", "application/json")
 
+	// 如果配置了 Token，添加到 Authorization 头
+	if p.settings.CloudToken != "" {
+		req.Header.Set("Authorization", "Bearer "+p.settings.CloudToken)
+	}
+
 	// 发送请求
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

@@ -44,7 +44,8 @@ type AISettings struct {
 	OpenAIImageStream bool `json:"openaiImageStream"` // 图像模型是否使用流式请求（默认 false）
 
 	// Cloud 云服务配置
-	CloudEndpointURL string `json:"cloudEndpointUrl"` // 云服务端点 URL（无需 API Key）
+	CloudEndpointURL string `json:"cloudEndpointUrl"` // 云服务端点 URL
+	CloudToken       string `json:"cloudToken"`       // 云服务认证 Token（加密存储）
 }
 
 // OpenAI 图像模式常量

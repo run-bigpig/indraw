@@ -36,7 +36,7 @@ interface CanvasBoardProps {
     selectedIds: string[];
     activeTool: ToolType;
     shapeType?: ShapeType;
-    brushMode: 'normal' | 'ai';
+    brushMode: 'normal' | 'ai' | 'heal';
     drawingLines: any[];
     brushConfig: { size: number, color: string, opacity: number };
     eraserConfig: { size: number };
@@ -346,8 +346,8 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                         console.log('[mouseDown] eraser hit layer', eraseTargetId.current);
                     }
 
-                    // AI 画笔命中图片图层：自动选中该图层
-                    if (activeTool === 'brush' && brushMode === 'ai' && layer && layer.type === 'image') {
+                    // AI 画笔或 Heal 画笔命中图片图层：自动选中该图层
+                    if (activeTool === 'brush' && (brushMode === 'ai' || brushMode === 'heal') && layer && layer.type === 'image') {
                         onSelectLayer(hitLayerId, false);
                     }
                 } else if (activeTool === 'eraser') {
@@ -360,8 +360,8 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
             currentPointsRef.current = [clampedPos.x, clampedPos.y];
 
             // ✅ 性能优化：使用 Konva 原生 API 直接创建线条
-            // 对于 AI 画笔模式或橡皮擦工具，使用 React 状态（因为需要特殊渲染/蒙层显示）
-            if (brushMode === 'ai' || activeTool === 'eraser') {
+            // 对于 AI 画笔模式、Heal 画笔模式或橡皮擦工具，使用 React 状态（因为需要特殊渲染/蒙层显示）
+            if (brushMode === 'ai' || brushMode === 'heal' || activeTool === 'eraser') {
                 onSetDrawingLines([
                     ...drawingLines,
                     { points: [clampedPos.x, clampedPos.y], mode: currentModeRef.current },
@@ -411,8 +411,8 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
         }
 
         if ((activeTool === 'brush' || activeTool === 'eraser') && isDrawing.current) {
-            // ✅ 性能优化：对于 AI 画笔模式或橡皮擦工具，使用 React 状态（需要显示蒙层）
-            if (brushMode === 'ai' || activeTool === 'eraser') {
+            // ✅ 性能优化：对于 AI 画笔模式、Heal 画笔模式或橡皮擦工具，使用 React 状态（需要显示蒙层）
+            if (brushMode === 'ai' || brushMode === 'heal' || activeTool === 'eraser') {
                 const lastLine = drawingLines[drawingLines.length - 1];
                 if (lastLine) {
                     lastLine.points.push(clampedPos.x, clampedPos.y);
@@ -498,8 +498,8 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                 rafIdRef.current = null;
             }
 
-            // 橡皮擦工具或 AI 画笔模式：从 drawingLines 获取数据
-            if (activeTool === 'eraser' || brushMode === 'ai') {
+            // 橡皮擦工具、AI 画笔模式或 Heal 画笔模式：从 drawingLines 获取数据
+            if (activeTool === 'eraser' || brushMode === 'ai' || brushMode === 'heal') {
                 const lastLine = drawingLines[drawingLines.length - 1];
                 if (lastLine && lastLine.points.length > 2) {
                     const isErase = activeTool === 'eraser';

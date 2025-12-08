@@ -55,7 +55,8 @@ export const DEFAULT_AI_SETTINGS: AIServiceSettings = {
   openaiImageStream: false, // 图像模型是否使用流式请求（默认 false）
 
   // Cloud 云服务配置
-  cloudEndpointUrl: '',  // 云服务端点 URL（无需 API Key）
+  cloudEndpointUrl: '',  // 云服务端点 URL
+  cloudToken: '',        // 云服务认证 Token
 };
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasDefaultSettings = {
@@ -186,6 +187,9 @@ function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSett
     cloudEndpointUrl: typeof settings.cloudEndpointUrl === 'string'
       ? settings.cloudEndpointUrl
       : DEFAULT_AI_SETTINGS.cloudEndpointUrl,
+    cloudToken: typeof settings.cloudToken === 'string'
+      ? settings.cloudToken
+      : DEFAULT_AI_SETTINGS.cloudToken,
   };
 }
 
@@ -361,6 +365,7 @@ export function exportSettings(settings: Settings, includeSensitive: boolean = f
       ...settings.ai,
       apiKey: includeSensitive ? settings.ai.apiKey : '',
       openaiApiKey: includeSensitive ? settings.ai.openaiApiKey : '',
+      cloudToken: includeSensitive ? settings.ai.cloudToken : '',
     },
     exportedAt: new Date().toISOString(),
   };

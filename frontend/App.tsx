@@ -12,6 +12,7 @@ import HistoryPanel from './src/components/HistoryPanel';
 import SketchCanvas from './src/components/SketchCanvas';
 import { LayerData, ToolType, CanvasConfig, ShapeType} from '@/types';
 import { generateImageFromText, editImageWithAI, removeBackgroundWithAI, blendImagesWithAI, enhancePrompt } from '@/services/ai';
+import { HealImage, checkOpenCVReady } from '@/services/opencvService';
 import { fetchPrompts, filterPromptsByCategory, searchPrompts, getCategories, type PromptItem } from '@/services/promptService';
 import {
   Download,
@@ -38,7 +39,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAutoSave } from '@/hooks';
-import { compositeInpaint } from '@/utils/imageComposite.ts';
+import { compositeLocalRedraw } from '@/utils/imageComposite.ts';
 import { loadAndFitImage } from '@/utils/imageLayout';
 import { scaleImageToFit } from '@/utils/cropImage';
 import { DEFAULT_BRUSH_CONFIG, DEFAULT_ERASER_CONFIG, DEFAULT_LAYER_PROPS, DEFAULT_TEXT_PROPS } from '@/constants';
@@ -50,7 +51,7 @@ import Logo from '@/components/Logo';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
 
-export type ProcessingState = 'idle' | 'generating' | 'inpainting' | 'removing-bg' | 'blending' | 'transforming';
+export type ProcessingState = 'idle' | 'generating' | 'localRedrawing' | 'removing-bg' | 'blending' | 'transforming' | 'healing';
 
 // ✅ 性能优化：使用 React.memo 优化提示词列表项组件
 interface PromptListItemProps {
@@ -158,15 +159,16 @@ export default function App() {
   const { settings, isLoaded: settingsLoaded } = useSettings();
 
   // Brush & AI State - 使用设置中的默认值初始化
-  const [brushMode, setBrushMode] = useState<'normal' | 'ai'>('normal');
+  const [brushMode, setBrushMode] = useState<'normal' | 'ai' | 'heal'>('normal');
   // 当前生效的画笔配置（根据 brushMode 在 normal / ai 间切换）
   const [brushConfig, setBrushConfig] = useState(DEFAULT_BRUSH_CONFIG);
   // 各模式独立配置，避免互相影响
   const [normalBrushConfig, setNormalBrushConfig] = useState(DEFAULT_BRUSH_CONFIG);
   const [aiBrushConfig, setAiBrushConfig] = useState(DEFAULT_BRUSH_CONFIG);
+  const [healBrushConfig, setHealBrushConfig] = useState(DEFAULT_BRUSH_CONFIG);
   // 橡皮擦独立配置
   const [eraserConfig, setEraserConfig] = useState(DEFAULT_ERASER_CONFIG);
-  const [inpaintPrompt, setInpaintPrompt] = useState('');
+  const [localRedrawPrompt, setLocalRedrawPrompt] = useState('');
 
   // 当设置加载完成后，同步工具配置
   const hasInitializedToolsRef = useRef(false);
@@ -185,6 +187,7 @@ export default function App() {
       setBrushConfig(brushFromSettings);
       setNormalBrushConfig(brushFromSettings);
       setAiBrushConfig(brushFromSettings);
+      setHealBrushConfig(brushFromSettings);
       setEraserConfig(eraserFromSettings);
     }
   }, [settingsLoaded, settings.tools]);
@@ -635,8 +638,143 @@ export default function App() {
     });
   };
 
-  const handleLineDrawn = (points: number[], strokeWidth: number, options?: { erase?: boolean; targetLayerId?: string }) => {
+  const handleLineDrawn = async (points: number[], strokeWidth: number, options?: { erase?: boolean; targetLayerId?: string }) => {
+    // AI 模式由其他逻辑处理，直接返回
     if (brushMode === 'ai') return;
+
+    // Heal 模式：使用 OpenCV localRedraw 修复图像
+    if (brushMode === 'heal') {
+      const targetFromOptions = options?.targetLayerId || null;
+      const targetFromSelection = selectedIds.length === 1 ? selectedIds[0] : null;
+      const targetId = targetFromOptions || targetFromSelection;
+
+      if (!targetId) {
+        return;
+      }
+
+      const targetLayer = layers?.find(l => l.id === targetId);
+      if (!targetLayer || targetLayer.type !== 'image' || !targetLayer.src) {
+        return;
+      }
+
+      if (!checkOpenCVReady()) {
+        alert(t('message:opencvNotReady', 'OpenCV 未加载，请稍后再试'));
+        return;
+      }
+
+      // 需要将画布坐标转换为图层本地坐标
+      if (!stageRef.current) {
+        return;
+      }
+
+      const stage = stageRef.current;
+      const node = stage.findOne('#' + targetLayer.id);
+      if (!node) {
+        return;
+      }
+
+      // 找到实际的 Image 节点（可能在 Group 内部）
+      const imageNode = node instanceof Konva.Image
+        ? node
+        : node instanceof Konva.Group
+          ? (node.findOne('Image') as Konva.Image)
+          : null;
+
+      if (!imageNode || !imageNode.image()) {
+        return;
+      }
+
+      // 获取图像的实际尺寸（naturalWidth/Height 是原始图像尺寸）
+      const imageElement = imageNode.image() as HTMLImageElement;
+      const naturalWidth = imageElement?.naturalWidth || targetLayer.width || 0;
+      const naturalHeight = imageElement?.naturalHeight || targetLayer.height || 0;
+
+      if (naturalWidth === 0 || naturalHeight === 0) {
+        console.error('[lineDrawn] heal ignored: invalid image dimensions', { naturalWidth, naturalHeight });
+        return;
+      }
+
+      // 计算图像显示尺寸和原始尺寸的比例
+      const displayWidth = imageNode.width();
+      const displayHeight = imageNode.height();
+      const widthRatio = naturalWidth / displayWidth;
+      const heightRatio = naturalHeight / displayHeight;
+
+      // 坐标转换：Stage 坐标 -> 图像本地坐标（使用原始图像尺寸）
+      const imageAbsTransform = imageNode.getAbsoluteTransform().copy();
+      const invImageAbsTransform = imageAbsTransform.invert();
+      const stageAbsTransform = stage.getAbsoluteTransform().copy();
+
+      const localPoints: number[] = [];
+      for (let i = 0; i < points.length; i += 2) {
+        const stageRx = points[i];
+        const stageRy = points[i + 1];
+        // Stage 相对坐标 -> 屏幕坐标
+        const screenP = stageAbsTransform.point({ x: stageRx, y: stageRy });
+        // 屏幕坐标 -> 图像本地坐标（显示尺寸）
+        const localP = invImageAbsTransform.point(screenP);
+        // 图像本地坐标（显示尺寸）-> 原始图像像素坐标
+        const nativeX = localP.x * widthRatio;
+        const nativeY = localP.y * heightRatio;
+        localPoints.push(nativeX, nativeY);
+      }
+
+      // 验证坐标和参数
+      if (localPoints.length < 2) {
+        console.error('[lineDrawn] heal ignored: insufficient points', { localPointsLength: localPoints.length });
+        return;
+      }
+
+      if (!targetLayer.width || !targetLayer.height) {
+        console.error('[lineDrawn] heal ignored: invalid layer dimensions', { width: targetLayer.width, height: targetLayer.height });
+        return;
+      }
+
+      // 计算画笔大小（也需要考虑图像尺寸比例）
+      const currentScaleX = imageNode.getAbsoluteScale().x;
+      const adjustedBrushSize = (strokeWidth / currentScaleX) * widthRatio;
+      const validStrokeWidth = Math.max(1, Math.min(adjustedBrushSize, 100));
+
+      // 设置处理状态
+      setProcessingState('healing');
+
+      try {
+        // 执行 heal（使用优化的参数，减少模糊）
+        const healedImageUrl = await HealImage(
+          targetLayer.src,
+          localPoints,
+          validStrokeWidth,
+          { 
+            method: 'TELEA', 
+            adaptiveRadius: true,  // 启用自适应半径
+            maskPreprocessing: 1   // 使用轻量级预处理，避免模糊
+          }
+        );
+
+        // 更新图层图像
+        // 注意：如果 healedImageUrl 和原来的 src 相同，useImage 可能不会重新加载
+        // 这里我们直接使用新的 dataUrl，应该会触发重新加载
+        const updatedLayers = layers.map(l => {
+          if (l.id === targetId) {
+            return { ...l, src: healedImageUrl };
+          }
+          return l;
+        });
+        layerManager.updateLayersWithHistory(updatedLayers, 'history.heal');
+
+        // 清空绘制线条（遮罩预览）
+        setDrawingLines([]);
+      } catch (error) {
+        console.error('[lineDrawn] heal error:', error);
+        alert(t('message:healFailed', '智能修补失败，请稍后再试'));
+        // 即使失败也清空绘制线条
+        setDrawingLines([]);
+      } finally {
+        setProcessingState('idle');
+      }
+
+      return;
+    }
 
     const isErase = !!options?.erase;
     const targetFromOptions = options?.targetLayerId || null;
@@ -967,15 +1105,15 @@ export default function App() {
     }
   };
 
-	  const handleInpaintSubmit = async () => {
+	  const handleLocalRedrawSubmit = async () => {
     const targetLayer = layers?.find(l => selectedIds.includes(l.id));
     if (!targetLayer || targetLayer.type !== 'image' || !targetLayer.src) {
-      alert("Please select an image layer to apply AI Inpaint.");
+      alert("Please select an image layer to apply AI Local Redraw.");
       return;
     }
 
-    if (!inpaintPrompt || !stageRef.current || drawingLines.length === 0) return;
-    setProcessingState('inpainting');
+    if (!localRedrawPrompt || !stageRef.current || drawingLines.length === 0) return;
+    setProcessingState('localRedrawing');
 
     try {
       const stage = stageRef.current;
@@ -1099,14 +1237,14 @@ export default function App() {
 
       const promptImageBase64 = promptImageCanvas.toDataURL();
 
-      const fullPrompt = `${inpaintPrompt} Keep original style and high clarity. IMPORTANT: The image contains TRANSLUCENT RED brush strokes acting as a mask. Modify the content under the red strokes according to the prompt. Keep the rest of the image unchanged. Remove the red strokes from the final result. Return the image with transparent background where appropriate.`;
+      const fullPrompt = `${localRedrawPrompt} Keep original style and high clarity. IMPORTANT: The image contains TRANSLUCENT RED brush strokes acting as a mask. Modify the content under the red strokes according to the prompt. Keep the rest of the image unchanged. Remove the red strokes from the final result. Return the image with transparent background where appropriate.`;
 
       // 4. Call AI
       const aiResultBase64 = await editImageWithAI(promptImageBase64, fullPrompt);
 
       // 5. Composite Final Result (Original + (AI * Mask))
       // We use the original clean source, the AI result, and our generated mask
-      const finalImage = await compositeInpaint(targetLayer.src, aiResultBase64, maskBase64, naturalWidth, naturalHeight);
+      const finalImage = await compositeLocalRedraw(targetLayer.src, aiResultBase64, maskBase64, naturalWidth, naturalHeight);
 
       // 6. Update Layer
       // 注意：updateLayer 内部会根据修改的属性自动生成描述，但这里是 AI 修复，需要特殊处理
@@ -1116,15 +1254,15 @@ export default function App() {
           ? { ...l, src: finalImage, name: `${targetLayer.name.replace(' (Edited)', '')} (Edited)` }
           : l
       );
-      layerManager.updateLayersWithHistory(updatedLayers, 'history.aiInpaint');
+      layerManager.updateLayersWithHistory(updatedLayers, 'history.aiLocalRedraw');
 
       setDrawingLines([]);
-      setInpaintPrompt('');
+      setLocalRedrawPrompt('');
       setActiveTool('select');
 
     } catch (e: any) {
       console.error(e);
-      alert(`Inpainting failed: ${e.message}`);
+      alert(`LocalRedrawing failed: ${e.message}`);
     } finally {
       setProcessingState('idle');
     }
@@ -1271,7 +1409,7 @@ Keep high quality and clarity.`;
 
       const resultBase64 = await editImageWithAI(targetLayer.src, fullPrompt);
 
-      // 直接更新原图层的图片（与 AI Inpaint 行为一致）
+      // 直接更新原图层的图片（与 AI Local Redraw 行为一致）
       const updatedLayers = layers.map(l =>
         l.id === targetLayer.id
           ? { ...l, src: resultBase64, name: `${targetLayer.name.replace(' (Transformed)', '')} (Transformed)` }
@@ -1615,6 +1753,21 @@ Keep high quality and clarity.`;
             >
               <Zap size={10} /> {t('common:ai')}
             </button>
+            <button
+              onClick={() => {
+                setBrushMode('heal');
+                setDrawingLines([]);
+                setBrushConfig(healBrushConfig);
+              }}
+              className={clsx(
+                'px-2 py-0.5 text-[11px] rounded-md transition-all font-medium flex items-center gap-1',
+                brushMode === 'heal'
+                  ? 'bg-green-600 text-white shadow'
+                  : 'text-gray-400 hover:text-gray-200',
+              )}
+            >
+              <Sparkles size={10} /> {t('common:heal')}
+            </button>
           </div>
 
           {/* Brush Size */}
@@ -1623,7 +1776,7 @@ Keep high quality and clarity.`;
             <input
               type="range"
               min={1}
-              max={brushMode === 'ai' ? 100 : 50}
+              max={brushMode === 'ai' ? 100 : brushMode === 'heal' ? 100 : 50}
               value={brushConfig.size}
               onChange={(e) => {
                 const nextSize = Number(e.target.value);
@@ -1631,8 +1784,10 @@ Keep high quality and clarity.`;
                 setBrushConfig(nextConfig);
                 if (brushMode === 'normal') {
                   setNormalBrushConfig(nextConfig);
-                } else {
+                } else if (brushMode === 'ai') {
                   setAiBrushConfig(nextConfig);
+                } else if (brushMode === 'heal') {
+                  setHealBrushConfig(nextConfig);
                 }
               }}
               className="w-32 h-1 bg-tech-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
@@ -1741,7 +1896,7 @@ Keep high quality and clarity.`;
               setDrawingLines([]);
             }
             // 切换到橡皮擦工具时，自动重置为 normal 模式，确保橡皮擦功能正常工作
-            if (t === 'eraser' && brushMode === 'ai') {
+            if (t === 'eraser' && (brushMode === 'ai' || brushMode === 'heal')) {
               setBrushMode('normal');
               setBrushConfig(normalBrushConfig);
             }
@@ -1808,26 +1963,26 @@ Keep high quality and clarity.`;
                 <div className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-3 rounded-xl bg-tech-900/95 border border-purple-500/40 shadow-[0_18px_40px_rgba(15,23,42,0.9)] backdrop-blur-md flex flex-col gap-2 text-xs text-gray-200 max-w-xl w-[90%]">
                   <span className="flex items-center gap-2 font-mono text-[11px] tracking-[0.25em] text-purple-300 uppercase">
                     <Zap size={12} className="text-purple-400" />
-                    AI INPAINT
+                    {t('ai:localRedraw')}
                   </span>
                   <textarea
-                    value={inpaintPrompt}
-                    onChange={(e) => setInpaintPrompt(e.target.value)}
-                    placeholder={t('ai:inpaintPrompt')}
+                    value={localRedrawPrompt}
+                    onChange={(e) => setLocalRedrawPrompt(e.target.value)}
+                    placeholder={t('ai:localRedrawPrompt')}
                     rows={3}
                     className="w-full bg-tech-900 border border-tech-700 rounded-lg px-3 py-2 text-[11px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/60 transition-all resize-none"
                   />
                   <button
-                    onClick={handleInpaintSubmit}
-                    disabled={processingState !== 'idle' || !inpaintPrompt}
+                    onClick={handleLocalRedrawSubmit}
+                    disabled={processingState !== 'idle' || !localRedrawPrompt}
                     className={clsx(
                       'w-full mt-1 px-3 py-1.5 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition-colors',
-                      processingState === 'inpainting' || !inpaintPrompt
+                      processingState === 'localRedrawing' || !localRedrawPrompt
                         ? 'bg-tech-800 text-gray-500 cursor-not-allowed'
                         : 'bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white shadow-lg shadow-purple-900/40',
                     )}
                   >
-                    {processingState === 'inpainting' ? (
+                    {processingState === 'localRedrawing' ? (
                       <>
                         <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         <span>{t('properties:processing')}</span>
@@ -1855,22 +2010,30 @@ Keep high quality and clarity.`;
             brushMode={brushMode}
             processingState={processingState}
             brushConfig={brushConfig}
-            inpaintPrompt={inpaintPrompt}
+            localRedrawPrompt={localRedrawPrompt}
             onSetBrushConfig={(config) => {
               setBrushConfig(config);
               if (brushMode === 'normal') {
                 setNormalBrushConfig(config);
-              } else {
+              } else if (brushMode === 'ai') {
                 setAiBrushConfig(config);
+              } else if (brushMode === 'heal') {
+                setHealBrushConfig(config);
               }
             }}
             onSetBrushMode={(mode) => {
               setBrushMode(mode);
               setDrawingLines([]);
               // 切换模式时恢复各自独立的配置
-              setBrushConfig(mode === 'normal' ? normalBrushConfig : aiBrushConfig);
+              if (mode === 'normal') {
+                setBrushConfig(normalBrushConfig);
+              } else if (mode === 'ai') {
+                setBrushConfig(aiBrushConfig);
+              } else if (mode === 'heal') {
+                setBrushConfig(healBrushConfig);
+              }
             }}
-            onSetInpaintPrompt={setInpaintPrompt}
+            onSetLocalRedrawPrompt={setLocalRedrawPrompt}
             onSelectLayer={handleSelectLayer}
             onDeleteLayer={(id) => layerManager.deleteLayers([id])}
             onToggleVisibility={layerManager.toggleVisibility}
@@ -1885,7 +2048,7 @@ Keep high quality and clarity.`;
             onGroup={groupingManager.groupLayers}
             onUngroup={groupingManager.ungroupLayers}
             onContextMenuAction={handleContextMenuAction}
-            onInpaintSubmit={handleInpaintSubmit}
+            onLocalRedrawSubmit={handleLocalRedrawSubmit}
           />
         )}
       </div>

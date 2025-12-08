@@ -285,6 +285,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [showApiKey, setShowApiKey] = useState(false);
   const [showOpenaiApiKey, setShowOpenaiApiKey] = useState(false);
   const [showOpenaiImageApiKey, setShowOpenaiImageApiKey] = useState(false);
+  const [showCloudToken, setShowCloudToken] = useState(false);
   const [vertexCredentialsError, setVertexCredentialsError] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -807,7 +808,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         <>
           <InputGroup
             label={t('settings.ai.cloudEndpointUrl', '云服务端点 URL')}
-            hint={t('settings.ai.cloudEndpointUrlHint', '配置云服务 API 端点地址（无需 API Key）')}
+            hint={t('settings.ai.cloudEndpointUrlHint', '配置云服务 API 端点地址')}
           >
             <TextInput
               value={settings.ai.cloudEndpointUrl || ''}
@@ -816,10 +817,32 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             />
           </InputGroup>
 
+          <InputGroup
+            label={t('settings.ai.cloudToken', '认证 Token')}
+            hint={t('settings.ai.cloudTokenHint', '用于云服务 API 认证的 Token（可选）')}
+          >
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <TextInput
+                  type={showCloudToken ? 'text' : 'password'}
+                  value={settings.ai.cloudToken || ''}
+                  onChange={(val) => handleUpdateCategory('ai', { cloudToken: val })}
+                  placeholder={t('settings.ai.cloudTokenPlaceholder', '输入您的认证 Token（可选）')}
+                />
+              </div>
+              <button
+                onClick={() => setShowCloudToken(!showCloudToken)}
+                className="px-3 bg-tech-800 border border-tech-700 rounded hover:bg-tech-700 transition-colors"
+              >
+                {showCloudToken ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </InputGroup>
+
           {/* 云服务说明 */}
           <div className="p-3 bg-green-900/20 border border-green-700/50 rounded text-xs text-green-400">
             <p className="font-medium mb-1">{t('settings.ai.cloudNote', 'ℹ️ 云服务说明')}</p>
-            <p className="text-green-500">{t('settings.ai.cloudDesc', '云服务将处理所有 AI 处理任务，本地客户端仅负责转发请求和处理响应。云服务应提供与 Gemini API 兼容的接口。')}</p>
+            <p className="text-green-500">{t('settings.ai.cloudDesc', '云服务将处理所有 AI 处理任务，本地客户端仅负责转发请求和处理响应。云服务应提供与 Gemini API 兼容的接口。如果云服务需要认证，请填写 Token。')}</p>
           </div>
         </>
       )}

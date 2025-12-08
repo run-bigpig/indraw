@@ -23,8 +23,8 @@ const FullScreenLoading: React.FC<FullScreenLoadingProps> = ({ processingState }
     switch (processingState) {
       case 'generating':
         return t('ai:generating', 'AI Generating...');
-      case 'inpainting':
-        return t('ai:inpainting', 'AI Inpainting...');
+      case 'localRedrawing':
+        return t('ai:localRedrawing', 'AI Local Redrawing...');
       case 'blending':
         return t('ai:blending', 'AI Blending...');
       case 'removing-bg':
@@ -41,8 +41,8 @@ const FullScreenLoading: React.FC<FullScreenLoadingProps> = ({ processingState }
     switch (processingState) {
       case 'generating':
         return t('ai:generatingHint', 'Creating your image with AI...');
-      case 'inpainting':
-        return t('ai:inpaintingHint', 'Editing selected area with AI...');
+      case 'localRedrawing':
+        return t('ai:localRedrawingHint', 'Editing selected area with AI...');
       case 'blending':
         return t('ai:blendingHint', 'Blending layers with AI...');
       case 'removing-bg':

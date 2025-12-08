@@ -3,6 +3,7 @@
  * 提供基于 OpenCV.js 的图像处理功能
  * - 九宫格切割（3x3 Grid）
  * - 智能元素提取（Smart Extraction）- 使用 Transformer 背景移除 + OpenCV 处理
+ * - 智能修补（Heal）- 使用 OpenCV Heal 功能修复图像
  */
 
 import { GridSlice, ProcessMode, SmartExtractParams, DEFAULT_SMART_PARAMS } from '@/types';
@@ -449,5 +450,168 @@ export const processImage = async (
     throw err;
   } finally {
     src.delete();
+  }
+};
+
+/**
+ * Heal 参数配置
+ */
+export interface HealParams {
+  /** Heal 算法类型：'NS' (Navier-Stokes) 或 'TELEA' (Fast Marching Method)，默认 'TELEA' */
+  method?: 'NS' | 'TELEA';
+  /** Heal 半径（像素），控制修复区域的影响范围。如果为 0 或未设置，将根据遮罩大小自动计算 */
+  HealRadius?: number;
+  /** 是否使用自适应半径（根据遮罩大小自动计算），默认 true */
+  adaptiveRadius?: boolean;
+  /** 遮罩预处理强度（0-3），控制形态学操作的强度，默认 2 */
+  maskPreprocessing?: number;
+}
+
+/**
+ * 默认的 Heal 参数
+ */
+export const DEFAULT_Heal_PARAMS: HealParams = {
+  method: 'TELEA',
+  HealRadius: 0, // 0 表示自动计算
+  adaptiveRadius: true,
+  maskPreprocessing: 1, // 减少预处理强度，避免模糊
+};
+
+/**
+ * 智能修补（Heal）
+ * 使用 OpenCV 的 Heal 功能修复图像中的指定区域
+ * 功能对标 Photoshop 的"污点修复画笔工具"或"内容识别填充"
+ * 
+ * @param imageSrc 原始图像（base64 或 URL）
+ * @param maskPoints 遮罩点数组，格式为 [x1, y1, x2, y2, ...]，表示需要修复的区域
+ * @param brushSize 画笔大小（像素），用于生成遮罩
+ * @param params Heal 参数配置
+ * @returns 修复后的图像 dataUrl
+ */
+export const HealImage = async (
+  imageSrc: string,
+  maskPoints: number[],
+  brushSize: number,
+  params: HealParams = DEFAULT_Heal_PARAMS
+): Promise<string> => {
+  const cv = window.cv;
+  
+  if (!checkOpenCVReady()) {
+    throw new Error('OpenCV 未加载');
+  }
+
+  // 加载原始图像
+  const imgElement = await loadImage(imageSrc);
+  const srcRGBA = cv.imread(imgElement);
+  
+  // 将 RGBA 转换为 RGB（inpaint 需要 3 通道图像，参考 opencv-spot-healer 使用 RGB）
+  const src = new cv.Mat();
+  cv.cvtColor(srcRGBA, src, cv.COLOR_RGBA2RGB, 0);
+  
+  try {
+    // 创建遮罩图像（与源图像相同大小，单通道）
+    const mask = new cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC1);
+    
+    // 在遮罩上绘制画笔路径
+    if (maskPoints.length >= 2) {
+      const color = new cv.Scalar(255); // 白色表示需要修复的区域
+      const thickness = Math.max(1, Math.round(brushSize));
+      
+      // 绘制连续的线条
+      for (let i = 0; i < maskPoints.length - 2; i += 2) {
+        const x1 = Math.round(maskPoints[i]);
+        const y1 = Math.round(maskPoints[i + 1]);
+        const x2 = Math.round(maskPoints[i + 2]);
+        const y2 = Math.round(maskPoints[i + 3]);
+        
+        // 确保坐标在图像范围内
+        const clampedX1 = Math.max(0, Math.min(x1, src.cols - 1));
+        const clampedY1 = Math.max(0, Math.min(y1, src.rows - 1));
+        const clampedX2 = Math.max(0, Math.min(x2, src.cols - 1));
+        const clampedY2 = Math.max(0, Math.min(y2, src.rows - 1));
+        
+        // 只有当两个点不同时才绘制线条
+        if (clampedX1 !== clampedX2 || clampedY1 !== clampedY2) {
+          cv.line(mask, new cv.Point(clampedX1, clampedY1), new cv.Point(clampedX2, clampedY2), color, thickness, cv.LINE_8, 0);
+        }
+      }
+      
+      // 如果只有一个点，绘制一个圆形
+      if (maskPoints.length === 2) {
+        const x = Math.round(maskPoints[0]);
+        const y = Math.round(maskPoints[1]);
+        const clampedX = Math.max(0, Math.min(x, src.cols - 1));
+        const clampedY = Math.max(0, Math.min(y, src.rows - 1));
+        const radius = Math.max(1, Math.round(brushSize / 2));
+        cv.circle(mask, new cv.Point(clampedX, clampedY), radius, color, -1, cv.LINE_8, 0);
+      }
+      
+      // 遮罩预处理：二值化（参考 opencv-spot-healer 的实现）
+      // mask 已经是单通道，直接使用 threshold
+      const maskBinary = new cv.Mat();
+      cv.threshold(mask, maskBinary, 10, 255, cv.THRESH_BINARY); // 使用阈值 10（参考 opencv-spot-healer）
+      // 将二值化结果复制回 mask
+      maskBinary.copyTo(mask);
+      maskBinary.delete();
+    } else {
+      // 如果没有有效的点，抛出错误
+      mask.delete();
+      throw new Error('遮罩点数组无效：至少需要 2 个点');
+    }
+    
+    // 验证遮罩是否有非零像素
+    const nonZeroCount = cv.countNonZero(mask);
+    
+    if (nonZeroCount === 0) {
+      mask.delete();
+      throw new Error('遮罩为空：没有需要修复的区域');
+    }
+    
+    // 计算遮罩的边界框，用于估算修复区域大小
+    const maskBoundingRect = cv.boundingRect(mask);
+    const maskArea = maskBoundingRect.width * maskBoundingRect.height;
+    const maskMaxDim = Math.max(maskBoundingRect.width, maskBoundingRect.height);
+    
+    // 使用固定半径 3（参考 opencv-spot-healer 的实现）
+    const inpaintRadius = params.HealRadius || 3;
+    
+    // 执行 Inpaint
+    const dst = new cv.Mat();
+    const inpaintMethod = params.method === 'NS' ? cv.INPAINT_NS : cv.INPAINT_TELEA;
+    
+    try {
+      cv.inpaint(src, mask, dst, inpaintRadius, inpaintMethod);
+    } catch (error) {
+      mask.delete();
+      dst.delete();
+      console.error('[HealImage] Inpaint 执行失败', error);
+      throw new Error(`Inpaint 执行失败: ${error}`);
+    }
+    
+    // 将 RGB 结果转换回 RGBA（用于显示）
+    // 注意：OpenCV.js 可能没有 COLOR_RGB2RGBA，需要通过 BGR 转换
+    const dstBGR = new cv.Mat();
+    cv.cvtColor(dst, dstBGR, cv.COLOR_RGB2BGR, 0);
+    const dstRGBA = new cv.Mat();
+    cv.cvtColor(dstBGR, dstRGBA, cv.COLOR_BGR2RGBA, 0);
+    dstBGR.delete();
+    
+    // 将结果转换为 dataUrl
+    const canvas = document.createElement('canvas');
+    canvas.width = dstRGBA.cols;
+    canvas.height = dstRGBA.rows;
+    cv.imshow(canvas, dstRGBA);
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    // 清理资源
+    mask.delete();
+    dst.delete();
+    dstRGBA.delete();
+    
+    return dataUrl;
+  } finally {
+    // 清理所有资源
+    if (src && !src.isDeleted()) src.delete();
+    if (srcRGBA && !srcRGBA.isDeleted()) srcRGBA.delete();
   }
 };

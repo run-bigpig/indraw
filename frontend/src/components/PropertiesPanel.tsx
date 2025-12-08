@@ -14,13 +14,13 @@ interface PropertiesPanelProps {
   activeTool: ToolType;
   shapeType?: ShapeType;
   onSetShapeType?: (type: ShapeType) => void;
-  brushMode: 'normal' | 'ai';
+  brushMode: 'normal' | 'ai' | 'heal';
   processingState: ProcessingState;
   brushConfig: { size: number, color: string, opacity: number };
-  inpaintPrompt: string;
+  localRedrawPrompt: string;
   onSetBrushConfig: (config: { size: number, color: string, opacity: number }) => void;
-  onSetBrushMode: (mode: 'normal' | 'ai') => void;
-  onSetInpaintPrompt: (prompt: string) => void;
+  onSetBrushMode: (mode: 'normal' | 'ai' | 'heal') => void;
+  onSetLocalRedrawPrompt: (prompt: string) => void;
   onSelectLayer: (id: string | null, multi?: boolean) => void;
   onDeleteLayer: (id: string) => void;
   onToggleVisibility: (id: string) => void;
@@ -35,7 +35,7 @@ interface PropertiesPanelProps {
   onGroup: () => void;
   onUngroup: () => void;
   onContextMenuAction: (action: string) => void; // Reuse App's handler
-  onInpaintSubmit?: () => void;
+  onLocalRedrawSubmit?: () => void;
 }
 
 const InputGroup = ({ label, children }: { label: string, children?: React.ReactNode }) => (
@@ -240,10 +240,10 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   brushMode,
   processingState,
   brushConfig,
-  inpaintPrompt,
+  localRedrawPrompt,
   onSetBrushConfig,
   onSetBrushMode,
-  onSetInpaintPrompt,
+  onSetLocalRedrawPrompt,
   onSelectLayer,
   onDeleteLayer,
   onToggleVisibility,
@@ -258,7 +258,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onGroup,
   onUngroup,
   onContextMenuAction,
-  onInpaintSubmit,
+  onLocalRedrawSubmit,
 }) => {
   const { t } = useTranslation(['properties', 'ai', 'common', 'dialog']);
   const [blendPrompt, setBlendPrompt] = useState('');
