@@ -7,25 +7,125 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// ✅ 性能优化：保存请求结构
+type saveRequest struct {
+	saveType   string // "autosave" 或 "project"
+	path       string // 保存路径（项目保存时使用）
+	data       string // JSON 数据
+	timestamp  int64  // 请求时间戳，用于判断数据新旧
+	resultChan chan error
+}
+
 // FileService 文件管理服务
 // 提供项目保存、加载、导出等文件操作功能
 type FileService struct {
 	ctx context.Context
+
+	// ✅ 性能优化：保存队列处理器启动控制
+	saveQueueOnce sync.Once
+	shutdownChan  chan struct{}
+
+	// ✅ 性能优化：最新待保存数据的缓存，用于合并短时间内的多次保存
+	pendingSaveMu      sync.Mutex
+	pendingAutoSave    *saveRequest            // 待处理的自动保存请求
+	pendingProjectSave map[string]*saveRequest // 待处理的项目保存请求（按路径）
+	saveNotifyChan     chan struct{}           // 通知有新的保存请求
 }
 
 // NewFileService 创建文件服务实例
 func NewFileService() *FileService {
-	return &FileService{}
+	return &FileService{
+		shutdownChan:       make(chan struct{}),
+		pendingProjectSave: make(map[string]*saveRequest),
+		saveNotifyChan:     make(chan struct{}, 1), // 带缓冲，避免阻塞
+	}
 }
 
 // Startup 在应用启动时调用
 func (f *FileService) Startup(ctx context.Context) {
 	f.ctx = ctx
+	// ✅ 启动保存队列处理器（只启动一次）
+	f.saveQueueOnce.Do(func() {
+		go f.processSaveQueue()
+	})
+}
+
+// Shutdown 在应用关闭时调用
+func (f *FileService) Shutdown() {
+	close(f.shutdownChan)
+}
+
+// ✅ 性能优化：保存队列处理器
+// 使用合并策略处理保存请求，短时间内的多次保存只执行最后一次
+func (f *FileService) processSaveQueue() {
+	// 批处理间隔：50ms
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// 定时处理待保存的请求
+			f.flushPendingSaves()
+		case <-f.saveNotifyChan:
+			// 收到保存通知，等待一小段时间让更多请求合并
+			time.Sleep(20 * time.Millisecond)
+			f.flushPendingSaves()
+		case <-f.shutdownChan:
+			// 关闭前处理所有待保存的请求
+			f.flushPendingSaves()
+			return
+		}
+	}
+}
+
+// flushPendingSaves 执行所有待保存的请求
+func (f *FileService) flushPendingSaves() {
+	f.pendingSaveMu.Lock()
+
+	// 获取并清除待保存的自动保存请求
+	autoSaveReq := f.pendingAutoSave
+	f.pendingAutoSave = nil
+
+	// 获取并清除待保存的项目保存请求
+	projectSaveReqs := make([]*saveRequest, 0, len(f.pendingProjectSave))
+	for _, req := range f.pendingProjectSave {
+		projectSaveReqs = append(projectSaveReqs, req)
+	}
+	f.pendingProjectSave = make(map[string]*saveRequest)
+
+	f.pendingSaveMu.Unlock()
+
+	// 执行自动保存
+	if autoSaveReq != nil {
+		err := f.doAutoSave(autoSaveReq.data)
+		if autoSaveReq.resultChan != nil {
+			autoSaveReq.resultChan <- err
+		}
+	}
+
+	// 执行项目保存
+	for _, req := range projectSaveReqs {
+		err := f.doSaveProjectToPath(req.path, req.data)
+		if req.resultChan != nil {
+			req.resultChan <- err
+		}
+	}
+}
+
+// notifySaveQueue 通知保存队列有新请求
+func (f *FileService) notifySaveQueue() {
+	select {
+	case f.saveNotifyChan <- struct{}{}:
+	default:
+		// 通道已有通知，无需重复
+	}
 }
 
 // ProjectData 项目数据结构
@@ -357,7 +457,41 @@ func (f *FileService) SelectDirectory(title string) (string, error) {
 }
 
 // AutoSave 自动保存项目数据到临时位置
+// ✅ 性能优化：使用合并策略，短时间内多次调用只保存最新数据
 func (f *FileService) AutoSave(projectDataJSON string) error {
+	// 快速验证 JSON 格式
+	if !json.Valid([]byte(projectDataJSON)) {
+		return fmt.Errorf("invalid JSON format")
+	}
+
+	// 创建结果通道
+	resultChan := make(chan error, 1)
+
+	// 使用合并策略：新请求覆盖旧请求
+	f.pendingSaveMu.Lock()
+	// 如果有旧的待保存请求，先返回 nil（表示被合并）
+	if f.pendingAutoSave != nil && f.pendingAutoSave.resultChan != nil {
+		f.pendingAutoSave.resultChan <- nil
+	}
+	// 设置新的待保存请求
+	f.pendingAutoSave = &saveRequest{
+		saveType:   "autosave",
+		data:       projectDataJSON,
+		timestamp:  time.Now().UnixNano(),
+		resultChan: resultChan,
+	}
+	f.pendingSaveMu.Unlock()
+
+	// 通知保存队列
+	f.notifySaveQueue()
+
+	// 等待保存结果
+	return <-resultChan
+}
+
+// doAutoSave 实际执行自动保存的内部方法
+// ✅ 性能优化：直接写入前端传来的 JSON 字符串，避免重复序列化/反序列化
+func (f *FileService) doAutoSave(projectDataJSON string) error {
 	// 获取用户数据目录
 	userDataDir, err := os.UserConfigDir()
 	if err != nil {
@@ -373,22 +507,8 @@ func (f *FileService) AutoSave(projectDataJSON string) error {
 	// 自动保存文件路径
 	autoSaveFile := filepath.Join(appDataDir, "autosave.json")
 
-	// 解析并添加时间戳
-	var projectData ProjectData
-	if err := json.Unmarshal([]byte(projectDataJSON), &projectData); err != nil {
-		return fmt.Errorf("invalid project data: %w", err)
-	}
-
-	projectData.Timestamp = time.Now().Unix()
-	projectData.Version = "1.0"
-
-	data, err := json.MarshalIndent(projectData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to serialize project data: %w", err)
-	}
-
-	// 写入文件
-	if err := os.WriteFile(autoSaveFile, data, 0644); err != nil {
+	// ✅ 性能优化：直接写入原始 JSON 字符串，避免重复序列化
+	if err := os.WriteFile(autoSaveFile, []byte(projectDataJSON), 0644); err != nil {
 		return fmt.Errorf("failed to write autosave file: %w", err)
 	}
 
@@ -524,44 +644,65 @@ func (f *FileService) CreateProject(name string, parentDir string, canvasConfigJ
 
 // SaveProjectToPath 保存项目到指定路径
 // 不弹出对话框，直接保存到指定的项目目录
+// ✅ 性能优化：使用合并策略，短时间内多次调用只保存最新数据
 func (f *FileService) SaveProjectToPath(projectPath string, projectDataJSON string) error {
 	if projectPath == "" {
 		return fmt.Errorf("project path cannot be empty")
 	}
 
-	// 解析项目数据以验证格式
-	var projectData ProjectData
-	if err := json.Unmarshal([]byte(projectDataJSON), &projectData); err != nil {
-		return fmt.Errorf("invalid project data: %w", err)
+	// 快速验证 JSON 格式
+	if !json.Valid([]byte(projectDataJSON)) {
+		return fmt.Errorf("invalid JSON format")
 	}
 
-	// 更新时间戳
-	projectData.Timestamp = time.Now().Unix()
-	projectData.Version = "1.0"
+	// 创建结果通道
+	resultChan := make(chan error, 1)
 
-	// 重新序列化
-	data, err := json.MarshalIndent(projectData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to serialize project data: %w", err)
+	// 使用合并策略：同一路径的新请求覆盖旧请求
+	f.pendingSaveMu.Lock()
+	// 如果有旧的待保存请求，先返回 nil（表示被合并）
+	if oldReq, exists := f.pendingProjectSave[projectPath]; exists && oldReq.resultChan != nil {
+		oldReq.resultChan <- nil
 	}
+	// 设置新的待保存请求
+	f.pendingProjectSave[projectPath] = &saveRequest{
+		saveType:   "project",
+		path:       projectPath,
+		data:       projectDataJSON,
+		timestamp:  time.Now().UnixNano(),
+		resultChan: resultChan,
+	}
+	f.pendingSaveMu.Unlock()
 
-	// 写入数据文件
+	// 通知保存队列
+	f.notifySaveQueue()
+
+	// 等待保存结果
+	return <-resultChan
+}
+
+// doSaveProjectToPath 实际执行项目保存的内部方法
+// ✅ 性能优化：直接写入前端传来的 JSON 字符串，避免重复序列化/反序列化
+func (f *FileService) doSaveProjectToPath(projectPath string, projectDataJSON string) error {
+	// ✅ 性能优化：直接写入原始 JSON 字符串，避免重复序列化
 	dataFile := filepath.Join(projectPath, "data.json")
-	if err := os.WriteFile(dataFile, data, 0644); err != nil {
+	if err := os.WriteFile(dataFile, []byte(projectDataJSON), 0644); err != nil {
 		return fmt.Errorf("failed to write project data file: %w", err)
 	}
 
-	// 更新项目元数据的更新时间
-	metaFile := filepath.Join(projectPath, "project.json")
-	if metaData, err := os.ReadFile(metaFile); err == nil {
-		var meta ProjectMeta
-		if json.Unmarshal(metaData, &meta) == nil {
-			meta.UpdatedAt = time.Now().Unix()
-			if newMetaData, err := json.MarshalIndent(meta, "", "  "); err == nil {
-				_ = os.WriteFile(metaFile, newMetaData, 0644)
+	// 异步更新项目元数据的更新时间（不阻塞主操作）
+	go func() {
+		metaFile := filepath.Join(projectPath, "project.json")
+		if metaData, err := os.ReadFile(metaFile); err == nil {
+			var meta ProjectMeta
+			if json.Unmarshal(metaData, &meta) == nil {
+				meta.UpdatedAt = time.Now().Unix()
+				if newMetaData, err := json.MarshalIndent(meta, "", "  "); err == nil {
+					_ = os.WriteFile(metaFile, newMetaData, 0644)
+				}
 			}
 		}
-	}
+	}()
 
 	return nil
 }

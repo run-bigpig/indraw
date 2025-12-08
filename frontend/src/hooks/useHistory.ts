@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { LayerData, HistoryEntry } from '../types';
 
+// ✅ 性能优化：限制历史记录最大数量，防止内存无限增长
+const MAX_HISTORY_SIZE = 50;
+
 /**
  * 历史记录管理 Hook
  * 提供撤销/重做功能
@@ -12,6 +15,7 @@ import { LayerData, HistoryEntry } from '../types';
  * - 每次保存历史记录时触发自动保存
  * - 记录每个操作的描述信息
  * - ✅ 性能优化：使用 requestAnimationFrame + requestIdleCallback 分离 UI 更新和保存操作
+ * - ✅ 性能优化：限制历史记录最大数量为 50 条
  */
 export function useHistory(
   initialLayers: LayerData[] = [],
@@ -76,17 +80,26 @@ export function useHistory(
     // 更新最近保存的信息
     lastSaveRef.current = { description, timestamp, layersHash };
     
+    // ✅ 修复：将 console.log 移出 setHistory，避免 React StrictMode 导致的双重打印
+    console.log('[useHistory] saveToHistory:', { description, timestamp });
+    
     // 同步更新历史状态，确保 UI 立即反映变化
     setHistory(prevHistory => {
       const currentStep = historyStepRef.current;
       // 截断当前步骤之后的历史，添加新状态
-      const newHistory = prevHistory.slice(0, currentStep + 1);
+      let newHistory = prevHistory.slice(0, currentStep + 1);
       newHistory.push({
         layers: newLayers,
         description,
         timestamp,
       });
-      console.log('[useHistory] saveToHistory:', { description, timestamp, step: newHistory.length - 1 });
+      
+      // ✅ 性能优化：限制历史记录数量，防止内存无限增长
+      if (newHistory.length > MAX_HISTORY_SIZE) {
+        const removeCount = newHistory.length - MAX_HISTORY_SIZE;
+        newHistory = newHistory.slice(removeCount);
+        // 注意：这个日志在 StrictMode 下可能打印两次，但实际只会移除一次
+      }
       
       // 同步更新 historyStep
       setHistoryStep(newHistory.length - 1);

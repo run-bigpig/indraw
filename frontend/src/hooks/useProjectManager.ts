@@ -12,6 +12,7 @@ import {
   RemoveRecentProject,
   ClearRecentProjects,
 } from '../../wailsjs/go/core/App';
+import { serializationService } from '../services/serializationService';
 
 interface ProjectData {
   version: string;
@@ -115,12 +116,14 @@ export function useProjectManager() {
     try {
       if (projectInfo && !projectInfo.isTemporary) {
         // 项目有路径，直接保存
-        await SaveProjectToPath(projectInfo.path, JSON.stringify(projectData));
+        const jsonString = await serializationService.serialize(projectData);
+        await SaveProjectToPath(projectInfo.path, jsonString);
         console.log('Project saved to:', projectInfo.path);
       } else {
         // 临时项目，弹出对话框
         const suggestedName = `indraw-project-${new Date().toISOString().slice(0, 10)}.json`;
-        const filePath = await SaveProject(JSON.stringify(projectData), suggestedName);
+        const jsonString = await serializationService.serialize(projectData);
+        const filePath = await SaveProject(jsonString, suggestedName);
         if (filePath) {
           console.log('Project saved to:', filePath);
         }
@@ -145,7 +148,8 @@ export function useProjectManager() {
     };
 
     try {
-      await SaveProjectToPath(projectInfo.path, JSON.stringify(projectData));
+      const jsonString = await serializationService.serialize(projectData);
+      await SaveProjectToPath(projectInfo.path, jsonString);
     } catch (error) {
       console.error('Failed to auto-save project:', error);
     }

@@ -9,6 +9,7 @@
 
 import { LayerData, CanvasConfig } from '@/types';
 import { AutoSave, LoadAutoSave, ClearAutoSave, SaveProjectToPath } from '../../wailsjs/go/core/App';
+import { serializationService } from './serializationService';
 
 /**
  * 自动保存的数据结构
@@ -38,12 +39,15 @@ export async function saveToLocalStorage(
       canvasConfig,
     };
 
+    // 使用 Web Worker 进行序列化，避免阻塞主线程
+    const jsonString = await serializationService.serialize(data);
+
     if (projectPath) {
       // 保存到项目目录
-      await SaveProjectToPath(projectPath, JSON.stringify(data));
+      await SaveProjectToPath(projectPath, jsonString);
     } else {
       // 保存到全局自动保存位置
-      await AutoSave(JSON.stringify(data));
+      await AutoSave(jsonString);
     }
     return true;
   } catch (error) {
