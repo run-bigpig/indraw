@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { LayerData, HistoryEntry } from '../types';
 
 // ✅ 性能优化：限制历史记录最大数量，防止内存无限增长
-const MAX_HISTORY_SIZE = 50;
+const MAX_HISTORY_SIZE = 200;
 
 /**
  * 历史记录管理 Hook
@@ -15,7 +15,7 @@ const MAX_HISTORY_SIZE = 50;
  * - 每次保存历史记录时触发自动保存
  * - 记录每个操作的描述信息
  * - ✅ 性能优化：使用 requestAnimationFrame + requestIdleCallback 分离 UI 更新和保存操作
- * - ✅ 性能优化：限制历史记录最大数量为 50 条
+ * - ✅ 性能优化：限制历史记录最大数量为 200 条
  */
 export function useHistory(
   initialLayers: LayerData[] = [],

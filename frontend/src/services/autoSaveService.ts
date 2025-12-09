@@ -8,8 +8,11 @@
  */
 
 import { LayerData, CanvasConfig } from '@/types';
-import { AutoSave, LoadAutoSave, ClearAutoSave, SaveProjectToPath } from '../../wailsjs/go/core/App';
+import { LoadAutoSave, ClearAutoSave } from '../../wailsjs/go/core/App';
 import { serializationService } from './serializationService';
+import { safeCallWailsBinding } from '../utils/wailsRuntime';
+// ✅ 导入 wailsRuntime 以获取 window.runtime 类型定义
+import '../utils/wailsRuntime';
 
 /**
  * 自动保存的数据结构
@@ -21,17 +24,27 @@ export interface AutoSaveData {
   canvasConfig: CanvasConfig;
 }
 /**
- * 保存项目状态到本地文件系统（通过 Wails 后端）
+ * ✅ 事件驱动：异步保存项目状态到本地文件系统（通过 Wails 事件系统）
+ * 使用事件系统实现完全异步的保存，不阻塞前端主线程
+ * 保存请求会被加入后端队列，确保保存的顺序性
+ * 
  * @param layers 图层数据
  * @param canvasConfig 画布配置
  * @param projectPath 可选的项目路径，如果提供则保存到项目目录
+ * @returns Promise<void> 立即返回，不等待保存完成
  */
 export async function saveToLocalStorage(
   layers: LayerData[],
   canvasConfig: CanvasConfig,
   projectPath?: string
-): Promise<boolean> {
+): Promise<void> {
   try {
+    // ✅ 检查 runtime 是否可用
+    if (typeof window === 'undefined' || !window.runtime || !window.runtime.EventsEmit) {
+      console.warn('[AutoSave] Wails runtime 不可用，无法保存');
+      return;
+    }
+
     const data: AutoSaveData = {
       version: '1.0',
       timestamp: Date.now(),
@@ -42,17 +55,28 @@ export async function saveToLocalStorage(
     // 使用 Web Worker 进行序列化，避免阻塞主线程
     const jsonString = await serializationService.serialize(data);
 
+    // ✅ 发送事件，不等待结果，立即返回
+    // 根据 Wails 官方文档：使用 window.runtime.EventsEmit 直接访问
+    // 后端会将请求加入队列，确保保存的顺序性
     if (projectPath) {
       // 保存到项目目录
-      await SaveProjectToPath(projectPath, jsonString);
+      window.runtime.EventsEmit('project-save-request', projectPath, jsonString);
     } else {
       // 保存到全局自动保存位置
-      await AutoSave(jsonString);
+      window.runtime.EventsEmit('autosave-request', jsonString);
     }
-    return true;
+    
+    // 立即返回，不阻塞
   } catch (error) {
-    console.error('自动保存失败:', error);
-    return false;
+    console.error('自动保存序列化失败:', error);
+    // 如果 runtime 可用，发送错误事件通知
+    if (typeof window !== 'undefined' && window.runtime && window.runtime.EventsEmit) {
+      if (projectPath) {
+        window.runtime.EventsEmit('project-save-error', projectPath, error instanceof Error ? error.message : String(error));
+      } else {
+        window.runtime.EventsEmit('autosave-error', error instanceof Error ? error.message : String(error));
+      }
+    }
   }
 }
 
@@ -61,7 +85,8 @@ export async function saveToLocalStorage(
  */
 export async function loadFromLocalStorage(): Promise<AutoSaveData | null> {
   try {
-    const saved = await LoadAutoSave();
+    // ✅ 使用安全调用，等待 Wails 绑定初始化
+    const saved = await safeCallWailsBinding(() => LoadAutoSave());
     if (!saved) return null;
 
     const data: AutoSaveData = JSON.parse(saved);
@@ -116,7 +141,8 @@ export function formatTimestamp(timestamp: number): string {
  */
 export async function clearAutoSaveData(): Promise<void> {
   try {
-    await ClearAutoSave();
+    // ✅ 使用安全调用，等待 Wails 绑定初始化
+    await safeCallWailsBinding(() => ClearAutoSave());
   } catch (error) {
     console.error('清除自动保存数据失败:', error);
   }

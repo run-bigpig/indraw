@@ -3,7 +3,7 @@
  * 提供用户配置界面
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -28,6 +28,8 @@ import { useSettings } from '../contexts/SettingsContext';
 import { Settings as SettingsType, SettingsCategory } from '@/types';
 import { AVAILABLE_FONTS, DEFAULT_FONT, isSymbolFont } from '@/constants/fonts';
 import ConfirmDialog from './ConfirmDialog';
+// ✅ 导入 wailsRuntime 以获取 window.runtime 类型定义
+import '../utils/wailsRuntime';
 import {
   getAvailableModels,
   getModelStatus,
@@ -312,6 +314,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   }>>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
+  // ✅ 下载进度状态：{ modelId: { fileName: string, progress: number, downloaded: number, total: number } }
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, { fileName: string; progress: number; downloaded: number; total: number }>>({});
   const [downloadConfig, setDownloadConfigState] = useState<HFDownloadConfig>({
     useMirror: true,
     proxyUrl: '',
@@ -349,6 +353,101 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       loadModels();
     }
   }, [activeTab, loadModels]);
+
+  // ✅ 监听模型下载进度事件
+  useEffect(() => {
+    // 检查 runtime 是否可用
+    if (typeof window === 'undefined' || !window.runtime || !window.runtime.EventsOn) {
+      return;
+    }
+
+    // 监听下载开始事件
+    const unsubscribeStarted = window.runtime.EventsOn('model-download-started', (modelId: string) => {
+      setDownloadingModelId(modelId);
+      setDownloadProgress({});
+    });
+
+    // 监听文件开始下载事件
+    const unsubscribeFileStarted = window.runtime.EventsOn('model-download-file-started', (modelId: string, fileName: string, fileType: string) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [modelId]: {
+          fileName,
+          progress: 0,
+          downloaded: 0,
+          total: 0,
+        }
+      }));
+    });
+
+    // 监听下载进度事件
+    const unsubscribeProgress = window.runtime.EventsOn('model-download-progress', (modelId: string, fileName: string, progress: number, downloaded: number, total: number) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [modelId]: {
+          fileName,
+          progress,
+          downloaded,
+          total,
+        }
+      }));
+    });
+
+    // 监听文件下载完成事件
+    const unsubscribeFileComplete = window.runtime.EventsOn('model-download-file-complete', (modelId: string, fileName: string) => {
+      // 文件下载完成，进度设为 100%
+      setDownloadProgress(prev => ({
+        ...prev,
+        [modelId]: {
+          fileName,
+          progress: 100,
+          downloaded: prev[modelId]?.total || 0,
+          total: prev[modelId]?.total || 0,
+        }
+      }));
+    });
+
+    // 监听下载完成事件
+    const unsubscribeCompleted = window.runtime.EventsOn('model-download-completed', (modelId: string) => {
+      setDownloadingModelId(null);
+      setDownloadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[modelId];
+        return newProgress;
+      });
+      showMessage('success', '模型下载完成');
+      loadModels(); // 重新加载状态
+    });
+
+    // 监听下载错误事件
+    const unsubscribeError = window.runtime.EventsOn('model-download-error', (modelId: string, error: string) => {
+      setDownloadingModelId(null);
+      setDownloadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[modelId];
+        return newProgress;
+      });
+      showMessage('error', `下载失败: ${error}`);
+      loadModels(); // 重新加载状态
+    });
+
+    // 监听文件跳过事件
+    const unsubscribeSkipped = window.runtime.EventsOn('model-download-file-skipped', (modelId: string, fileName: string, reason: string) => {
+      // 可选文件跳过，不影响整体进度
+      console.log(`[ModelDownload] 跳过文件 ${fileName}: ${reason}`);
+    });
+
+    // 清理函数
+    return () => {
+      if (unsubscribeStarted) unsubscribeStarted();
+      if (unsubscribeFileStarted) unsubscribeFileStarted();
+      if (unsubscribeProgress) unsubscribeProgress();
+      if (unsubscribeFileComplete) unsubscribeFileComplete();
+      if (unsubscribeCompleted) unsubscribeCompleted();
+      if (unsubscribeError) unsubscribeError();
+      if (unsubscribeSkipped) unsubscribeSkipped();
+    };
+  }, [loadModels, showMessage]);
 
   // JSON 验证函数
   const validateJSON = (jsonString: string): boolean => {
@@ -1056,15 +1155,14 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   };
 
   const handleModelDownload = async (modelId: string) => {
-    setDownloadingModelId(modelId);
     try {
+      // ✅ 使用事件驱动的异步下载，不等待完成
+      // 进度通过事件系统更新
       await downloadModel(modelId);
-      showMessage('success', '模型下载完成');
-      await loadModels(); // 重新加载状态
+      // 注意：下载完成和错误处理由事件监听器处理
     } catch (error: any) {
-      console.error('Failed to download model:', error);
-      showMessage('error', error.message || '下载模型失败');
-    } finally {
+      console.error('Failed to start model download:', error);
+      showMessage('error', error.message || '启动下载失败');
       setDownloadingModelId(null);
     }
   };
@@ -1104,6 +1202,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             {models.map((model) => {
               const isSelected = model.id === currentModelId;
               const isDownloading = downloadingModelId === model.id || model.isDownloading;
+              const progress = downloadProgress[model.id];
 
               return (
                 <div
@@ -1149,6 +1248,26 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           </span>
                         )}
                       </div>
+                      {/* ✅ 下载进度显示 */}
+                      {isDownloading && progress && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex items-center justify-between text-xs text-gray-400">
+                            <span>{progress.fileName}</span>
+                            <span>{progress.progress}%</span>
+                          </div>
+                          <div className="w-full bg-tech-800 rounded-full h-1.5">
+                            <div
+                              className="bg-cyan-500 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${progress.progress}%` }}
+                            />
+                          </div>
+                          {progress.total > 0 && (
+                            <div className="text-xs text-gray-500">
+                              {formatSize(progress.downloaded)} / {formatSize(progress.total)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 ml-4">
                       {!model.downloaded && !isDownloading && (

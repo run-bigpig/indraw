@@ -16,6 +16,8 @@ import {
   clearAutoSaveData,
   AutoSaveData,
 } from '../services/autoSaveService';
+// ✅ 导入 wailsRuntime 以获取 window.runtime 类型定义
+import '../utils/wailsRuntime';
 
 interface UseAutoSaveOptions {
   layers: LayerData[];
@@ -121,7 +123,7 @@ export function useAutoSave({
     return `${layersData.length}-${configFingerprint}-${layerFingerprints}`;
   }, []);
 
-  // 执行保存（异步）
+  // ✅ 事件驱动：执行保存（完全异步，不阻塞）
   const performSave = useCallback(async () => {
     if (!isProjectCreatedRef.current) {
       console.log('[AutoSave] 跳过保存：项目未创建');
@@ -141,21 +143,15 @@ export function useAutoSave({
     });
 
     try {
-      // 如果有项目路径，保存到项目目录；否则保存到全局自动保存位置
-      const success = await saveToLocalStorage(
+      // ✅ 使用事件驱动的异步保存，立即返回，不阻塞
+      // 保存请求会被加入后端队列，确保保存的顺序性
+      await saveToLocalStorage(
         layersRef.current,
         canvasConfigRef.current,
         projectPathRef.current
       );
-      if (success) {
-        // ✅ 保存成功后更新指纹
-        lastSavedFingerprintRef.current = currentFingerprint;
-        const now = new Date().toLocaleTimeString();
-        setLastSaveTime(now);
-        console.log('[AutoSave] 自动保存成功:', now);
-      } else {
-        console.warn('[AutoSave] 自动保存失败：saveToLocalStorage 返回 false');
-      }
+      // 注意：这里不更新指纹和保存时间，等待事件通知后再更新
+      // 这样可以确保只有在真正保存成功后才更新状态
     } catch (error) {
       console.error('[AutoSave] 自动保存执行失败:', error);
     }
@@ -190,6 +186,99 @@ export function useAutoSave({
       }
     };
   }, []);
+
+  // ✅ 事件驱动：监听保存完成和错误事件
+  // 根据 Wails 官方文档：使用 window.runtime.EventsOn 直接访问
+  // ✅ 添加延迟初始化机制，等待 runtime 可用
+  useEffect(() => {
+    let unsubscribeFunctions: Array<(() => void) | null> = [];
+    let timeoutId: number | null = null;
+    let retryCount = 0;
+    const maxRetries = 50; // 最多重试 50 次（5秒）
+
+    // 尝试注册事件监听器
+    const tryRegisterListeners = () => {
+      // ✅ 检查 runtime 是否可用
+      if (typeof window === 'undefined' || !window.runtime || !window.runtime.EventsOn) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          // 等待 100ms 后重试
+          timeoutId = window.setTimeout(tryRegisterListeners, 100);
+        } else {
+          console.warn('[AutoSave] Wails runtime 在超时时间内不可用，跳过事件监听器注册');
+        }
+        return;
+      }
+
+      // Runtime 可用，注册事件监听器
+      try {
+        // 监听自动保存完成事件
+        const unsubscribeAutoSave = window.runtime.EventsOn('autosave-complete', (timestamp: number) => {
+          // 更新保存时间
+          if (timestamp) {
+            const saveTime = new Date(timestamp * 1000).toLocaleTimeString();
+            setLastSaveTime(saveTime);
+            // ✅ 保存成功后更新指纹
+            const currentFingerprint = generateFingerprint(layersRef.current, canvasConfigRef.current);
+            lastSavedFingerprintRef.current = currentFingerprint;
+            console.log('[AutoSave] 自动保存成功:', saveTime);
+          }
+        });
+        unsubscribeFunctions.push(unsubscribeAutoSave);
+
+        // 监听自动保存错误事件
+        const unsubscribeAutoSaveError = window.runtime.EventsOn('autosave-error', (error: string) => {
+          console.error('[AutoSave] 自动保存失败:', error);
+        });
+        unsubscribeFunctions.push(unsubscribeAutoSaveError);
+
+        // 监听项目保存完成事件
+        const unsubscribeProjectSave = window.runtime.EventsOn('project-save-complete', (projectPath: string) => {
+          // 只有当保存的是当前项目时才更新状态
+          if (projectPath === projectPathRef.current) {
+            const now = new Date().toLocaleTimeString();
+            setLastSaveTime(now);
+            // ✅ 保存成功后更新指纹
+            const currentFingerprint = generateFingerprint(layersRef.current, canvasConfigRef.current);
+            lastSavedFingerprintRef.current = currentFingerprint;
+            console.log('[AutoSave] 项目保存成功:', now);
+          }
+        });
+        unsubscribeFunctions.push(unsubscribeProjectSave);
+
+        // 监听项目保存错误事件
+        const unsubscribeProjectSaveError = window.runtime.EventsOn('project-save-error', (projectPath: string, error: string) => {
+          if (projectPath === projectPathRef.current) {
+            console.error('[AutoSave] 项目保存失败:', error);
+          }
+        });
+        unsubscribeFunctions.push(unsubscribeProjectSaveError);
+
+        console.log('[AutoSave] 事件监听器注册成功');
+      } catch (error) {
+        console.error('[AutoSave] 注册事件监听器时出错:', error);
+      }
+    };
+
+    // 开始尝试注册
+    tryRegisterListeners();
+
+    // 清理函数：取消所有事件监听和定时器
+    return () => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      unsubscribeFunctions.forEach((unsubscribe) => {
+        try {
+          if (unsubscribe) unsubscribe();
+        } catch (error) {
+          // 忽略清理时的错误（可能 runtime 已不可用）
+          console.warn('[AutoSave] 清理事件监听器时出错:', error);
+        }
+      });
+      unsubscribeFunctions = [];
+    };
+  }, [generateFingerprint]);
 
   // 检查是否有可恢复的数据（仅在初始化时，等待设置加载完成）
   useEffect(() => {

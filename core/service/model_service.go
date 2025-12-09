@@ -11,10 +11,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Hugging Face 镜像地址
@@ -53,11 +55,13 @@ func (m *ModelService) Startup(ctx context.Context) error {
 
 	// 获取应用数据目录
 	var baseDir string
-	if runtime.GOOS == "windows" {
+	switch goruntime.GOOS {
+	case "windows":
+		wail
 		baseDir = os.Getenv("APPDATA")
-	} else if runtime.GOOS == "darwin" {
+	case "darwin":
 		baseDir = filepath.Join(os.Getenv("HOME"), "Library", "Application Support")
-	} else {
+	default:
 		baseDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
 	}
 
@@ -254,7 +258,9 @@ func (m *ModelService) DownloadModel(modelID string, progressCallback func(progr
 }
 
 // downloadFile 下载单个文件（支持断点续传检查）
-func (m *ModelService) downloadFile(fileURL, destPath string, progressCallback func(downloaded, total int64)) error {
+// modelID: 模型ID，用于发送进度事件
+// fileName: 文件名，用于进度显示
+func (m *ModelService) downloadFile(fileURL, destPath string, modelID, fileName string) error {
 	// 确保 HTTP 客户端已初始化
 	if m.httpClient == nil {
 		m.initHTTPClient()
@@ -262,7 +268,10 @@ func (m *ModelService) downloadFile(fileURL, destPath string, progressCallback f
 
 	// 检查文件是否已存在（简单的断点续传：跳过已存在的文件）
 	if info, err := os.Stat(destPath); err == nil && info.Size() > 0 {
-		fmt.Printf("[ModelService] File already exists, skipping: %s\n", filepath.Base(destPath))
+		// 文件已存在，发送完成事件
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "model-download-file-complete", modelID, fileName)
+		}
 		return nil
 	}
 
@@ -305,6 +314,7 @@ func (m *ModelService) downloadFile(fileURL, destPath string, progressCallback f
 	// 复制数据并报告进度
 	var written int64
 	buf := make([]byte, 64*1024) // 64KB buffer
+	lastPercent := -1
 
 	for {
 		nr, readErr := resp.Body.Read(buf)
@@ -322,9 +332,13 @@ func (m *ModelService) downloadFile(fileURL, destPath string, progressCallback f
 			}
 			written += int64(nw)
 
-			// 报告进度
-			if progressCallback != nil {
-				progressCallback(written, totalSize)
+			// ✅ 使用事件系统发送进度更新（每 1% 发送一次，避免过于频繁）
+			if m.ctx != nil && totalSize > 0 {
+				percent := int(float64(written) / float64(totalSize) * 100)
+				if percent != lastPercent {
+					lastPercent = percent
+					runtime.EventsEmit(m.ctx, "model-download-progress", modelID, fileName, percent, written, totalSize)
+				}
 			}
 		}
 		if readErr == io.EOF {
@@ -343,6 +357,11 @@ func (m *ModelService) downloadFile(fileURL, destPath string, progressCallback f
 	if err := os.Rename(tmpPath, destPath); err != nil {
 		os.Remove(tmpPath)
 		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	// ✅ 发送文件下载完成事件
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, "model-download-file-complete", modelID, fileName)
 	}
 
 	return nil
@@ -471,20 +490,28 @@ func (m *ModelService) DownloadModelFromHuggingFace(modelID string, repoID strin
 	// 获取基础 URL（支持镜像）
 	baseURL := fmt.Sprintf("%s/%s/resolve/main", m.getBaseURL(), repoID)
 
-	fmt.Printf("[ModelService] Starting download from: %s\n", m.getBaseURL())
-	fmt.Printf("[ModelService] Repository: %s\n", repoID)
-	fmt.Printf("[ModelService] Save to: %s\n", modelDir)
+	// ✅ 发送下载开始事件
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, "model-download-started", modelID, repoID)
+	}
 
 	// 1. 下载必需文件
 	for _, file := range requiredFiles {
 		fileURL := fmt.Sprintf("%s/%s", baseURL, file)
 		destPath := filepath.Join(modelDir, file)
 
-		fmt.Printf("[ModelService] Downloading (required): %s\n", file)
-		if err := m.downloadFile(fileURL, destPath, m.createProgressLogger(file)); err != nil {
+		// ✅ 发送文件开始下载事件
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "model-download-file-started", modelID, file, "required")
+		}
+
+		if err := m.downloadFile(fileURL, destPath, modelID, file); err != nil {
+			// ✅ 发送下载错误事件
+			if m.ctx != nil {
+				runtime.EventsEmit(m.ctx, "model-download-error", modelID, fmt.Sprintf("failed to download required file %s: %v", file, err))
+			}
 			return fmt.Errorf("failed to download required file %s: %w", file, err)
 		}
-		fmt.Printf("[ModelService] ✅ Downloaded: %s\n", file)
 	}
 
 	// 2. 下载可选文件（失败不中断）
@@ -492,11 +519,16 @@ func (m *ModelService) DownloadModelFromHuggingFace(modelID string, repoID strin
 		fileURL := fmt.Sprintf("%s/%s", baseURL, file)
 		destPath := filepath.Join(modelDir, file)
 
-		fmt.Printf("[ModelService] Downloading (optional): %s\n", file)
-		if err := m.downloadFile(fileURL, destPath, nil); err != nil {
-			fmt.Printf("[ModelService] ⚠️ Optional file not available: %s\n", file)
-		} else {
-			fmt.Printf("[ModelService] ✅ Downloaded: %s\n", file)
+		// ✅ 发送文件开始下载事件
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "model-download-file-started", modelID, file, "optional")
+		}
+
+		if err := m.downloadFile(fileURL, destPath, modelID, file); err != nil {
+			// 可选文件失败不中断，只发送警告事件
+			if m.ctx != nil {
+				runtime.EventsEmit(m.ctx, "model-download-file-skipped", modelID, file, "optional file not available")
+			}
 		}
 	}
 
@@ -506,38 +538,39 @@ func (m *ModelService) DownloadModelFromHuggingFace(modelID string, repoID strin
 		fileURL := fmt.Sprintf("%s/%s", baseURL, file)
 		destPath := filepath.Join(modelDir, file)
 
-		fmt.Printf("[ModelService] Downloading (model): %s\n", file)
-		if err := m.downloadFile(fileURL, destPath, m.createProgressLogger(file)); err != nil {
-			fmt.Printf("[ModelService] ⚠️ Model file not available: %s (%v)\n", file, err)
+		// ✅ 发送文件开始下载事件
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "model-download-file-started", modelID, file, "model")
+		}
+
+		if err := m.downloadFile(fileURL, destPath, modelID, file); err != nil {
+			// ✅ 发送文件跳过事件
+			if m.ctx != nil {
+				runtime.EventsEmit(m.ctx, "model-download-file-skipped", modelID, file, fmt.Sprintf("model file not available: %v", err))
+			}
 			continue
 		}
-		fmt.Printf("[ModelService] ✅ Downloaded: %s\n", file)
 		onnxDownloaded = true
+		break // 成功下载一个 ONNX 文件即可
 	}
 
 	if !onnxDownloaded {
+		// ✅ 发送下载错误事件
+		if m.ctx != nil {
+			runtime.EventsEmit(m.ctx, "model-download-error", modelID, fmt.Sprintf("failed to download any ONNX model file, model %s may not support ONNX format", repoID))
+		}
 		return fmt.Errorf("failed to download any ONNX model file, model %s may not support ONNX format", repoID)
 	}
 
-	fmt.Printf("[ModelService] 🎉 Model download completed: %s\n", modelID)
+	// ✅ 发送下载完成事件
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, "model-download-completed", modelID)
+	}
+
 	return nil
 }
 
-// createProgressLogger 创建进度日志回调
-func (m *ModelService) createProgressLogger(filename string) func(downloaded, total int64) {
-	lastPercent := -1
-	return func(downloaded, total int64) {
-		if total <= 0 {
-			return
-		}
-		percent := int(float64(downloaded) / float64(total) * 100)
-		// 每 10% 输出一次日志，避免日志过多
-		if percent/10 != lastPercent/10 {
-			lastPercent = percent
-			fmt.Printf("[ModelService] %s: %d%% (%d/%d bytes)\n", filename, percent, downloaded, total)
-		}
-	}
-}
+// createProgressLogger 已移除，现在使用事件系统发送进度
 
 // DownloadModelWithConfig 使用自定义配置下载模型
 func (m *ModelService) DownloadModelWithConfig(modelID string, repoID string, cfg types.HFDownloadConfig) error {

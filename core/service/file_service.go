@@ -54,6 +54,74 @@ func (f *FileService) Startup(ctx context.Context) {
 	f.saveQueueOnce.Do(func() {
 		go f.processSaveQueue()
 	})
+
+	// ✅ 事件驱动：注册事件监听器，支持基于事件的异步保存
+	f.registerEventHandlers(ctx)
+}
+
+// registerEventHandlers 注册事件处理器
+// 事件驱动的保存请求会被加入队列，确保保存的顺序性
+func (f *FileService) registerEventHandlers(ctx context.Context) {
+	// 监听自动保存事件
+	runtime.EventsOn(ctx, "autosave-request", func(data ...interface{}) {
+		if len(data) == 0 {
+			runtime.EventsEmit(ctx, "autosave-error", "缺少保存数据")
+			return
+		}
+
+		jsonData, ok := data[0].(string)
+		if !ok {
+			runtime.EventsEmit(ctx, "autosave-error", "无效的数据格式")
+			return
+		}
+
+		// ✅ 将请求加入队列（保持顺序性），不阻塞事件处理
+		// 使用 nil resultChan 表示这是事件驱动的请求，不需要同步返回结果
+		// ✅ 合并策略：新请求覆盖旧请求，只保存最新的数据（静默合并，不通知）
+		f.pendingSaveMu.Lock()
+		// 设置新的待保存请求（覆盖旧的请求，实现合并策略）
+		f.pendingAutoSave = &saveRequest{
+			saveType:   "autosave",
+			data:       jsonData,
+			timestamp:  time.Now().UnixNano(),
+			resultChan: nil, // nil 表示事件驱动，完成后通过事件通知
+		}
+		f.pendingSaveMu.Unlock()
+
+		// 通知队列处理器
+		f.notifySaveQueue()
+	})
+
+	// 监听项目保存事件
+	runtime.EventsOn(ctx, "project-save-request", func(data ...interface{}) {
+		if len(data) < 2 {
+			runtime.EventsEmit(ctx, "project-save-error", "", "缺少保存数据或路径")
+			return
+		}
+
+		projectPath, ok1 := data[0].(string)
+		jsonData, ok2 := data[1].(string)
+		if !ok1 || !ok2 {
+			runtime.EventsEmit(ctx, "project-save-error", "", "无效的数据格式")
+			return
+		}
+
+		// ✅ 将请求加入队列（保持顺序性），不阻塞事件处理
+		// ✅ 合并策略：同一路径的新请求覆盖旧请求，只保存最新的数据（静默合并，不通知）
+		f.pendingSaveMu.Lock()
+		// 设置新的待保存请求（覆盖旧的请求，实现合并策略）
+		f.pendingProjectSave[projectPath] = &saveRequest{
+			saveType:   "project",
+			path:       projectPath,
+			data:       jsonData,
+			timestamp:  time.Now().UnixNano(),
+			resultChan: nil, // nil 表示事件驱动，完成后通过事件通知
+		}
+		f.pendingSaveMu.Unlock()
+
+		// 通知队列处理器
+		f.notifySaveQueue()
+	})
 }
 
 // Shutdown 在应用关闭时调用
@@ -86,6 +154,7 @@ func (f *FileService) processSaveQueue() {
 }
 
 // flushPendingSaves 执行所有待保存的请求
+// ✅ 支持事件驱动的保存请求，完成后通过事件通知前端
 func (f *FileService) flushPendingSaves() {
 	f.pendingSaveMu.Lock()
 
@@ -106,15 +175,31 @@ func (f *FileService) flushPendingSaves() {
 	if autoSaveReq != nil {
 		err := f.doAutoSave(autoSaveReq.data)
 		if autoSaveReq.resultChan != nil {
+			// 同步调用，通过 channel 返回结果
 			autoSaveReq.resultChan <- err
+		} else {
+			// ✅ 事件驱动：通过事件通知前端
+			if err != nil {
+				runtime.EventsEmit(f.ctx, "autosave-error", err.Error())
+			} else {
+				runtime.EventsEmit(f.ctx, "autosave-complete", time.Now().Unix())
+			}
 		}
 	}
 
-	// 执行项目保存
+	// 执行项目保存（按顺序执行，确保顺序性）
 	for _, req := range projectSaveReqs {
 		err := f.doSaveProjectToPath(req.path, req.data)
 		if req.resultChan != nil {
+			// 同步调用，通过 channel 返回结果
 			req.resultChan <- err
+		} else {
+			// ✅ 事件驱动：通过事件通知前端
+			if err != nil {
+				runtime.EventsEmit(f.ctx, "project-save-error", req.path, err.Error())
+			} else {
+				runtime.EventsEmit(f.ctx, "project-save-complete", req.path)
+			}
 		}
 	}
 }

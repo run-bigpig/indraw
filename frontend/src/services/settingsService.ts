@@ -316,7 +316,9 @@ function validateSettings(settings: Partial<Settings>): Settings {
  */
 export async function loadSettings(): Promise<Settings> {
   try {
-    const settingsJSON = await LoadSettings();
+    // ✅ 使用安全调用，等待 Wails 绑定初始化
+    const { safeCallWailsBinding } = await import('../utils/wailsRuntime');
+    const settingsJSON = await safeCallWailsBinding(() => LoadSettings());
 
     // 检查返回值是否有效
     if (!settingsJSON || settingsJSON === '') {
