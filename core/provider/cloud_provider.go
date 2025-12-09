@@ -64,6 +64,66 @@ func (p *CloudProvider) GetCapabilities() ProviderCapabilities {
 	return cloudCapabilities
 }
 
+// CheckAvailability 检测服务可用性
+func (p *CloudProvider) CheckAvailability(ctx context.Context) (bool, error) {
+	if p.endpointURL == "" {
+		return false, fmt.Errorf("cloud endpoint URL not configured")
+	}
+
+	// 创建一个带超时的上下文
+	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	// 尝试调用一个简单的 API 来检测服务是否可用
+	// 使用 enhancePrompt 端点进行测试（通常是最轻量的）
+	testRequest := map[string]string{
+		"prompt": "test",
+	}
+
+	requestBody, err := json.Marshal(testRequest)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal test request: %w", err)
+	}
+
+	// 构建测试 URL（尝试 enhancePrompt 端点）
+	baseURL := strings.TrimSuffix(p.endpointURL, "/")
+	var url string
+	if strings.Contains(baseURL, "/enhancePrompt") {
+		url = baseURL
+	} else {
+		url = fmt.Sprintf("%s/enhancePrompt", baseURL)
+	}
+
+	// 创建 HTTP 请求
+	req, err := http.NewRequestWithContext(testCtx, "POST", url, bytes.NewBuffer(requestBody))
+	if err != nil {
+		return false, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+
+	// 如果配置了 Token，添加到 Authorization 头
+	if p.settings.CloudToken != "" {
+		req.Header.Set("Authorization", "Bearer "+p.settings.CloudToken)
+	}
+
+	// 发送请求
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("cloud service unavailable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查 HTTP 状态码
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("cloud service returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return true, nil
+}
+
 // Close 清理资源
 func (p *CloudProvider) Close() error {
 	if p.httpClient != nil {

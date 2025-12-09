@@ -67,7 +67,15 @@
     "cloudNote": "ℹ️ 云服务说明",
     "cloudDesc": "云服务将处理所有 AI 处理任务，本地客户端仅负责转发请求和处理响应。云服务应提供与 Gemini API 兼容的接口。如果云服务需要认证，请填写 Token。",
     "promptLibraryUrl": "提示词库 URL",
-    "promptLibraryUrlHint": "提示词库的 JSON 数据地址，用于素材生成器的提示词选择"
+    "promptLibraryUrlHint": "提示词库的 JSON 数据地址，用于素材生成器的提示词选择",
+    "availabilityCheck": "服务可用性检测",
+    "checkAvailability": "检测",
+    "checking": "检测中...",
+    "available": "服务可用",
+    "unavailable": "服务不可用",
+    "availabilityCheckSuccess": "服务可用",
+    "availabilityCheckFailed": "服务不可用",
+    "availabilityCheckError": "检测失败"
   },
   "canvas": {
     "width": "默认宽度",

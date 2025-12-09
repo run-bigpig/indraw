@@ -40,7 +40,7 @@ import {
   setDownloadConfig,
   HFDownloadConfig,
 } from '../services/transformersService';
-import { SelectDirectory } from '../../wailsjs/go/core/App';
+import { SelectDirectory, CheckAIProviderAvailability } from '../../wailsjs/go/core/App';
 
 // ==================== 类型定义 ====================
 
@@ -293,6 +293,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [vertexCredentialsError, setVertexCredentialsError] = useState<string>('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState<{ available: boolean; message: string } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -594,6 +596,46 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     });
   };
 
+  // 检测服务可用性
+  const handleCheckAvailability = async () => {
+    const provider = settings.ai.provider;
+    if (!provider) {
+      showMessage('error', '请先选择服务提供商');
+      return;
+    }
+
+    setCheckingAvailability(true);
+    setAvailabilityStatus(null);
+
+    try {
+      // 先保存设置，确保检测使用的是最新配置
+      await manualSaveSettings();
+      
+      const resultJSON = await CheckAIProviderAvailability(provider);
+      const result = JSON.parse(resultJSON);
+      
+      setAvailabilityStatus({
+        available: result.available,
+        message: result.message || '',
+      });
+
+      if (result.available) {
+        showMessage('success', t('settings.ai.availabilityCheckSuccess', '服务可用'));
+      } else {
+        showMessage('error', result.message || t('settings.ai.availabilityCheckFailed', '服务不可用'));
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || t('settings.ai.availabilityCheckError', '检测失败');
+      setAvailabilityStatus({
+        available: false,
+        message: errorMessage,
+      });
+      showMessage('error', errorMessage);
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
   // 渲染 AI 设置
   const renderAISettings = () => (
     <div className="space-y-4">
@@ -749,6 +791,56 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               placeholder="gemini-2.5-flash-preview-05-20"
             />
           </InputGroup>
+
+          {/* 服务可用性检测 */}
+          <div className="pt-2 border-t border-tech-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-300 font-medium">{t('settings.ai.availabilityCheck', '服务可用性检测')}</span>
+              <button
+                onClick={handleCheckAvailability}
+                disabled={checkingAvailability}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors",
+                  checkingAvailability
+                    ? "bg-tech-700 text-gray-500 cursor-not-allowed"
+                    : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                )}
+              >
+                {checkingAvailability ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('settings.ai.checking', '检测中...')}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={12} />
+                    {t('settings.ai.checkAvailability', '检测')}
+                  </>
+                )}
+              </button>
+            </div>
+            {availabilityStatus && (
+              <div className={clsx(
+                "p-2 rounded text-xs",
+                availabilityStatus.available
+                  ? "bg-green-900/30 border border-green-700/50 text-green-400"
+                  : "bg-red-900/30 border border-red-700/50 text-red-400"
+              )}>
+                <div className="flex items-center gap-1.5">
+                  {availabilityStatus.available ? (
+                    <CheckCircle2 size={12} />
+                  ) : (
+                    <XCircle size={12} />
+                  )}
+                  <span>
+                    {availabilityStatus.available
+                      ? t('settings.ai.available', '服务可用')
+                      : availabilityStatus.message || t('settings.ai.unavailable', '服务不可用')}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -903,6 +995,56 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <p className="font-medium mb-1">{t('settings.ai.openaiCompatNote', 'ℹ️ OpenAI 兼容服务说明')}</p>
             <p className="text-blue-500">{t('settings.ai.openaiCompatDesc', '专用 Image API 模式需要兼容 /v1/images/* 端点；Chat 模式可以支持图像编辑、融合等完整功能。')}</p>
           </div>
+
+          {/* 服务可用性检测 */}
+          <div className="pt-2 border-t border-tech-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-300 font-medium">{t('settings.ai.availabilityCheck', '服务可用性检测')}</span>
+              <button
+                onClick={handleCheckAvailability}
+                disabled={checkingAvailability}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors",
+                  checkingAvailability
+                    ? "bg-tech-700 text-gray-500 cursor-not-allowed"
+                    : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                )}
+              >
+                {checkingAvailability ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('settings.ai.checking', '检测中...')}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={12} />
+                    {t('settings.ai.checkAvailability', '检测')}
+                  </>
+                )}
+              </button>
+            </div>
+            {availabilityStatus && (
+              <div className={clsx(
+                "p-2 rounded text-xs",
+                availabilityStatus.available
+                  ? "bg-green-900/30 border border-green-700/50 text-green-400"
+                  : "bg-red-900/30 border border-red-700/50 text-red-400"
+              )}>
+                <div className="flex items-center gap-1.5">
+                  {availabilityStatus.available ? (
+                    <CheckCircle2 size={12} />
+                  ) : (
+                    <XCircle size={12} />
+                  )}
+                  <span>
+                    {availabilityStatus.available
+                      ? t('settings.ai.available', '服务可用')
+                      : availabilityStatus.message || t('settings.ai.unavailable', '服务不可用')}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -946,6 +1088,56 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <div className="p-3 bg-green-900/20 border border-green-700/50 rounded text-xs text-green-400">
             <p className="font-medium mb-1">{t('settings.ai.cloudNote', 'ℹ️ 云服务说明')}</p>
             <p className="text-green-500">{t('settings.ai.cloudDesc', '云服务将处理所有 AI 处理任务，本地客户端仅负责转发请求和处理响应。云服务应提供与 Gemini API 兼容的接口。如果云服务需要认证，请填写 Token。')}</p>
+          </div>
+
+          {/* 服务可用性检测 */}
+          <div className="pt-2 border-t border-tech-700">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-300 font-medium">{t('settings.ai.availabilityCheck', '服务可用性检测')}</span>
+              <button
+                onClick={handleCheckAvailability}
+                disabled={checkingAvailability}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors",
+                  checkingAvailability
+                    ? "bg-tech-700 text-gray-500 cursor-not-allowed"
+                    : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                )}
+              >
+                {checkingAvailability ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('settings.ai.checking', '检测中...')}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={12} />
+                    {t('settings.ai.checkAvailability', '检测')}
+                  </>
+                )}
+              </button>
+            </div>
+            {availabilityStatus && (
+              <div className={clsx(
+                "p-2 rounded text-xs",
+                availabilityStatus.available
+                  ? "bg-green-900/30 border border-green-700/50 text-green-400"
+                  : "bg-red-900/30 border border-red-700/50 text-red-400"
+              )}>
+                <div className="flex items-center gap-1.5">
+                  {availabilityStatus.available ? (
+                    <CheckCircle2 size={12} />
+                  ) : (
+                    <XCircle size={12} />
+                  )}
+                  <span>
+                    {availabilityStatus.available
+                      ? t('settings.ai.available', '服务可用')
+                      : availabilityStatus.message || t('settings.ai.unavailable', '服务不可用')}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

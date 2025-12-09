@@ -67,7 +67,15 @@
     "cloudNote": "ℹ️ Cloud Service Note",
     "cloudDesc": "Cloud service will handle all AI processing tasks, local client only forwards requests and processes responses. Cloud service should provide Gemini API compatible interface. If authentication is required, please fill in the Token.",
     "promptLibraryUrl": "Prompt Library URL",
-    "promptLibraryUrlHint": "JSON data URL for prompt library, used for prompt selection in material generator"
+    "promptLibraryUrlHint": "JSON data URL for prompt library, used for prompt selection in material generator",
+    "availabilityCheck": "Service Availability Check",
+    "checkAvailability": "Check",
+    "checking": "Checking...",
+    "available": "Service Available",
+    "unavailable": "Service Unavailable",
+    "availabilityCheckSuccess": "Service is available",
+    "availabilityCheckFailed": "Service is unavailable",
+    "availabilityCheckError": "Check failed"
   },
   "canvas": {
     "width": "Default Width",

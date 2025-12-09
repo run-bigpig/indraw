@@ -225,6 +225,27 @@ func (a *App) EnhancePrompt(prompt string) (string, error) {
 	return a.aiService.EnhancePrompt(prompt)
 }
 
+// CheckAIProviderAvailability 检测 AI 提供商可用性
+// 返回 JSON 格式：{"available": bool, "message": string}
+func (a *App) CheckAIProviderAvailability(providerName string) (string, error) {
+	available, message, err := a.aiService.CheckProviderAvailability(providerName)
+	if err != nil {
+		return "", err
+	}
+
+	result := map[string]interface{}{
+		"available": available,
+		"message":   message,
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize result: %w", err)
+	}
+
+	return string(data), nil
+}
+
 // ===== 提示词服务方法 =====
 
 // FetchPrompts 获取提示词列表

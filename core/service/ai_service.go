@@ -70,6 +70,25 @@ func (a *AIService) GetProviderCapabilities(providerName string) (*provider.Prov
 	return &caps, nil
 }
 
+// CheckProviderAvailability 检测提供商可用性
+func (a *AIService) CheckProviderAvailability(providerName string) (bool, string, error) {
+	aiProvider, err := a.GetProvider(providerName)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to get provider: %w", err)
+	}
+
+	available, err := aiProvider.CheckAvailability(a.ctx)
+	if err != nil {
+		return false, err.Error(), nil
+	}
+
+	if !available {
+		return false, "服务不可用", nil
+	}
+
+	return true, "", nil
+}
+
 // createProvider 创建提供商（内部方法）
 func (a *AIService) createProvider(name string) (provider.AIProvider, error) {
 	// 加载配置

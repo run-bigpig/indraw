@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"indraw/core/types"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/auth"
 	"cloud.google.com/go/auth/credentials"
@@ -118,6 +119,37 @@ func (p *GeminiProvider) Name() string {
 // GetCapabilities 返回提供商支持的功能
 func (p *GeminiProvider) GetCapabilities() ProviderCapabilities {
 	return geminiCapabilities
+}
+
+// CheckAvailability 检测服务可用性
+func (p *GeminiProvider) CheckAvailability(ctx context.Context) (bool, error) {
+	if p.client == nil {
+		return false, fmt.Errorf("Gemini client not initialized")
+	}
+
+	// 尝试调用一个简单的 API 来检测服务是否可用
+	// 使用文本模型进行简单的测试请求
+	testPrompt := "test"
+	content := &genai.Content{
+		Parts: []*genai.Part{{Text: testPrompt}},
+		Role:  genai.RoleUser,
+	}
+
+	// 创建一个带超时的上下文
+	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	_, err := p.client.Models.GenerateContent(testCtx, p.settings.TextModel,
+		[]*genai.Content{content},
+		&genai.GenerateContentConfig{
+			MaxOutputTokens: 10, // 只请求少量输出以节省时间
+		})
+
+	if err != nil {
+		return false, fmt.Errorf("Gemini service unavailable: %w", err)
+	}
+
+	return true, nil
 }
 
 // Close 清理资源

@@ -8,6 +8,7 @@ import (
 	"indraw/core/types"
 	"io"
 	"strings"
+	"time"
 
 	openai "github.com/sashabaranov/go-openai"
 )
@@ -127,6 +128,47 @@ func (p *OpenAIProvider) GetCapabilities() ProviderCapabilities {
 		return openaiChatCapabilities
 	}
 	return openaiImageAPICapabilities
+}
+
+// CheckAvailability 检测服务可用性
+func (p *OpenAIProvider) CheckAvailability(ctx context.Context) (bool, error) {
+	if p.chatClient == nil {
+		return false, fmt.Errorf("OpenAI chat client not initialized")
+	}
+
+	// 创建一个带超时的上下文
+	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	// 尝试调用一个简单的 API 来检测服务是否可用
+	// 使用文本模型进行简单的测试请求
+	req := openai.ChatCompletionRequest{
+		Model: p.settings.OpenAITextModel,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: "test",
+			},
+		},
+		MaxTokens: 5, // 只请求少量输出以节省时间
+	}
+
+	// 根据配置决定是否使用流式请求
+	if p.settings.OpenAITextStream {
+		stream, err := p.chatClient.CreateChatCompletionStream(testCtx, req)
+		if err != nil {
+			return false, fmt.Errorf("OpenAI service unavailable: %w", err)
+		}
+		stream.Close()
+		return true, nil
+	}
+
+	_, err := p.chatClient.CreateChatCompletion(testCtx, req)
+	if err != nil {
+		return false, fmt.Errorf("OpenAI service unavailable: %w", err)
+	}
+
+	return true, nil
 }
 
 // Close 清理资源

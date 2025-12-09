@@ -111,6 +111,14 @@ type AIProvider interface {
 	// GetCapabilities 返回提供商支持的功能
 	GetCapabilities() ProviderCapabilities
 
+	// CheckAvailability 检测服务可用性
+	// 参数：
+	//   - ctx: 上下文
+	// 返回：
+	//   - 是否可用
+	//   - 错误信息（如果不可用）
+	CheckAvailability(ctx context.Context) (bool, error)
+
 	// Close 清理资源
 	// 在提供商不再使用时调用，用于释放连接、清理缓存等
 	Close() error
