@@ -137,6 +137,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Release Notes
+        id: extract_notes
+        run: |
+          VERSION_TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${VERSION_TAG#v}"
+          
+          # Extract changelog content for this version
+          # Find the section starting with ## [version] and extract until next ## or ---
+          awk -v version="$VERSION" '
+            /^## \[' version '\]/ { found=1; next }
+            found && /^## \[/ { exit }
+            found && /^---$/ { exit }
+            found { print }
+          ' CHANGELOG.md > release_notes.txt || echo "No changelog found for version $VERSION"
+          
+          # If no specific version found, use a default message
+          if [ ! -s release_notes.txt ]; then
+            echo "## Release $VERSION_TAG" > release_notes.txt
+            echo "" >> release_notes.txt
+            echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.txt
+          fi
+          
+          # Output release notes using multiline format
+          {
+            echo "notes<<EOF"
+            cat release_notes.txt
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: Download Windows amd64 artifact
         uses: actions/download-artifact@v4
         with:
@@ -164,6 +196,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body: ${{ steps.extract_notes.outputs.notes }}
           files: |
             artifacts/windows-amd64/**
             artifacts/linux-amd64/**
