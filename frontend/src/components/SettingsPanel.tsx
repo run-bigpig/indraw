@@ -40,7 +40,7 @@ import {
   setDownloadConfig,
   HFDownloadConfig,
 } from '../services/transformersService';
-import { SelectDirectory, CheckAIProviderAvailability } from '../../wailsjs/go/core/App';
+import { SelectDirectory, CheckAIProviderAvailability, CheckForUpdate, GetCurrentVersion } from '../../wailsjs/go/core/App';
 
 // ==================== 类型定义 ====================
 
@@ -329,6 +329,18 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     insecureSsl: false,
   });
 
+  // 更新检测状态
+  const [currentVersion, setCurrentVersion] = useState<string>('1.0.0');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{
+    hasUpdate: boolean;
+    latestVersion: string;
+    currentVersion: string;
+    releaseUrl: string;
+    releaseNotes: string;
+    error?: string;
+  } | null>(null);
+
   // showMessage 函数需要在所有 Hooks 之前定义
   const showMessage = React.useCallback((type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -360,6 +372,128 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       loadModels();
     }
   }, [activeTab, loadModels]);
+
+  // 当切换到关于标签页时加载当前版本
+  React.useEffect(() => {
+    if (activeTab === 'about') {
+      loadCurrentVersion();
+    }
+  }, [activeTab]);
+
+  // 加载当前版本
+  const loadCurrentVersion = async () => {
+    try {
+      const version = await GetCurrentVersion();
+      setCurrentVersion(version);
+    } catch (error) {
+      console.error('Failed to load current version:', error);
+    }
+  };
+
+  // 格式化更新日志（简单的 Markdown 转 HTML）
+  const formatReleaseNotes = (notes: string): string => {
+    if (!notes) return '';
+    
+    // 先处理代码块，避免其中的内容被其他规则处理
+    const codeBlocks: string[] = [];
+    let codeBlockIndex = 0;
+    let formatted = notes.replace(/```([\s\S]*?)```/g, (match, code) => {
+      const placeholder = `__CODE_BLOCK_${codeBlockIndex}__`;
+      codeBlocks[codeBlockIndex] = code;
+      codeBlockIndex++;
+      return placeholder;
+    });
+    
+    // 转义 HTML 特殊字符（但保留代码块占位符）
+    formatted = formatted
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // 恢复代码块
+    codeBlocks.forEach((code, index) => {
+      const escapedCode = code
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+      formatted = formatted.replace(
+        `__CODE_BLOCK_${index}__`,
+        `<pre class="bg-tech-800 p-2 rounded text-[10px] text-cyan-400 font-mono overflow-x-auto my-2 border border-tech-700"><code>${escapedCode}</code></pre>`
+      );
+    });
+    
+    // 处理标题 (# ## ###)
+    formatted = formatted.replace(/^### (.*$)/gim, '<h3 class="text-sm font-semibold text-gray-200 mt-3 mb-1.5">$1</h3>');
+    formatted = formatted.replace(/^## (.*$)/gim, '<h2 class="text-sm font-bold text-gray-100 mt-4 mb-2">$1</h2>');
+    formatted = formatted.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-white mt-4 mb-2">$1</h1>');
+    
+    // 处理粗体 (**text** 或 __text__)
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-200">$1</strong>');
+    formatted = formatted.replace(/__(.*?)__/g, '<strong class="font-semibold text-gray-200">$1</strong>');
+    
+    // 处理斜体 (*text* 或 _text_)
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<em class="italic text-gray-300">$1</em>');
+    formatted = formatted.replace(/_([^_]+)_/g, '<em class="italic text-gray-300">$1</em>');
+    
+    // 处理行内代码 (`code`)
+    formatted = formatted.replace(/`([^`\n]+)`/g, '<code class="bg-tech-800 px-1.5 py-0.5 rounded text-[10px] text-cyan-400 font-mono border border-tech-700">$1</code>');
+    
+    // 处理链接 [text](url)
+    formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 underline">$1</a>');
+    
+    // 处理有序列表 (1. 2. 3.)
+    formatted = formatted.replace(/^(\d+)\. (.+)$/gim, '<li class="ml-5 list-decimal text-gray-300 mb-1">$2</li>');
+    
+    // 处理无序列表 (- 或 * 或 +)
+    formatted = formatted.replace(/^[\*\-\+] (.+)$/gim, '<li class="ml-5 list-disc text-gray-300 mb-1">$1</li>');
+    
+    // 将连续的列表项包裹在 ul 标签中
+    formatted = formatted.replace(/(<li[^>]*>.*?<\/li>\n?)+/g, (match) => {
+      return `<ul class="space-y-1 my-2">${match}</ul>`;
+    });
+    
+    // 处理换行（保留段落间距）
+    formatted = formatted.replace(/\n\n/g, '</p><p class="my-2">');
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    // 包裹在段落标签中
+    formatted = `<p class="my-2">${formatted}</p>`;
+    
+    return formatted;
+  };
+
+  // 检查更新
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    setUpdateInfo(null);
+
+    try {
+      const resultJSON = await CheckForUpdate();
+      const result = JSON.parse(resultJSON);
+      setUpdateInfo(result);
+
+      if (result.hasUpdate) {
+        showMessage('success', `发现新版本: ${result.latestVersion}`);
+      } else if (result.error) {
+        showMessage('error', result.error);
+      } else {
+        showMessage('success', '当前已是最新版本');
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || '检查更新失败';
+      setUpdateInfo({
+        hasUpdate: false,
+        latestVersion: currentVersion,
+        currentVersion: currentVersion,
+        releaseUrl: '',
+        releaseNotes: '',
+        error: errorMessage,
+      });
+      showMessage('error', errorMessage);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   // ✅ 监听模型下载进度事件
   useEffect(() => {
@@ -1662,7 +1796,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             </div>
             <div className="flex items-center justify-between py-2 border-b border-tech-800">
               <span className="text-xs text-gray-400">{t('settings.about.version', '版本')}</span>
-              <span className="text-sm text-gray-200">1.0.0</span>
+              <span className="text-sm text-gray-200">{currentVersion}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-tech-800">
               <span className="text-xs text-gray-400">{t('settings.about.description', '描述')}</span>
@@ -1670,6 +1804,138 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 {t('settings.about.descriptionText', 'AI 驱动的图像编辑工具')}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* 更新检测 */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-200 border-b border-tech-700 pb-2">
+            {t('settings.about.updateCheck', '更新检测')}
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-300 font-medium">{t('settings.about.checkForUpdate', '检查更新')}</span>
+              <button
+                onClick={handleCheckUpdate}
+                disabled={checkingUpdate}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors",
+                  checkingUpdate
+                    ? "bg-tech-700 text-gray-500 cursor-not-allowed"
+                    : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                )}
+              >
+                {checkingUpdate ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    {t('settings.about.checking', '检查中...')}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={12} />
+                    {t('settings.about.checkUpdate', '检查更新')}
+                  </>
+                )}
+              </button>
+            </div>
+            {updateInfo && (
+              <div className={clsx(
+                "p-3 rounded text-xs space-y-2",
+                updateInfo.hasUpdate
+                  ? "bg-green-900/30 border border-green-700/50"
+                  : updateInfo.error
+                  ? "bg-red-900/30 border border-red-700/50"
+                  : "bg-blue-900/30 border border-blue-700/50"
+              )}>
+                {updateInfo.hasUpdate ? (
+                  <>
+                    <div className="flex items-center gap-1.5 text-green-400">
+                      <CheckCircle2 size={12} />
+                      <span className="font-medium">{t('settings.about.updateAvailable', '发现新版本')}</span>
+                    </div>
+                    <div className="text-gray-300 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">{t('settings.about.currentVersion', '当前版本')}:</span>
+                        <span>{updateInfo.currentVersion}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">{t('settings.about.latestVersion', '最新版本')}:</span>
+                        <span className="text-green-400 font-medium">{updateInfo.latestVersion}</span>
+                      </div>
+                    </div>
+                    {updateInfo.releaseUrl && (
+                      <a
+                        href={updateInfo.releaseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs transition-colors"
+                      >
+                        <Download size={12} />
+                        {t('settings.about.downloadUpdate', '下载更新')}
+                      </a>
+                    )}
+                    {updateInfo.releaseNotes && (
+                      <div className="mt-3 pt-3 border-t border-green-700/30">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Info size={12} className="text-green-400" />
+                          <span className="text-xs font-medium text-green-400">
+                            {t('settings.about.releaseNotes', '更新日志')}
+                          </span>
+                        </div>
+                        <div className="bg-tech-900/50 rounded p-2.5 border border-tech-700/50">
+                          <div 
+                            className="text-xs text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none"
+                            style={{
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontFamily: 'inherit'
+                            }}
+                            dangerouslySetInnerHTML={{
+                              __html: formatReleaseNotes(updateInfo.releaseNotes)
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : updateInfo.error ? (
+                  <div className="flex items-center gap-1.5 text-red-400">
+                    <XCircle size={12} />
+                    <span>{updateInfo.error}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5 text-blue-400">
+                      <CheckCircle2 size={12} />
+                      <span>{t('settings.about.latestVersionInstalled', '已安装最新版本')}</span>
+                    </div>
+                    {updateInfo.releaseNotes && (
+                      <div className="mt-3 pt-3 border-t border-blue-700/30">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Info size={12} className="text-blue-400" />
+                          <span className="text-xs font-medium text-blue-400">
+                            {t('settings.about.releaseNotes', '更新日志')}
+                          </span>
+                        </div>
+                        <div className="bg-tech-900/50 rounded p-2.5 border border-tech-700/50">
+                          <div 
+                            className="text-xs text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none"
+                            style={{
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontFamily: 'inherit'
+                            }}
+                            dangerouslySetInnerHTML={{
+                              __html: formatReleaseNotes(updateInfo.releaseNotes)
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

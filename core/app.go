@@ -20,6 +20,7 @@ type App struct {
 	promptService   *service.PromptService
 	modelService    *service.ModelService
 	modelFileServer *service.ModelFileServer
+	updateService   *service.UpdateService
 }
 
 // NewApp creates a new App application struct
@@ -37,6 +38,9 @@ func NewApp() *App {
 	// 创建模型文件服务器
 	modelFileServer := service.NewModelFileServer(modelsDir)
 
+	// 创建更新服务
+	updateService := service.NewUpdateService(RepoOwner, RepoName, Version)
+
 	return &App{
 		fileService:     fileService,
 		configService:   configService,
@@ -44,6 +48,7 @@ func NewApp() *App {
 		promptService:   promptService,
 		modelService:    modelService,
 		modelFileServer: modelFileServer,
+		updateService:   updateService,
 	}
 }
 
@@ -88,6 +93,7 @@ func (a *App) Startup(ctx context.Context) {
 	if err := a.modelService.Startup(ctx); err != nil {
 		fmt.Printf("Failed to initialize model service: %v\n", err)
 	}
+	a.updateService.Startup(ctx)
 }
 
 // ===== 文件管理服务方法 =====
@@ -374,4 +380,17 @@ func (a *App) SetDownloadConfig(configJSON string) error {
 
 	a.modelService.SetDownloadConfig(config)
 	return nil
+}
+
+// ===== 更新服务方法 =====
+
+// CheckForUpdate 检查是否有可用更新
+// 返回 JSON 格式：{"hasUpdate": bool, "latestVersion": string, "currentVersion": string, "releaseUrl": string, "releaseNotes": string, "error": string}
+func (a *App) CheckForUpdate() (string, error) {
+	return a.updateService.CheckForUpdateJSON()
+}
+
+// GetCurrentVersion 获取当前版本号
+func (a *App) GetCurrentVersion() string {
+	return a.updateService.GetCurrentVersion()
 }
