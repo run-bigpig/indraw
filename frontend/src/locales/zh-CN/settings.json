@@ -127,6 +127,8 @@
   "discard": "放弃",
   "discardConfirm": "确定要放弃未保存的修改吗？",
   "resetTitle": "重置设置",
+  "unsavedChangesTitle": "未保存的修改",
+  "unsavedChangesMessage": "检测到未保存的修改，是否保存？",
   "about": {
     "softwareInfo": "软件信息",
     "name": "软件名称",

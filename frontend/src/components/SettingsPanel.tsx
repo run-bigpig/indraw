@@ -301,8 +301,11 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     message: string;
     confirmText?: string;
     cancelText?: string;
+    discardText?: string;
     type?: 'warning' | 'danger' | 'info';
     onConfirm: () => void;
+    onCancel?: () => void;
+    onDiscard?: () => void;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -484,51 +487,37 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setHasUnsavedChanges(true);
   };
 
-  // 保存设置
-  const handleSave = async () => {
-    const success = await manualSaveSettings();
-    if (success) {
-      setHasUnsavedChanges(false);
-      showMessage('success', t('settings.saveSuccess', '设置已保存'));
-    } else {
-      showMessage('error', t('settings.saveError', '保存失败，请重试'));
-    }
-  };
-
-  // 取消修改
-  const handleCancel = async () => {
+  // 关闭面板时检查未保存的修改
+  const handleClose = async () => {
     if (hasUnsavedChanges) {
       setConfirmDialog({
         isOpen: true,
-        title: t('settings.discardTitle', '放弃修改'),
-        message: t('settings.discardConfirm', '确定要放弃未保存的修改吗？'),
-        confirmText: t('settings.discard', '放弃'),
+        title: t('settings.unsavedChangesTitle', '未保存的修改'),
+        message: t('settings.unsavedChangesMessage', '检测到未保存的修改，是否保存？'),
+        confirmText: t('settings.save', '保存'),
         cancelText: t('settings.cancel', '取消'),
+        discardText: t('settings.discard', '放弃'),
         type: 'warning',
         onConfirm: async () => {
           setConfirmDialog(null);
+          const success = await manualSaveSettings();
+          if (success) {
+            setHasUnsavedChanges(false);
+            showMessage('success', t('settings.saveSuccess', '设置已保存'));
+            onClose();
+          } else {
+            showMessage('error', t('settings.saveError', '保存失败，请重试'));
+            // 保存失败时不关闭面板
+          }
+        },
+        onCancel: () => {
+          setConfirmDialog(null);
+          // 取消操作，不关闭面板
+        },
+        onDiscard: async () => {
+          setConfirmDialog(null);
           await reloadSettings();
           setHasUnsavedChanges(false);
-        },
-      });
-      return;
-    }
-    await reloadSettings();
-    setHasUnsavedChanges(false);
-  };
-
-  // 关闭面板时检查未保存的修改
-  const handleClose = () => {
-    if (hasUnsavedChanges) {
-      setConfirmDialog({
-        isOpen: true,
-        title: t('settings.discardTitle', '放弃修改'),
-        message: t('settings.discardConfirm', '确定要放弃未保存的修改吗？'),
-        confirmText: t('settings.discard', '放弃'),
-        cancelText: t('settings.cancel', '取消'),
-        type: 'warning',
-        onConfirm: () => {
-          setConfirmDialog(null);
           onClose();
         },
       });
@@ -1776,31 +1765,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
         {/* 底部操作 */}
         <div className="border-t border-tech-700">
-          {/* 保存/取消按钮区域 */}
-          <div className="flex items-center justify-end gap-3 px-4 py-3 bg-tech-950/50">
-            <button
-              onClick={handleCancel}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-tech-700 hover:bg-tech-600 text-gray-300 rounded transition-colors"
-            >
-              {t('settings.cancel', '取消')}
-            </button>
-            <button
-              onClick={handleSave}
-              className={clsx(
-                "flex items-center gap-1.5 px-4 py-2 text-sm rounded transition-colors",
-                hasUnsavedChanges
-                  ? "bg-cyan-600 hover:bg-cyan-500 text-white"
-                  : "bg-cyan-600/50 text-gray-300 cursor-default"
-              )}
-            >
-              <Check size={16} />
-              {t('settings.save', '保存')}
-              {hasUnsavedChanges && <span className="ml-1 text-xs">*</span>}
-            </button>
-          </div>
-
           {/* 其他操作按钮 */}
-          <div className="flex items-center justify-between px-4 py-2 border-t border-tech-700/50">
+          <div className="flex items-center justify-between px-4 py-2">
             <div className="flex gap-2">
               <button
                 onClick={handleExport}
@@ -1843,9 +1809,11 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           message={confirmDialog.message}
           confirmText={confirmDialog.confirmText}
           cancelText={confirmDialog.cancelText}
+          discardText={confirmDialog.discardText}
           type={confirmDialog.type}
           onConfirm={confirmDialog.onConfirm}
-          onCancel={() => setConfirmDialog(null)}
+          onCancel={confirmDialog.onCancel || (() => setConfirmDialog(null))}
+          onDiscard={confirmDialog.onDiscard}
         />
       )}
     </div>

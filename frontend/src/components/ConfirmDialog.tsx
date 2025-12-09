@@ -14,9 +14,11 @@ interface ConfirmDialogProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
+  discardText?: string; // 新增：放弃按钮文本
   type?: 'warning' | 'danger' | 'info';
   onConfirm: () => void;
   onCancel: () => void;
+  onDiscard?: () => void; // 新增：放弃按钮回调
 }
 
 export default function ConfirmDialog({
@@ -25,9 +27,11 @@ export default function ConfirmDialog({
   message,
   confirmText = '确认',
   cancelText = '取消',
+  discardText,
   type = 'warning',
   onConfirm,
   onCancel,
+  onDiscard,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -101,6 +105,14 @@ export default function ConfirmDialog({
             >
               {cancelText}
             </button>
+            {onDiscard && discardText && (
+              <button
+                onClick={onDiscard}
+                className="px-4 py-2 text-sm bg-tech-700 hover:bg-tech-600 text-gray-300 rounded-lg transition-colors font-medium"
+              >
+                {discardText}
+              </button>
+            )}
             <button
               onClick={onConfirm}
               className={clsx(

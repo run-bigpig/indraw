@@ -23,7 +23,6 @@ import {
   Redo2,
   FileText,
   FolderOpen,
-  Save,
   FilePlus,
   ChevronDown,
   Sparkles,
@@ -1924,9 +1923,6 @@ Keep high quality and clarity.`;
                 <button onClick={handleLoadProject} className="w-full text-left px-4 py-2 hover:bg-tech-800 text-sm text-gray-300 flex items-center gap-2">
                   <FolderOpen size={14} /> {t('dialog:fileMenu.openProject')}
                 </button>
-                <button onClick={handleSaveProject} className="w-full text-left px-4 py-2 hover:bg-tech-800 text-sm text-gray-300 flex items-center gap-2">
-                  <Save size={14} /> {t('dialog:fileMenu.saveProject')}
-                </button>
 
                 {/* 最近项目列表 */}
                 {projectManager.recentProjects.length > 0 && (
@@ -1998,8 +1994,11 @@ Keep high quality and clarity.`;
             </button>
             <button
               onClick={() => setShowHistoryPanel(true)}
-              className="p-1.5 text-gray-400 hover:text-white hover:bg-tech-800 rounded"
-              title={t('common:history', '历史记录')}
+              disabled={!projectManager.isProjectCreated}
+              className="p-1.5 text-gray-400 hover:text-white hover:bg-tech-800 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              title={projectManager.isProjectCreated 
+                ? t('common:history', '历史记录')
+                : t('common:historyDisabled', '请先创建项目')}
             >
               <History size={16} />
             </button>

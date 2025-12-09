@@ -127,6 +127,8 @@
   "discard": "Discard",
   "discardConfirm": "Are you sure you want to discard unsaved changes?",
   "resetTitle": "Reset Settings",
+  "unsavedChangesTitle": "Unsaved Changes",
+  "unsavedChangesMessage": "Unsaved changes detected. Do you want to save?",
   "about": {
     "softwareInfo": "Software Information",
     "name": "Software Name",

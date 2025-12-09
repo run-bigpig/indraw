@@ -4,6 +4,7 @@
   "delete": "Delete",
   "export": "Export",
   "exportDisabled": "Please create a project first",
+  "historyDisabled": "Please create a project first",
   "upload": "Upload",
   "create": "Create",
   "creating": "Creating...",
