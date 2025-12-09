@@ -86,7 +86,11 @@ jobs:
       - name: Build app
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
-          wails build -clean -tags production -platform ${{ matrix.wails_platform }}
+          if [ "${{ matrix.runner_os }}" == "Windows" ]; then
+            wails build -clean -tags production -platform ${{ matrix.wails_platform }} -ldflags "-H=windowsgui"
+          else
+            wails build -clean -tags production -platform ${{ matrix.wails_platform }}
+          fi
         shell: bash
 
       - name: Prepare Windows executable

@@ -26,4 +26,5 @@ dist-ssr
 *.sw?
 # 执行wails build 或者dev的时候会生成wailsjs目录，这个目录不需要提交到仓库
 frontend/wailsjs
+bin/
 
