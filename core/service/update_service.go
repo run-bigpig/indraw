@@ -46,6 +46,29 @@ func (u *UpdateService) Startup(ctx context.Context) {
 
 // CheckForUpdate 检查是否有可用更新
 func (u *UpdateService) CheckForUpdate() (UpdateInfo, error) {
+	// 重定向标准输出和错误输出，避免弹出终端窗口（Windows 平台）
+	// 保存原始的 stdout 和 stderr
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	
+	// 打开空设备文件用于重定向输出
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err == nil {
+		os.Stdout = devNull
+		os.Stderr = devNull
+		defer func() {
+			devNull.Close()
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+		}()
+	} else {
+		// 如果无法打开 DevNull，至少尝试恢复
+		defer func() {
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+		}()
+	}
+
 	repo := fmt.Sprintf("%s/%s", u.repoOwner, u.repoName)
 	
 	latest, found, err := selfupdate.DetectLatest(repo)
