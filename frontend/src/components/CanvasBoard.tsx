@@ -557,32 +557,25 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                         strokeSize,
                     });
 
-                    // 使用 requestIdleCallback 延迟执行耗时操作
-                    // 这样可以让 UI 先响应，然后在空闲时执行
                     const finalPoints = [...points]; // 复制一份，因为 ref 会被重置
+                    const tempLine = currentLineRef.current; // 保存临时线条引用
 
-                    // 立即清理临时绘制的线条
-                    if (currentLineRef.current) {
-                        currentLineRef.current.destroy();
-                        currentLineRef.current = null;
-                        drawingLayerRef.current?.batchDraw();
-                    }
+                    // ✅ 修复闪烁：先同步创建新图层，确保新图层已经添加到图层列表
+                    onLineDrawn(finalPoints, strokeSize / scale, {
+                        erase: false,
+                    });
 
-                    // 延迟执行创建图层和保存历史记录
-                    if ('requestIdleCallback' in window) {
-                        (window as any).requestIdleCallback(() => {
-                            onLineDrawn(finalPoints, strokeSize / scale, {
-                                erase: false,
-                            });
-                        }, { timeout: 50 });
-                    } else {
-                        // 降级方案：使用 setTimeout
-                        setTimeout(() => {
-                            onLineDrawn(finalPoints, strokeSize / scale, {
-                                erase: false,
-                            });
-                        }, 0);
-                    }
+                    // ✅ 修复闪烁：使用 requestAnimationFrame 确保新图层渲染完成后再销毁临时线条
+                    // 这样可以避免临时线条消失和新图层显示之间的时间差导致的闪烁
+                    requestAnimationFrame(() => {
+                        // 再等一帧，确保新图层已经完全渲染
+                        requestAnimationFrame(() => {
+                            if (tempLine) {
+                                tempLine.destroy();
+                                drawingLayerRef.current?.batchDraw();
+                            }
+                        });
+                    });
                 } else {
                     // 点数不足，直接清理
                     if (currentLineRef.current) {
@@ -593,6 +586,7 @@ const CanvasBoard: React.FC<CanvasBoardProps> = ({
                 }
 
                 // 重置状态
+                currentLineRef.current = null;
                 currentPointsRef.current = [];
             }
         }

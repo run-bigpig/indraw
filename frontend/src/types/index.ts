@@ -146,6 +146,7 @@ export interface ModelInfo {
  */
 export interface AppSettings {
   transformers?: TransformersModelSettings; // Transformers 模型配置
+  exportDirectory?: string; // 导出目录路径
 }
 
 /**

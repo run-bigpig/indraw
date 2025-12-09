@@ -4,7 +4,9 @@
     "ai": "AI Service",
     "canvas": "Canvas",
     "tools": "Tools",
-    "app": "Application"
+    "app": "Application",
+    "models": "Models",
+    "about": "About"
   },
   "ai": {
     "provider": "Service Provider",
@@ -90,7 +92,15 @@
   "app": {
     "language": "Interface Language",
     "autoSave": "Auto Save",
-    "autoSaveInterval": "Auto Save Interval (seconds)"
+    "autoSaveInterval": "Auto Save Interval (seconds)",
+    "exportDirectory": "Export Directory",
+    "exportDirectoryHint": "When set, exports will be saved directly to this directory without file dialog. Leave empty to use file dialog.",
+    "exportDirectoryPlaceholder": "Leave empty to use file dialog",
+    "selectExportDirectory": "Select Export Directory",
+    "selectDirectoryFailed": "Failed to select directory",
+    "browse": "Browse",
+    "clear": "Clear",
+    "currentDirectory": "Current Directory"
   },
   "export": "Export",
   "import": "Import",
@@ -108,6 +118,16 @@
   "discardTitle": "Discard Changes",
   "discard": "Discard",
   "discardConfirm": "Are you sure you want to discard unsaved changes?",
-  "resetTitle": "Reset Settings"
+  "resetTitle": "Reset Settings",
+  "about": {
+    "softwareInfo": "Software Information",
+    "name": "Software Name",
+    "version": "Version",
+    "description": "Description",
+    "descriptionText": "AI-powered image editing tool",
+    "authorInfo": "Author Information",
+    "author": "Author",
+    "thanks": "Thank you for using Indraw Editor!"
+  }
 }
 

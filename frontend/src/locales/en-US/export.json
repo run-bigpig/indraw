@@ -1,0 +1,24 @@
+{
+  "title": "Export Options",
+  "format": "Format",
+  "scale": "Resolution",
+  "quality": "Quality",
+  "lowQuality": "Low",
+  "highQuality": "High",
+  "preview": "Preview",
+  "info": "Export Info",
+  "originalSize": "Original Size",
+  "exportSize": "Export Size",
+  "estimatedSize": "Estimated Size",
+  "outputSize": "Output Size",
+  "autoSize": "Auto",
+  "trimTransparent": "Trim Transparent Borders",
+  "trimTransparentDesc": "Auto crop to content bounds",
+  "export": "Export",
+  "exporting": "Exporting...",
+  "exportSuccess": "Export successful",
+  "exportFailed": "Export failed",
+  "exportCancelled": "Export cancelled",
+  "closeApp": "Close Application"
+}
+

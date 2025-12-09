@@ -1,0 +1,24 @@
+{
+  "title": "导出选项",
+  "format": "格式",
+  "scale": "分辨率",
+  "quality": "质量",
+  "lowQuality": "低",
+  "highQuality": "高",
+  "preview": "预览",
+  "info": "导出信息",
+  "originalSize": "原始尺寸",
+  "exportSize": "导出尺寸",
+  "estimatedSize": "预估大小",
+  "outputSize": "输出尺寸",
+  "autoSize": "自动",
+  "trimTransparent": "去除透明边框",
+  "trimTransparentDesc": "自动裁剪到内容边界",
+  "export": "导出",
+  "exporting": "导出中...",
+  "exportSuccess": "导出成功",
+  "exportFailed": "导出失败",
+  "exportCancelled": "导出已取消",
+  "closeApp": "关闭应用"
+}
+

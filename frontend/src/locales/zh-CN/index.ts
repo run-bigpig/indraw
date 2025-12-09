@@ -6,6 +6,7 @@ import dialog from './dialog.json';
 import message from './message.json';
 import shapes from './shapes.json';
 import settings from './settings.json';
+import exportOptions from './export.json';
 
 export default {
   common,
@@ -16,4 +17,5 @@ export default {
   message,
   shapes,
   settings,
+  export: exportOptions,
 };

@@ -162,7 +162,8 @@ type DownloadProgress struct {
 // AppSettings 应用设置
 // 注意：language 由前端 i18n 库管理，存储在 localStorage
 type AppSettings struct {
-	Transformers *TransformersModelSettings `json:"transformers,omitempty"` // Transformers 模型配置
+	Transformers   *TransformersModelSettings `json:"transformers,omitempty"`   // Transformers 模型配置
+	ExportDirectory string                    `json:"exportDirectory,omitempty"` // 导出目录路径
 }
 
 // ==================== AI 服务参数结构体 ====================

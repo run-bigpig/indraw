@@ -33,6 +33,8 @@ func main() {
 		OnStartup:        app.Startup,
 		// 启用右键菜单（开发调试用）
 		EnableDefaultContextMenu: true,
+		// ✅ 启用无边框窗口
+		Frameless: true,
 		Bind: []interface{}{
 			app,
 		},

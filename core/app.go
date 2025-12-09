@@ -103,8 +103,12 @@ func (a *App) LoadProject() (string, error) {
 }
 
 // ExportImage 导出图像
-func (a *App) ExportImage(imageDataURL string, suggestedName string) (string, error) {
-	return a.fileService.ExportImage(imageDataURL, suggestedName)
+// imageDataURL: base64 编码的图像数据
+// suggestedName: 建议的文件名
+// format: 导出格式 ("png", "jpeg", "webp")，如果为空则从文件名推断
+// exportDir: 导出目录（可选），如果为空则显示文件保存对话框
+func (a *App) ExportImage(imageDataURL string, suggestedName string, format string, exportDir string) (string, error) {
+	return a.fileService.ExportImage(imageDataURL, suggestedName, format, exportDir)
 }
 
 // ExportSliceImages 批量导出切片图像

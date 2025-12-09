@@ -57,7 +57,6 @@ func (m *ModelService) Startup(ctx context.Context) error {
 	var baseDir string
 	switch goruntime.GOOS {
 	case "windows":
-		wail
 		baseDir = os.Getenv("APPDATA")
 	case "darwin":
 		baseDir = filepath.Join(os.Getenv("HOME"), "Library", "Application Support")

@@ -354,21 +354,42 @@ func (f *FileService) LoadProject() (string, error) {
 // ExportImage 导出图像到文件
 // imageDataURL: base64 编码的图像数据 (data:image/png;base64,...)
 // suggestedName: 建议的文件名
-func (f *FileService) ExportImage(imageDataURL string, suggestedName string) (string, error) {
+// format: 导出格式 ("png", "jpeg", "webp")，如果为空则从文件名推断
+// exportDir: 导出目录（可选），如果为空则显示文件保存对话框
+func (f *FileService) ExportImage(imageDataURL string, suggestedName string, format string, exportDir string) (string, error) {
 	if f.ctx == nil {
 		return "", fmt.Errorf("service not initialized")
 	}
 
-	// 显示保存对话框
+	// 确定文件名
 	defaultFilename := suggestedName
 	if defaultFilename == "" {
-		defaultFilename = fmt.Sprintf("indraw-export-%d.png", time.Now().Unix())
+		ext := ".png"
+		if format != "" {
+			switch format {
+			case "jpeg":
+				ext = ".jpg"
+			case "webp":
+				ext = ".webp"
+			}
+		}
+		defaultFilename = fmt.Sprintf("indraw-export-%d%s", time.Now().Unix(), ext)
 	}
 
-	filePath, err := runtime.SaveFileDialog(f.ctx, runtime.SaveDialogOptions{
-		DefaultFilename: defaultFilename,
-		Title:           "Export Image",
-		Filters: []runtime.FileFilter{
+	var filePath string
+	var err error
+
+	// 如果指定了导出目录，直接保存到该目录
+	if exportDir != "" {
+		// 确保目录存在
+		if err := os.MkdirAll(exportDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create export directory: %w", err)
+		}
+		filePath = filepath.Join(exportDir, defaultFilename)
+	} else {
+		// 显示保存对话框
+		// 构建文件过滤器
+		filters := []runtime.FileFilter{
 			{
 				DisplayName: "PNG Image (*.png)",
 				Pattern:     "*.png",
@@ -377,16 +398,30 @@ func (f *FileService) ExportImage(imageDataURL string, suggestedName string) (st
 				DisplayName: "JPEG Image (*.jpg)",
 				Pattern:     "*.jpg;*.jpeg",
 			},
-		},
-	})
+			{
+				DisplayName: "WebP Image (*.webp)",
+				Pattern:     "*.webp",
+			},
+			{
+				DisplayName: "All Images",
+				Pattern:     "*.png;*.jpg;*.jpeg;*.webp",
+			},
+		}
 
-	if err != nil {
-		return "", fmt.Errorf("save dialog error: %w", err)
-	}
+		filePath, err = runtime.SaveFileDialog(f.ctx, runtime.SaveDialogOptions{
+			DefaultFilename: defaultFilename,
+			Title:           "Export Image",
+			Filters:         filters,
+		})
 
-	// 用户取消了保存
-	if filePath == "" {
-		return "", nil
+		if err != nil {
+			return "", fmt.Errorf("save dialog error: %w", err)
+		}
+
+		// 用户取消了保存
+		if filePath == "" {
+			return "", nil
+		}
 	}
 
 	// 解析 base64 数据

@@ -35,7 +35,13 @@ import {
   Clock,
   Search,
   RefreshCw,
-  BookOpen
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Info,
+  Minimize2,
+  Maximize2,
+  Minus
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useHistory, useLayerManager, useProjectManager, useLayerGrouping, useAutoSave } from '@/hooks';
@@ -47,9 +53,11 @@ import { createLayerName } from '@/utils/layerName';
 import FullScreenLoading from '@/components/FullScreenLoading';
 import ImageCropModal from '@/components/ImageCropModal';
 import ImageSliceModal from '@/components/ImageSliceModal';
+import ExportOptionsModal, { ExportOptions, ExportFormat } from '@/components/ExportOptionsModal';
 import Logo from '@/components/Logo';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
+import { Quit, WindowMinimise, WindowFullscreen, WindowUnfullscreen, WindowIsFullscreen } from './wailsjs/runtime/runtime';
 
 export type ProcessingState = 'idle' | 'generating' | 'localRedrawing' | 'removing-bg' | 'blending' | 'transforming' | 'healing';
 
@@ -217,6 +225,40 @@ export default function App() {
 
   // Image Slice Modal State
   const [sliceModalData, setSliceModalData] = useState<{ imageSrc: string } | null>(null);
+
+  // Export Options Modal State
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [exportPreviewImage, setExportPreviewImage] = useState<string | undefined>(undefined);
+
+  // Export Message State
+  const [exportMessage, setExportMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  // Window State
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // 检查全屏状态
+  useEffect(() => {
+    const checkFullscreen = async () => {
+      if (typeof window !== 'undefined' && window.runtime) {
+        try {
+          const fullscreen = await WindowIsFullscreen();
+          setIsFullscreen(fullscreen);
+        } catch (error) {
+          console.error('Failed to check fullscreen state:', error);
+        }
+      }
+    };
+    checkFullscreen();
+    // 定期检查全屏状态（因为用户可能通过其他方式切换全屏）
+    const interval = setInterval(checkFullscreen, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  // 显示导出消息
+  const showExportMessage = useCallback((type: 'success' | 'error' | 'info', text: string) => {
+    setExportMessage({ type, text });
+    setTimeout(() => setExportMessage(null), 3000);
+  }, []);
 
   // 检查是否有可恢复的数据（等待检查完成后再显示弹窗）
   useEffect(() => {
@@ -1527,7 +1569,8 @@ Keep high quality and clarity.`;
     layerManager.updateLayersWithHistory(updatedLayers, 'history.fitToCanvas');
   };
 
-  const handleExport = async () => {
+  // 生成预览图片
+  const generatePreviewImage = useCallback(() => {
     if (!stageRef.current) return;
     const stage = stageRef.current;
     const { canvasConfig } = projectManager;
@@ -1535,6 +1578,7 @@ Keep high quality and clarity.`;
     const oldScale = stage.scaleX();
     const oldPos = stage.position();
 
+    // 临时设置画布状态
     stage.scale({ x: 1, y: 1 });
     stage.position({ x: 0, y: 0 });
 
@@ -1550,8 +1594,10 @@ Keep high quality and clarity.`;
 
     stage.draw();
 
-    const uri = stage.toDataURL({
-      pixelRatio: 1,
+    // 生成预览图片（较小尺寸以提高性能）
+    const previewScale = Math.min(1, 400 / Math.max(canvasConfig.width, canvasConfig.height));
+    const previewDataUrl = stage.toDataURL({
+      pixelRatio: previewScale,
       mimeType: 'image/png',
       x: 0,
       y: 0,
@@ -1559,6 +1605,7 @@ Keep high quality and clarity.`;
       height: canvasConfig.height
     });
 
+    // 恢复画布状态
     if (bgNode && canvasConfig.background === 'transparent') {
       if (wasBgVisible) bgNode.show();
     }
@@ -1568,21 +1615,263 @@ Keep high quality and clarity.`;
     stage.position(oldPos);
     stage.batchDraw();
 
+    return previewDataUrl;
+  }, [stageRef, projectManager]);
+
+  // 计算内容边界框（去除透明边框）
+  const calculateContentBounds = useCallback(async (imageDataUrl: string): Promise<{ x: number; y: number; width: number; height: number } | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        let minX = canvas.width;
+        let minY = canvas.height;
+        let maxX = 0;
+        let maxY = 0;
+
+        // 查找非透明像素的边界
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            const alpha = data[(y * canvas.width + x) * 4 + 3];
+            if (alpha > 0) {
+              minX = Math.min(minX, x);
+              minY = Math.min(minY, y);
+              maxX = Math.max(maxX, x);
+              maxY = Math.max(maxY, y);
+            }
+          }
+        }
+
+        // 如果没有找到内容，返回 null
+        if (minX >= maxX || minY >= maxY) {
+          resolve(null);
+          return;
+        }
+
+        resolve({
+          x: minX,
+          y: minY,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1
+        });
+      };
+      img.onerror = () => resolve(null);
+      img.src = imageDataUrl;
+    });
+  }, []);
+
+  // 显示导出选项对话框
+  const handleExport = useCallback(() => {
+    if (!projectManager.isProjectCreated) return;
+    
+    // 生成预览图片
+    const preview = generatePreviewImage();
+    if (preview) {
+      setExportPreviewImage(preview);
+    }
+    
+    setShowExportOptions(true);
+  }, [projectManager, generatePreviewImage]);
+
+  // 执行导出（根据选项转换图像并导出）
+  const handleExportWithOptions = useCallback(async (options: ExportOptions) => {
+    if (!stageRef.current) return;
+    const stage = stageRef.current;
+    const { canvasConfig } = projectManager;
+
+    setShowExportOptions(false);
+
+    const oldScale = stage.scaleX();
+    const oldPos = stage.position();
+
+    // 设置缩放和位置
+    stage.scale({ x: 1, y: 1 });
+    stage.position({ x: 0, y: 0 });
+
+    const bgNode = stage.findOne('.canvas-background');
+    const wasBgVisible = bgNode ? bgNode.visible() : true;
+
+    if (bgNode && canvasConfig.background === 'transparent') {
+      bgNode.hide();
+    }
+
+    const transformers = stage.find('Transformer');
+    transformers.forEach(t => t.hide());
+
+    stage.draw();
+
+    // 根据格式确定 MIME 类型和文件扩展名
+    let mimeType: string;
+    let fileExt: string;
+    switch (options.format) {
+      case 'jpeg':
+        mimeType = 'image/jpeg';
+        fileExt = '.jpg';
+        break;
+      case 'webp':
+        mimeType = 'image/webp';
+        fileExt = '.webp';
+        break;
+      case 'png':
+      default:
+        mimeType = 'image/png';
+        fileExt = '.png';
+        break;
+    }
+
+    // 先导出为 PNG（高质量）
+    let fullImageDataUrl = stage.toDataURL({
+      pixelRatio: options.scale,
+      mimeType: 'image/png',
+      x: 0,
+      y: 0,
+      width: canvasConfig.width,
+      height: canvasConfig.height
+    });
+
+    // ✅ 立即恢复画布状态，避免用户看到画布变化
+    if (bgNode && canvasConfig.background === 'transparent') {
+      if (wasBgVisible) bgNode.show();
+    }
+    transformers.forEach(t => t.show());
+
+    stage.scale({ x: oldScale, y: oldScale });
+    stage.position(oldPos);
+    stage.batchDraw();
+
+    // 如果启用去除透明边框，计算内容边界并裁剪（异步处理，不影响画布显示）
+    let exportBounds = { x: 0, y: 0, width: canvasConfig.width, height: canvasConfig.height };
+    if (options.trimTransparent) {
+      const bounds = await calculateContentBounds(fullImageDataUrl);
+      if (bounds) {
+        // 缩放边界框以匹配导出分辨率
+        exportBounds = {
+          x: Math.round(bounds.x * options.scale),
+          y: Math.round(bounds.y * options.scale),
+          width: Math.round(bounds.width * options.scale),
+          height: Math.round(bounds.height * options.scale)
+        };
+        
+        // 裁剪图像到内容边界
+        fullImageDataUrl = await cropImage(fullImageDataUrl, exportBounds);
+      }
+    }
+
+    // 如果需要转换格式或质量，使用 canvas 转换
+    let uri = fullImageDataUrl;
+    const needsFormatConversion = options.format !== 'png';
+    const needsQualityConversion = (options.format === 'jpeg' || options.format === 'webp') && options.quality < 100;
+    if (needsFormatConversion || needsQualityConversion) {
+      try {
+        uri = await convertImageFormat(fullImageDataUrl, options.format, options.quality);
+      } catch (error) {
+        console.error('Failed to convert image format:', error);
+        // 如果转换失败，使用原始 PNG
+      }
+    }
+
     // 使用 Wails 后端导出
     try {
-      const suggestedName = `indraw-export-${Date.now()}.png`;
-      const filePath = await ExportImage(uri, suggestedName);
+      const suggestedName = `indraw-export-${Date.now()}${fileExt}`;
+      // 使用设置的导出目录，如果未设置则使用空字符串（会弹出文件对话框）
+      const exportDir = settings.app.exportDirectory || '';
+      const filePath = await ExportImage(uri, suggestedName, options.format || '', exportDir);
       if (filePath) {
         console.log('Image exported to:', filePath);
+        // 提取文件名
+        const fileName = filePath.split(/[/\\]/).pop() || filePath;
+        showExportMessage('success', t('export:exportSuccess', '导出成功') + ': ' + fileName);
+      } else {
+        // 用户取消了导出（仅在文件对话框模式下）
+        if (!exportDir) {
+          showExportMessage('info', t('export:exportCancelled', '导出已取消'));
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to export image:', error);
-      alert('Failed to export image: ' + error);
+      const errorMsg = error?.message || String(error);
+      showExportMessage('error', t('export:exportFailed', '导出失败') + ': ' + errorMsg);
     }
+  }, [stageRef, projectManager, settings, t, calculateContentBounds]);
+
+  // 裁剪图像到指定边界
+  const cropImage = async (dataUrl: string, bounds: { x: number; y: number; width: number; height: number }): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = bounds.width;
+        canvas.height = bounds.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        
+        ctx.drawImage(
+          img,
+          bounds.x, bounds.y, bounds.width, bounds.height,
+          0, 0, bounds.width, bounds.height
+        );
+        
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = dataUrl;
+    });
+  };
+
+  // 转换图像格式和质量（用于 JPEG 和 WebP）
+  const convertImageFormat = async (dataUrl: string, format: ExportFormat, quality: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        
+        let mimeType: string;
+        switch (format) {
+          case 'jpeg':
+            mimeType = 'image/jpeg';
+            break;
+          case 'webp':
+            mimeType = 'image/webp';
+            break;
+          default:
+            mimeType = 'image/png';
+        }
+        
+        const convertedDataUrl = canvas.toDataURL(mimeType, quality / 100);
+        resolve(convertedDataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = dataUrl;
+    });
   };
 
 	  return (
-	    <div className="flex flex-col h-screen bg-tech-900 text-gray-200 font-sans overflow-hidden">
+	    <div 
+	      className="flex flex-col h-screen bg-tech-900 text-gray-200 font-sans overflow-hidden"
+	    >
       <input
         type="file"
         ref={fileInputRef}
@@ -1593,7 +1882,10 @@ Keep high quality and clarity.`;
 
 
 	      {/* Top Bar */}
-	      <div className="h-12 bg-tech-900 border-b border-tech-700 flex items-center justify-between px-4 z-30 shrink-0">
+	      <div 
+	        className="h-12 bg-tech-900 border-b border-tech-700 flex items-center justify-between px-4 z-30 shrink-0"
+	        style={{ '--wails-draggable': 'drag' } as React.CSSProperties}
+	      >
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 flex items-center justify-center">
             <Logo variant="icon" size={32} />
@@ -1611,7 +1903,7 @@ Keep high quality and clarity.`;
           )}
 
           {/* File Menu */}
-          <div className="relative" ref={fileMenuRef}>
+          <div className="relative" ref={fileMenuRef} style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}>
             <button
               onClick={() => setShowFileMenu(!showFileMenu)}
               className={clsx(
@@ -1684,7 +1976,10 @@ Keep high quality and clarity.`;
             )}
           </div>
 
-          <div className="ml-4 flex items-center gap-1 border-l border-tech-700 pl-4">
+          <div 
+            className="ml-4 flex items-center gap-1 border-l border-tech-700 pl-4"
+            style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+          >
             <button
               onClick={handleUndo}
               disabled={!historyManager.canUndo}
@@ -1712,7 +2007,10 @@ Keep high quality and clarity.`;
 	      {/* Tool Options Bar (Eraser Size etc.) */}
 	  {/* Tool Options Bar - Brush / Eraser */}
 {projectManager.isProjectCreated && (activeTool === 'brush' || activeTool === 'eraser') && (
-  <div className="h-10 bg-tech-900 border-b border-tech-800 px-4 flex items-center justify-between text-xs z-20 shrink-0">
+  <div 
+    className="h-10 bg-tech-900 border-b border-tech-800 px-4 flex items-center justify-between text-xs z-20 shrink-0"
+    style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+  >
     <div className="flex items-center gap-4 text-gray-400">
       {/* Brush 块：仅在画笔工具时显示 */}
       {activeTool === 'brush' && (
@@ -1859,11 +2157,14 @@ Keep high quality and clarity.`;
             <span className="flex items-center gap-1"><Command size={10} /> {t('message:shortcuts.multiSelect')}</span>
           </div>
           <div className="h-4 w-px bg-tech-700"></div>
-          <LanguageSwitcher />
+          <div style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}>
+            <LanguageSwitcher />
+          </div>
           <button
             onClick={() => setShowSettingsPanel(true)}
             className="p-1.5 text-gray-400 hover:text-cyan-400 hover:bg-tech-800 rounded transition-colors"
             title={t('common:settings')}
+            style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
           >
             <Settings size={16} />
           </button>
@@ -1878,10 +2179,64 @@ Keep high quality and clarity.`;
                 : "bg-tech-800 hover:bg-tech-700 text-cyan-100"
             )}
             title={!projectManager.isProjectCreated ? t('common:exportDisabled') : t('common:export')}
+            style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
           >
             <Download size={14} />
             {t('common:export')}
           </button>
+          {/* 窗口控制按钮（无边框窗口）- 右上角 */}
+          <div className="flex items-center gap-1 ml-2">
+            {/* 最小化按钮 */}
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.runtime) {
+                  WindowMinimise();
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-tech-800 rounded transition-colors"
+              style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+              title={t('common:minimize', '最小化')}
+            >
+              <Minus size={16} />
+            </button>
+            {/* 全屏/退出全屏按钮 */}
+            <button
+              onClick={async () => {
+                if (typeof window !== 'undefined' && window.runtime) {
+                  try {
+                    const currentFullscreen = await WindowIsFullscreen();
+                    if (currentFullscreen) {
+                      WindowUnfullscreen();
+                      setIsFullscreen(false);
+                    } else {
+                      WindowFullscreen();
+                      setIsFullscreen(true);
+                    }
+                  } catch (error) {
+                    console.error('Failed to toggle fullscreen:', error);
+                  }
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-tech-800 rounded transition-colors"
+              style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+              title={isFullscreen ? t('common:exitFullscreen', '退出全屏') : t('common:fullscreen', '全屏')}
+            >
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+            {/* 关闭应用按钮 */}
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.runtime) {
+                  Quit();
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+              style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+              title={t('common:closeApp', '关闭应用')}
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2624,6 +2979,44 @@ Keep high quality and clarity.`;
           onSliceComplete={handleSliceComplete}
           onCancel={() => setSliceModalData(null)}
         />
+      )}
+
+      {/* Export Options Modal */}
+      {showExportOptions && (
+        <ExportOptionsModal
+          isOpen={showExportOptions}
+          canvasWidth={projectManager.canvasConfig.width}
+          canvasHeight={projectManager.canvasConfig.height}
+          previewImage={exportPreviewImage}
+          onExport={handleExportWithOptions}
+          onCancel={() => {
+            setShowExportOptions(false);
+            setExportPreviewImage(undefined);
+          }}
+        />
+      )}
+
+      {/* Export Message Toast */}
+      {exportMessage && (
+        <div className={clsx(
+          "fixed bottom-4 right-4 z-[200] px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 min-w-[300px] max-w-[500px] animate-in slide-in-from-right duration-300",
+          exportMessage.type === 'success' 
+            ? "bg-green-900/90 border border-green-700 text-green-100"
+            : exportMessage.type === 'error'
+            ? "bg-red-900/90 border border-red-700 text-red-100"
+            : "bg-blue-900/90 border border-blue-700 text-blue-100"
+        )}>
+          {exportMessage.type === 'success' && <CheckCircle2 size={20} className="text-green-400" />}
+          {exportMessage.type === 'error' && <XCircle size={20} className="text-red-400" />}
+          {exportMessage.type === 'info' && <Info size={20} className="text-blue-400" />}
+          <span className="text-sm font-medium flex-1">{exportMessage.text}</span>
+          <button
+            onClick={() => setExportMessage(null)}
+            className="p-1 hover:bg-black/20 rounded transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
     </div>
   );

@@ -21,7 +21,8 @@ import {
   Brain,
   Loader2,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Info
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useSettings } from '../contexts/SettingsContext';
@@ -39,6 +40,7 @@ import {
   setDownloadConfig,
   HFDownloadConfig,
 } from '../services/transformersService';
+import { SelectDirectory } from '../../wailsjs/go/core/App';
 
 // ==================== 类型定义 ====================
 
@@ -47,7 +49,7 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type TabType = SettingsCategory | 'models';
+type TabType = SettingsCategory | 'models' | 'about';
 
 // ==================== 子组件 ====================
 
@@ -539,7 +541,9 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { id: 'ai', icon: <Cpu size={16} />, label: t('settings.tabs.ai', 'AI 服务') },
     { id: 'canvas', icon: <Palette size={16} />, label: t('settings.tabs.canvas', '画布') },
     { id: 'tools', icon: <Wrench size={16} />, label: t('settings.tabs.tools', '工具') },
+    { id: 'app', icon: <Settings size={16} />, label: t('settings.tabs.app', '应用') },
     { id: 'models', icon: <Brain size={16} />, label: t('settings.tabs.models', '模型') },
+    { id: 'about', icon: <Info size={16} />, label: t('settings.tabs.about', '关于') },
   ];
 
   const handleExport = () => {
@@ -1409,12 +1413,116 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     );
   };
 
+  // 渲染应用设置
+  const renderAppSettings = () => {
+    const handleSelectExportDirectory = async () => {
+      try {
+        const dirPath = await SelectDirectory(t('settings.app.selectExportDirectory', '选择导出目录'));
+        if (dirPath) {
+          handleUpdateCategory('app', { exportDirectory: dirPath });
+        }
+      } catch (error) {
+        console.error('Failed to select export directory:', error);
+        showMessage('error', t('settings.app.selectDirectoryFailed', '选择目录失败'));
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <InputGroup
+          label={t('settings.app.exportDirectory', '导出目录')}
+          hint={t('settings.app.exportDirectoryHint', '设置导出目录后，导出时将直接保存到该目录，无需选择文件位置。留空则使用文件对话框。')}
+        >
+          <div className="flex gap-2">
+            <TextInput
+              value={settings.app.exportDirectory || ''}
+              onChange={(val) => handleUpdateCategory('app', { exportDirectory: val })}
+              placeholder={t('settings.app.exportDirectoryPlaceholder', '留空则使用文件对话框')}
+            />
+            <button
+              onClick={handleSelectExportDirectory}
+              className="px-4 bg-tech-800 border border-tech-700 rounded hover:bg-tech-700 transition-colors text-sm text-gray-300 whitespace-nowrap"
+            >
+              {t('settings.app.browse', '浏览')}
+            </button>
+            {settings.app.exportDirectory && (
+              <button
+                onClick={() => handleUpdateCategory('app', { exportDirectory: '' })}
+                className="px-3 bg-tech-800 border border-tech-700 rounded hover:bg-tech-700 transition-colors text-sm text-gray-400"
+                title={t('settings.app.clear', '清除')}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          {settings.app.exportDirectory && (
+            <p className="text-[10px] text-gray-500 mt-1">
+              {t('settings.app.currentDirectory', '当前目录')}: {settings.app.exportDirectory}
+            </p>
+          )}
+        </InputGroup>
+      </div>
+    );
+  };
+
+  // 渲染关于信息
+  const renderAboutSettings = () => {
+    return (
+      <div className="space-y-6">
+        {/* 软件信息 */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-200 border-b border-tech-700 pb-2">
+            {t('settings.about.softwareInfo', '软件信息')}
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2 border-b border-tech-800">
+              <span className="text-xs text-gray-400">{t('settings.about.name', '软件名称')}</span>
+              <span className="text-sm text-gray-200 font-medium">Indraw Editor</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-tech-800">
+              <span className="text-xs text-gray-400">{t('settings.about.version', '版本')}</span>
+              <span className="text-sm text-gray-200">1.0.0</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b border-tech-800">
+              <span className="text-xs text-gray-400">{t('settings.about.description', '描述')}</span>
+              <span className="text-sm text-gray-200 text-right max-w-[300px]">
+                {t('settings.about.descriptionText', 'AI 驱动的图像编辑工具')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 作者信息 */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-200 border-b border-tech-700 pb-2">
+            {t('settings.about.authorInfo', '作者信息')}
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2 border-b border-tech-800">
+              <span className="text-xs text-gray-400">{t('settings.about.author', '作者')}</span>
+              <span className="text-sm text-gray-200 font-medium">syskey</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 说明 */}
+        <div className="p-4 bg-tech-800/30 border border-tech-700 rounded-lg">
+          <p className="text-xs text-gray-400 leading-relaxed">
+            {t('settings.about.thanks', '感谢使用 Indraw Editor！')}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'ai': return renderAISettings();
       case 'canvas': return renderCanvasSettings();
       case 'tools': return renderToolSettings();
+      case 'app': return renderAppSettings();
       case 'models': return renderModelSettings();
+      case 'about': return renderAboutSettings();
       default: return null;
     }
   };

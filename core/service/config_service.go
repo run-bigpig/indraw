@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -203,6 +204,40 @@ func (c *ConfigService) SaveSettings(settingsJSON string) error {
 	return nil
 }
 
+// getUserPicturesDir 获取用户图片目录
+func getUserPicturesDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	var picturesDir string
+	if runtime.GOOS == "windows" {
+		// Windows: %USERPROFILE%\Pictures
+		picturesDir = filepath.Join(homeDir, "Pictures")
+	} else if runtime.GOOS == "darwin" {
+		// macOS: ~/Pictures
+		picturesDir = filepath.Join(homeDir, "Pictures")
+	} else {
+		// Linux: ~/Pictures 或 ~/图片
+		picturesDir = filepath.Join(homeDir, "Pictures")
+		// 检查是否存在，如果不存在则尝试中文目录名
+		if _, err := os.Stat(picturesDir); os.IsNotExist(err) {
+			chineseDir := filepath.Join(homeDir, "图片")
+			if _, err := os.Stat(chineseDir); err == nil {
+				picturesDir = chineseDir
+			}
+		}
+	}
+
+	// 确保目录存在
+	if picturesDir != "" {
+		os.MkdirAll(picturesDir, 0755)
+	}
+
+	return picturesDir
+}
+
 // LoadSettings 加载设置
 func (c *ConfigService) LoadSettings() (string, error) {
 	// 检查文件是否存在
@@ -229,6 +264,14 @@ func (c *ConfigService) LoadSettings() (string, error) {
 		// 解析失败，返回默认设置
 		fmt.Printf("[ConfigService] Warning: invalid config file format: %v\n", err)
 		return c.getDefaultSettings(), nil
+	}
+
+	// 如果导出目录为空，设置为用户图片目录
+	if settings.App.ExportDirectory == "" {
+		picturesDir := getUserPicturesDir()
+		if picturesDir != "" {
+			settings.App.ExportDirectory = picturesDir
+		}
 	}
 
 	// 解密敏感信息
@@ -275,6 +318,14 @@ func (c *ConfigService) LoadSettings() (string, error) {
 			settings.AI.CloudToken = ""
 		} else {
 			settings.AI.CloudToken = decrypted
+		}
+	}
+
+	// 如果导出目录为空，设置为用户图片目录
+	if settings.App.ExportDirectory == "" {
+		picturesDir := getUserPicturesDir()
+		if picturesDir != "" {
+			settings.App.ExportDirectory = picturesDir
 		}
 	}
 
@@ -332,6 +383,7 @@ func (c *ConfigService) getDefaultSettings() string {
 			},
 		},
 		App: types.AppSettings{
+			ExportDirectory: getUserPicturesDir(), // 默认导出目录为用户图片目录
 			Transformers: &types.TransformersModelSettings{
 				CurrentModelID: "rmbg-1.4",
 				UseQuantized:   true,

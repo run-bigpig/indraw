@@ -86,6 +86,10 @@
   },
   "layerName": {
     "copy": "Copy"
-  }
+  },
+  "minimize": "Minimize",
+  "fullscreen": "Fullscreen",
+  "exitFullscreen": "Exit Fullscreen",
+  "closeApp": "Close Application"
 }
 

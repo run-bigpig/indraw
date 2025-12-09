@@ -99,6 +99,8 @@ export const DEFAULT_TRANSFORMERS_MODEL_SETTINGS: TransformersModelSettings = {
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   transformers: DEFAULT_TRANSFORMERS_MODEL_SETTINGS,
+  // exportDirectory 将在后端加载设置时自动设置为用户图片目录
+  exportDirectory: '',
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -296,6 +298,9 @@ function validateAppSettings(settings: Partial<AppSettings>): AppSettings {
     transformers: settings.transformers
       ? validateTransformersModelSettings(settings.transformers)
       : DEFAULT_TRANSFORMERS_MODEL_SETTINGS,
+    exportDirectory: typeof settings.exportDirectory === 'string'
+      ? settings.exportDirectory
+      : DEFAULT_APP_SETTINGS.exportDirectory,
   };
 }
 
