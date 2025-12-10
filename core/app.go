@@ -394,3 +394,12 @@ func (a *App) CheckForUpdate() (string, error) {
 func (a *App) GetCurrentVersion() string {
 	return a.updateService.GetCurrentVersion()
 }
+
+// Update 执行程序内更新（下载并替换当前可执行文件）
+// 返回错误信息字符串，如果成功则返回空字符串
+func (a *App) Update() (string, error) {
+	if err := a.updateService.Update(); err != nil {
+		return "", fmt.Errorf("更新失败: %w", err)
+	}
+	return "", nil
+}

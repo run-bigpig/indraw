@@ -41,7 +41,7 @@ import {
   setDownloadConfig,
   HFDownloadConfig,
 } from '../services/transformersService';
-import { SelectDirectory, CheckAIProviderAvailability, CheckForUpdate, GetCurrentVersion } from '../../wailsjs/go/core/App';
+import { SelectDirectory, CheckAIProviderAvailability, CheckForUpdate, GetCurrentVersion, Update } from '../../wailsjs/go/core/App';
 
 // ==================== 类型定义 ====================
 
@@ -341,6 +341,8 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     releaseNotes: string;
     error?: string;
   } | null>(null);
+  const [updating, setUpdating] = useState(false);
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
   // showMessage 函数需要在所有 Hooks 之前定义
   const showMessage = React.useCallback((type: 'success' | 'error', text: string) => {
@@ -421,6 +423,33 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       showMessage('error', errorMessage);
     } finally {
       setCheckingUpdate(false);
+    }
+  };
+
+  // 执行程序内更新
+  const handleUpdate = async () => {
+    if (!updateInfo?.hasUpdate) {
+      return;
+    }
+
+    setUpdating(true);
+    setShowUpdateConfirm(false);
+
+    try {
+      await Update();
+      showMessage('success', `成功更新到版本 ${updateInfo.latestVersion}，请重启应用程序以应用更新`);
+      // 更新当前版本显示
+      setCurrentVersion(updateInfo.latestVersion);
+      setUpdateInfo({
+        ...updateInfo,
+        hasUpdate: false,
+        currentVersion: updateInfo.latestVersion,
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || '更新失败';
+      showMessage('error', errorMessage);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -1792,17 +1821,41 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         <span className="text-green-400 font-medium">{updateInfo.latestVersion}</span>
                       </div>
                     </div>
-                    {updateInfo.releaseUrl && (
-                      <a
-                        href={updateInfo.releaseUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs transition-colors"
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        onClick={() => setShowUpdateConfirm(true)}
+                        disabled={updating}
+                        className={clsx(
+                          "inline-flex items-center gap-1.5 px-3 py-1.5 text-white rounded text-xs transition-colors",
+                          updating
+                            ? "bg-tech-700 text-gray-500 cursor-not-allowed"
+                            : "bg-cyan-600 hover:bg-cyan-500"
+                        )}
                       >
-                        <Download size={12} />
-                        {t('settings.about.downloadUpdate', '下载更新')}
-                      </a>
-                    )}
+                        {updating ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            {t('settings.about.updating', '更新中...')}
+                          </>
+                        ) : (
+                          <>
+                            <Download size={12} />
+                            {t('settings.about.downloadUpdate', '下载更新')}
+                          </>
+                        )}
+                      </button>
+                      {updateInfo.releaseUrl && (
+                        <a
+                          href={updateInfo.releaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-tech-700 hover:bg-tech-600 text-gray-300 rounded text-xs transition-colors"
+                        >
+                          <Info size={12} />
+                          {t('settings.about.viewOnGitHub', '在GitHub查看')}
+                        </a>
+                      )}
+                    </div>
                     {updateInfo.releaseNotes && (
                       <div className="mt-3 pt-3 border-t border-green-700/30">
                         <div className="flex items-center gap-1.5 mb-2">
@@ -2055,6 +2108,19 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           onConfirm={confirmDialog.onConfirm}
           onCancel={confirmDialog.onCancel || (() => setConfirmDialog(null))}
           onDiscard={confirmDialog.onDiscard}
+        />
+      )}
+      {/* 更新确认对话框 */}
+      {updateInfo?.hasUpdate && (
+        <ConfirmDialog
+          isOpen={showUpdateConfirm}
+          title={t('settings.about.confirmUpdate', '确认更新')}
+          message={t('settings.about.confirmUpdateMessage', '确定要更新到版本 {{version}} 吗？更新完成后需要重启应用程序。', { version: updateInfo.latestVersion })}
+          confirmText={t('settings.about.confirm', '确认')}
+          cancelText={t('settings.about.cancel', '取消')}
+          type="info"
+          onConfirm={handleUpdate}
+          onCancel={() => setShowUpdateConfirm(false)}
         />
       )}
     </div>
