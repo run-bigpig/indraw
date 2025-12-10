@@ -1,172 +1,192 @@
-# 发布脚本使用说明
+# Release Script Usage Guide
 
-本目录包含用于管理 GitHub Releases 的发布脚本。
+This directory contains release management scripts for managing GitHub Releases.
 
-## 功能
+## Features
 
-- ✅ 自动从 `core/version.go` 读取版本号
-- ✅ 检测 GitHub 上是否已存在该版本的 release
-- ✅ 如果存在，可选择删除并重新创建
-- ✅ 如果不存在，直接创建新的 release
-- ✅ 自动从 `CHANGELOG.md` 提取版本说明
-- ✅ 支持 dry-run 模式（预览操作，不实际执行）
+- ✅ Automatically reads version number from `core/version.go`
+- ✅ Checks if a release with that version exists on GitHub
+- ✅ If exists, optionally deletes and recreates it
+- ✅ If not exists, creates a new release
+- ✅ Automatically extracts release notes from `CHANGELOG.md`
+- ✅ Supports dry-run mode (preview operations without executing)
 
-## 前置要求
+## Prerequisites
 
-1. **安装 GitHub CLI (gh)**
-   - Windows: 使用 [Scoop](https://scoop.sh/) 或 [Chocolatey](https://chocolatey.org/)
+1. **Install Git**
+   - Windows: Download from [Git for Windows](https://git-scm.com/download/win)
+   - macOS: `brew install git` or download from [Git website](https://git-scm.com/)
+   - Linux: `sudo apt install git` (Ubuntu/Debian) or use your package manager
+
+2. **Create GitHub Personal Access Token**
+   - Go to: https://github.com/settings/tokens
+   - Click "Generate new token" -> "Generate new token (classic)"
+   - Select scopes:
+     - `repo` (for private repositories) OR
+     - `public_repo` (for public repositories only)
+   - Copy the token (you won't be able to see it again!)
+
+3. **Set GitHub Token** (choose one method):
+   - **Method 1**: Set environment variable
      ```powershell
-     # Scoop
-     scoop install gh
+     # PowerShell
+     $env:GITHUB_TOKEN = "your_token_here"
      
-     # Chocolatey
-     choco install gh
-   - macOS: `brew install gh`
-   - Linux: 参考 [GitHub CLI 官方文档](https://cli.github.com/manual/installation)
+     # Bash
+     export GITHUB_TOKEN="your_token_here"
+     ```
+   - **Method 2**: Use git config
+     ```bash
+     git config --global github.token "your_token_here"
+     ```
+   - **Method 3**: Pass as parameter (less secure)
+     ```powershell
+     .\scripts\release.ps1 -GitHubToken "your_token_here"
+     ```
 
-2. **认证 GitHub CLI**
-   ```bash
-   gh auth login
-   ```
-
-## 使用方法
+## Usage
 
 ### PowerShell (Windows)
 
 ```powershell
-# 使用默认版本（从 core/version.go 读取）
+# Use default version (read from core/version.go)
 .\scripts\release.ps1
 
-# 指定版本号
+# Specify version number
 .\scripts\release.ps1 -Version "1.1.0"
 
-# Dry-run 模式（预览操作）
+# Dry-run mode (preview operations)
 .\scripts\release.ps1 -DryRun
 
-# 自定义仓库
+# With GitHub token parameter
+.\scripts\release.ps1 -GitHubToken "your_token_here"
+
+# Custom repository
 .\scripts\release.ps1 -RepoOwner "your-username" -RepoName "your-repo"
 ```
 
 ### Bash (Linux/macOS/Git Bash)
 
 ```bash
-# 使用默认版本（从 core/version.go 读取）
+# Use default version (read from core/version.go)
 ./scripts/release.sh
 
-# 指定版本号
+# Specify version number
 ./scripts/release.sh --version 1.1.0
 
-# Dry-run 模式（预览操作）
+# Dry-run mode (preview operations)
 ./scripts/release.sh --dry-run
 
-# 自定义仓库
-./scripts/release.sh --repo-owner your-username --repo-name your-repo
-
-# 查看帮助
+# View help
 ./scripts/release.sh --help
 ```
 
-## 工作流程
+## How It Works
 
-1. **读取版本号**
-   - 如果未指定版本，从 `core/version.go` 的 `Version` 常量读取
-   - 版本标签格式为 `v{版本号}`（例如：`v1.1.0`）
+1. **Read Version Number**
+   - If version not specified, reads from `Version` constant in `core/version.go`
+   - Tag format is `v{version}` (e.g., `v1.1.0`)
 
-2. **检查 Release 是否存在**
-   - 使用 GitHub API 检查是否存在对应标签的 release
+2. **Check Release Exists**
+   - Uses `git ls-remote` to check if tag exists remotely
+   - Uses GitHub API to check if release exists
 
-3. **如果存在**
-   - 提示用户是否删除并重新创建
-   - 用户确认后，删除 release 和对应的 tag
-   - 等待 2 秒后创建新的 release
+3. **If Exists**
+   - Prompts user to delete and recreate
+   - After confirmation, deletes release via GitHub API
+   - Deletes tag using `git tag -d` and `git push origin :refs/tags/{tag}`
 
-4. **如果不存在**
-   - 直接创建新的 release
+4. **If Not Exists**
+   - Creates tag locally using `git tag`
+   - Pushes tag to remote using `git push origin {tag}`
+   - Creates release via GitHub API
 
-5. **提取 Release Notes**
-   - 从 `CHANGELOG.md` 中提取对应版本的更新日志
-   - 如果找不到，使用默认说明
+5. **Extract Release Notes**
+   - Extracts release notes from `CHANGELOG.md` for the corresponding version
+   - If not found, uses default message
 
-## 示例
+## Examples
 
-### 场景 1: 首次发布版本 1.1.0
-
-```powershell
-# PowerShell
-.\scripts\release.ps1 -Version "1.1.0"
-```
-
-输出：
-```
-[INFO] === GitHub Release 管理脚本 ===
-[INFO] 仓库: run-bigpig/indraw
-[INFO] 目标版本: v1.1.0
-[INFO] 正在创建 release: v1.1.0
-[SUCCESS] Release v1.1.0 已创建
-[SUCCESS] === 完成 ===
-[INFO] Release URL: https://github.com/run-bigpig/indraw/releases/tag/v1.1.0
-```
-
-### 场景 2: 重新发布已存在的版本
+### Scenario 1: First Release of Version 1.1.0
 
 ```powershell
 # PowerShell
 .\scripts\release.ps1 -Version "1.1.0"
 ```
 
-输出：
+Output:
 ```
-[INFO] === GitHub Release 管理脚本 ===
-[INFO] 仓库: run-bigpig/indraw
-[INFO] 目标版本: v1.1.0
-[WARNING] Release v1.1.0 已存在
-是否删除并重新创建? (y/N): y
-[INFO] 正在删除 release: v1.1.0
-[SUCCESS] Release v1.1.0 已删除
-[INFO] 正在删除 tag: v1.1.0
-[SUCCESS] Tag v1.1.0 已删除
-[INFO] 等待 2 秒后创建新 release...
-[INFO] 正在创建 release: v1.1.0
-[SUCCESS] Release v1.1.0 已创建
-[SUCCESS] === 完成 ===
+[INFO] === GitHub Release Management Script ===
+[INFO] Repository: run-bigpig/indraw
+[INFO] Target version: v1.1.0
+[INFO] Creating release: v1.1.0
+[INFO] Creating tag locally: v1.1.0
+[INFO] Pushing tag to remote: v1.1.0
+[SUCCESS] Release v1.1.0 created
+[SUCCESS] === Complete ===
 [INFO] Release URL: https://github.com/run-bigpig/indraw/releases/tag/v1.1.0
 ```
 
-### 场景 3: Dry-run 模式
+### Scenario 2: Re-release Existing Version
+
+```powershell
+# PowerShell
+.\scripts\release.ps1 -Version "1.1.0"
+```
+
+Output:
+```
+[INFO] === GitHub Release Management Script ===
+[INFO] Repository: run-bigpig/indraw
+[INFO] Target version: v1.1.0
+[WARNING] Release or tag v1.1.0 already exists
+Delete and recreate? (y/N): y
+[INFO] Deleting release: v1.1.0
+[SUCCESS] Release v1.1.0 deleted
+[INFO] Deleting tag: v1.1.0
+[SUCCESS] Tag v1.1.0 deleted
+[INFO] Waiting 2 seconds before creating new release...
+[INFO] Creating release: v1.1.0
+[SUCCESS] Release v1.1.0 created
+[SUCCESS] === Complete ===
+[INFO] Release URL: https://github.com/run-bigpig/indraw/releases/tag/v1.1.0
+```
+
+### Scenario 3: Dry-run Mode
 
 ```powershell
 # PowerShell
 .\scripts\release.ps1 -Version "1.1.0" -DryRun
 ```
 
-输出：
+Output:
 ```
-[INFO] === GitHub Release 管理脚本 ===
-[INFO] 仓库: run-bigpig/indraw
-[INFO] 目标版本: v1.1.0
-[WARNING] === DRY RUN 模式（不会实际执行操作）===
-[WARNING] Release v1.1.0 已存在
-是否删除并重新创建? (y/N): y
-[WARNING] [DRY RUN] 将删除 release: v1.1.0
-[WARNING] [DRY RUN] 将创建 release: v1.1.0
+[INFO] === GitHub Release Management Script ===
+[INFO] Repository: run-bigpig/indraw
+[INFO] Target version: v1.1.0
+[WARNING] === DRY RUN MODE (no actual operations will be performed) ===
+[WARNING] Release or tag v1.1.0 already exists
+Delete and recreate? (y/N): y
+[WARNING] [DRY RUN] Would delete release: v1.1.0
+[WARNING] [DRY RUN] Would create release: v1.1.0
 [INFO] Release Notes:
-### 🐛 Bug Fixes
+### Bug Fixes
 ...
 ```
 
-## CHANGELOG 格式要求
+## CHANGELOG Format Requirements
 
-脚本会从 `CHANGELOG.md` 中提取版本说明。支持的格式：
+The script extracts release notes from `CHANGELOG.md`. Supported format:
 
 ```markdown
 ## [1.1.0] - 2024-01-01
 
 ### ✨ New Features
-- 新增功能 1
-- 新增功能 2
+- New feature 1
+- New feature 2
 
 ### 🐛 Bug Fixes
-- 修复问题 1
+- Fixed issue 1
 
 ---
 
@@ -174,31 +194,49 @@
 ...
 ```
 
-脚本会提取 `## [版本号]` 到下一个版本之间的所有内容作为 release notes。
+The script extracts all content between `## [version]` and the next version as release notes.
 
-## 注意事项
+## Notes
 
-1. **权限要求**: 需要对该 GitHub 仓库有写入权限
-2. **网络连接**: 需要能够访问 GitHub API
-3. **版本格式**: 版本号应该符合语义化版本规范（SemVer）
-4. **CHANGELOG**: 建议保持 `CHANGELOG.md` 格式规范，以便正确提取版本说明
+1. **Permissions**: You need write access to the GitHub repository
+2. **Network Connection**: Requires access to GitHub API
+3. **Version Format**: Version numbers should follow Semantic Versioning (SemVer)
+4. **CHANGELOG**: Keep `CHANGELOG.md` format consistent for proper extraction
+5. **Git Repository**: Script works best when run from within the git repository
+6. **Token Security**: Never commit your GitHub token to version control!
 
-## 故障排除
+## Troubleshooting
 
-### 错误: GitHub CLI 未认证
-```bash
-gh auth login
-```
+### Error: Git is not installed
+Install Git from https://git-scm.com/
 
-### 错误: 找不到版本文件
-确保 `core/version.go` 文件存在，且包含 `const Version = "x.x.x"` 格式的版本定义。
+### Error: GitHub token not found
+Set the token using one of the methods described in Prerequisites section.
 
-### 错误: 权限不足
-确保你的 GitHub 账户对该仓库有写入权限，或者使用有权限的 token 进行认证。
+### Error: Version file not found
+Ensure `core/version.go` file exists and contains `const Version = "x.x.x"` format.
 
-### 错误: Release 创建失败
-- 检查网络连接
-- 确认 GitHub API 可用性
-- 检查版本号格式是否正确
-- 确认仓库名称和所有者是否正确
+### Error: Permission denied
+- Ensure your GitHub token has the correct scopes (`repo` or `public_repo`)
+- Verify you have write access to the repository
+- Check token hasn't expired
 
+### Error: Release creation failed
+- Check network connection
+- Verify GitHub API availability
+- Check version number format is correct
+- Verify repository name and owner are correct
+- Check API response for detailed error message
+
+### Error: Tag push failed
+- Ensure you have push access to the repository
+- Check if tag already exists remotely
+- Verify git remote is configured correctly (`git remote -v`)
+
+## Security Best Practices
+
+1. **Never commit tokens**: Add `.env` or token files to `.gitignore`
+2. **Use environment variables**: Prefer `GITHUB_TOKEN` environment variable over parameters
+3. **Use minimal scopes**: Only grant necessary permissions to your token
+4. **Rotate tokens regularly**: Regenerate tokens periodically for security
+5. **Use git config**: Store token in git config only if you trust your system
