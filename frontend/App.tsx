@@ -178,27 +178,7 @@ export default function App() {
   const [eraserConfig, setEraserConfig] = useState(DEFAULT_ERASER_CONFIG);
   const [localRedrawPrompt, setLocalRedrawPrompt] = useState('');
 
-  // 当设置加载完成后，同步工具配置
-  const hasInitializedToolsRef = useRef(false);
-  useEffect(() => {
-    if (settingsLoaded && !hasInitializedToolsRef.current) {
-      hasInitializedToolsRef.current = true;
-      // 从设置中初始化工具配置
-      const brushFromSettings = {
-        size: settings.tools.brush.size,
-        color: settings.tools.brush.color,
-        opacity: settings.tools.brush.opacity,
-      };
-      const eraserFromSettings = {
-        size: settings.tools.eraser.size,
-      };
-      setBrushConfig(brushFromSettings);
-      setNormalBrushConfig(brushFromSettings);
-      setAiBrushConfig(brushFromSettings);
-      setHealBrushConfig(brushFromSettings);
-      setEraserConfig(eraserFromSettings);
-    }
-  }, [settingsLoaded, settings.tools]);
+  // 工具配置已使用默认配置初始化，无需从设置中同步
 
   // Modal State
   const [showNewCanvasModal, setShowNewCanvasModal] = useState(false);

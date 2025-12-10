@@ -10,8 +10,6 @@ import {
   X,
   Settings,
   Cpu,
-  Palette,
-  Wrench,
   Eye,
   EyeOff,
   Download,
@@ -28,7 +26,6 @@ import {
 import clsx from 'clsx';
 import { useSettings } from '../contexts/SettingsContext';
 import { Settings as SettingsType, SettingsCategory } from '@/types';
-import { AVAILABLE_FONTS, DEFAULT_FONT, isSymbolFont } from '@/constants/fonts';
 import ConfirmDialog from './ConfirmDialog';
 // ✅ 导入 wailsRuntime 以获取 window.runtime 类型定义
 import '../utils/wailsRuntime';
@@ -622,8 +619,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   const tabs: { id: TabType; icon: React.ReactNode; label: string }[] = [
     { id: 'ai', icon: <Cpu size={16} />, label: t('settings.tabs.ai', 'AI 服务') },
-    { id: 'canvas', icon: <Palette size={16} />, label: t('settings.tabs.canvas', '画布') },
-    { id: 'tools', icon: <Wrench size={16} />, label: t('settings.tabs.tools', '工具') },
     { id: 'app', icon: <Settings size={16} />, label: t('settings.tabs.app', '应用') },
     { id: 'models', icon: <Brain size={16} />, label: t('settings.tabs.models', '模型') },
     { id: 'about', icon: <Info size={16} />, label: t('settings.tabs.about', '关于') },
@@ -1226,152 +1221,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     </div>
   );
 
-  // 渲染画布设置
-  const renderCanvasSettings = () => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <InputGroup label={t('settings.canvas.width', '默认宽度')}>
-          <NumberInput
-            value={settings.canvas.width}
-            onChange={(val) => handleUpdateCategory('canvas', { width: val })}
-            min={100}
-            max={4096}
-          />
-        </InputGroup>
-        <InputGroup label={t('settings.canvas.height', '默认高度')}>
-          <NumberInput
-            value={settings.canvas.height}
-            onChange={(val) => handleUpdateCategory('canvas', { height: val })}
-            min={100}
-            max={4096}
-          />
-        </InputGroup>
-      </div>
-
-      <InputGroup label={t('settings.canvas.background', '默认背景')}>
-        <SelectInput
-          value={settings.canvas.background}
-          onChange={(val) => handleUpdateCategory('canvas', { background: val as 'transparent' | 'color' })}
-          options={[
-            { value: 'transparent', label: t('settings.canvas.transparent', '透明') },
-            { value: 'color', label: t('settings.canvas.color', '纯色') },
-          ]}
-        />
-      </InputGroup>
-
-      {settings.canvas.background === 'color' && (
-        <InputGroup label={t('settings.canvas.backgroundColor', '背景颜色')}>
-          <ColorInput
-            value={settings.canvas.backgroundColor}
-            onChange={(val) => handleUpdateCategory('canvas', { backgroundColor: val })}
-          />
-        </InputGroup>
-      )}
-    </div>
-  );
-
-  // 渲染工具设置
-  const renderToolSettings = () => (
-    <div className="space-y-6">
-      {/* 画笔设置 */}
-      <div>
-        <h4 className="text-sm font-medium text-gray-200 mb-3">{t('settings.tools.brush', '画笔')}</h4>
-        <div className="space-y-3 pl-2 border-l-2 border-tech-700">
-          <InputGroup label={t('settings.tools.brushSize', '默认大小')}>
-            <Slider
-              value={settings.tools.brush.size}
-              min={1}
-              max={100}
-              onChange={(val) => handleUpdateCategory('tools', {
-                brush: { ...settings.tools.brush, size: val }
-              })}
-            />
-          </InputGroup>
-          <InputGroup label={t('settings.tools.brushColor', '默认颜色')}>
-            <ColorInput
-              value={settings.tools.brush.color}
-              onChange={(val) => handleUpdateCategory('tools', {
-                brush: { ...settings.tools.brush, color: val }
-              })}
-            />
-          </InputGroup>
-          <InputGroup label={t('settings.tools.brushOpacity', '默认透明度')}>
-            <Slider
-              value={settings.tools.brush.opacity}
-              min={0}
-              max={1}
-              step={0.1}
-              onChange={(val) => handleUpdateCategory('tools', {
-                brush: { ...settings.tools.brush, opacity: val }
-              })}
-            />
-          </InputGroup>
-        </div>
-      </div>
-
-      {/* 橡皮擦设置 */}
-      <div>
-        <h4 className="text-sm font-medium text-gray-200 mb-3">{t('settings.tools.eraser', '橡皮擦')}</h4>
-        <div className="space-y-3 pl-2 border-l-2 border-tech-700">
-          <InputGroup label={t('settings.tools.eraserSize', '默认大小')}>
-            <Slider
-              value={settings.tools.eraser.size}
-              min={1}
-              max={100}
-              onChange={(val) => handleUpdateCategory('tools', {
-                eraser: { ...settings.tools.eraser, size: val }
-              })}
-            />
-          </InputGroup>
-        </div>
-      </div>
-
-      {/* 文本设置 */}
-      <div>
-        <h4 className="text-sm font-medium text-gray-200 mb-3">{t('settings.tools.text', '文本')}</h4>
-        <div className="space-y-3 pl-2 border-l-2 border-tech-700">
-          <InputGroup label={t('settings.tools.textFont', '默认字体')}>
-            <select
-              value={settings.tools.text.fontFamily}
-              onChange={(e) => handleUpdateCategory('tools', {
-                text: { ...settings.tools.text, fontFamily: e.target.value }
-              })}
-              className="w-full bg-tech-900 border border-tech-700 rounded px-2 py-1.5 text-xs text-gray-300 focus:border-cyan-500 focus:outline-none"
-              style={{ fontFamily: settings.tools.text.fontFamily }}
-            >
-              {AVAILABLE_FONTS.map((font) => (
-                <option 
-                  key={font} 
-                  value={font} 
-                  style={{ fontFamily: isSymbolFont(font) ? DEFAULT_FONT : font }}
-                >
-                  {font}
-                </option>
-              ))}
-            </select>
-          </InputGroup>
-          <InputGroup label={t('settings.tools.textSize', '默认字号')}>
-            <NumberInput
-              value={settings.tools.text.fontSize}
-              onChange={(val) => handleUpdateCategory('tools', {
-                text: { ...settings.tools.text, fontSize: val }
-              })}
-              min={8}
-              max={200}
-            />
-          </InputGroup>
-          <InputGroup label={t('settings.tools.textColor', '默认颜色')}>
-            <ColorInput
-              value={settings.tools.text.color}
-              onChange={(val) => handleUpdateCategory('tools', {
-                text: { ...settings.tools.text, color: val }
-              })}
-            />
-          </InputGroup>
-        </div>
-      </div>
-    </div>
-  );
 
   const handleModelSwitch = async (modelId: string) => {
     try {
@@ -1993,8 +1842,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'ai': return renderAISettings();
-      case 'canvas': return renderCanvasSettings();
-      case 'tools': return renderToolSettings();
       case 'app': return renderAppSettings();
       case 'models': return renderModelSettings();
       case 'about': return renderAboutSettings();

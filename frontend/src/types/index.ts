@@ -60,51 +60,6 @@ export interface AIServiceSettings {
 }
 
 /**
- * 画布默认配置
- */
-export interface CanvasDefaultSettings {
-  width: number;
-  height: number;
-  background: 'transparent' | 'color';
-  backgroundColor: string;
-}
-
-/**
- * 画笔配置
- */
-export interface BrushSettings {
-  size: number;
-  color: string;
-  opacity: number;
-}
-
-/**
- * 橡皮擦配置
- */
-export interface EraserSettings {
-  size: number;
-}
-
-/**
- * 文本默认配置
- */
-export interface TextSettings {
-  fontSize: number;
-  color: string;
-  defaultText: string;
-  fontFamily: string;
-}
-
-/**
- * 工具配置
- */
-export interface ToolSettings {
-  brush: BrushSettings;
-  eraser: EraserSettings;
-  text: TextSettings;
-}
-
-/**
  * Transformers 模型配置
  * 
  * 架构说明：
@@ -155,15 +110,13 @@ export interface AppSettings {
 export interface Settings {
   version: string;
   ai: AIServiceSettings;
-  canvas: CanvasDefaultSettings;
-  tools: ToolSettings;
   app: AppSettings; // 应用设置
 }
 
 /**
  * 设置分类键
  */
-export type SettingsCategory = 'ai' | 'canvas' | 'tools' | 'app';
+export type SettingsCategory = 'ai' | 'app';
 
 export interface CanvasConfig {
   width: number;

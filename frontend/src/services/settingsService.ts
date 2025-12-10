@@ -7,8 +7,6 @@
 import {
   Settings,
   AIServiceSettings,
-  CanvasDefaultSettings,
-  ToolSettings,
   AppSettings,
   TransformersModelSettings,
 } from '@/types';
@@ -59,30 +57,6 @@ export const DEFAULT_AI_SETTINGS: AIServiceSettings = {
   cloudToken: '',        // 云服务认证 Token
 };
 
-export const DEFAULT_CANVAS_SETTINGS: CanvasDefaultSettings = {
-  width: 1080,
-  height: 1080,
-  background: 'transparent',
-  backgroundColor: '#ffffff',
-};
-
-export const DEFAULT_TOOL_SETTINGS: ToolSettings = {
-  brush: {
-    size: 10,
-    color: '#ffffff',
-    opacity: 1,
-  },
-  eraser: {
-    size: 20,
-  },
-  text: {
-    fontSize: 32,
-    color: '#ffffff',
-    defaultText: 'Double click to edit',
-    fontFamily: 'Arial',
-  },
-};
-
 export const DEFAULT_TRANSFORMERS_MODEL_SETTINGS: TransformersModelSettings = {
   currentModelId: 'rmbg-1.4',
   useQuantized: true,
@@ -106,8 +80,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   ai: DEFAULT_AI_SETTINGS,
-  canvas: DEFAULT_CANVAS_SETTINGS,
-  tools: DEFAULT_TOOL_SETTINGS,
   app: DEFAULT_APP_SETTINGS,
 };
 
@@ -196,64 +168,6 @@ function validateAISettings(settings: Partial<AIServiceSettings>): AIServiceSett
 }
 
 /**
- * 验证画布设置
- */
-function validateCanvasSettings(settings: Partial<CanvasDefaultSettings>): CanvasDefaultSettings {
-  return {
-    width: typeof settings.width === 'number' && settings.width > 0 
-      ? settings.width 
-      : DEFAULT_CANVAS_SETTINGS.width,
-    height: typeof settings.height === 'number' && settings.height > 0 
-      ? settings.height 
-      : DEFAULT_CANVAS_SETTINGS.height,
-    background: settings.background === 'transparent' || settings.background === 'color'
-      ? settings.background
-      : DEFAULT_CANVAS_SETTINGS.background,
-    backgroundColor: typeof settings.backgroundColor === 'string' 
-      ? settings.backgroundColor 
-      : DEFAULT_CANVAS_SETTINGS.backgroundColor,
-  };
-}
-
-/**
- * 验证工具设置
- */
-function validateToolSettings(settings: Partial<ToolSettings>): ToolSettings {
-  return {
-    brush: {
-      size: typeof settings.brush?.size === 'number' && settings.brush.size > 0 
-        ? settings.brush.size 
-        : DEFAULT_TOOL_SETTINGS.brush.size,
-      color: typeof settings.brush?.color === 'string' 
-        ? settings.brush.color 
-        : DEFAULT_TOOL_SETTINGS.brush.color,
-      opacity: typeof settings.brush?.opacity === 'number' && settings.brush.opacity >= 0 && settings.brush.opacity <= 1
-        ? settings.brush.opacity 
-        : DEFAULT_TOOL_SETTINGS.brush.opacity,
-    },
-    eraser: {
-      size: typeof settings.eraser?.size === 'number' && settings.eraser.size > 0 
-        ? settings.eraser.size 
-        : DEFAULT_TOOL_SETTINGS.eraser.size,
-    },
-    text: {
-      fontSize: typeof settings.text?.fontSize === 'number' && settings.text.fontSize > 0 
-        ? settings.text.fontSize 
-        : DEFAULT_TOOL_SETTINGS.text.fontSize,
-      color: typeof settings.text?.color === 'string' 
-        ? settings.text.color 
-        : DEFAULT_TOOL_SETTINGS.text.color,
-      defaultText: typeof settings.text?.defaultText === 'string' 
-        ? settings.text.defaultText 
-        : DEFAULT_TOOL_SETTINGS.text.defaultText,
-      fontFamily: typeof settings.text?.fontFamily === 'string' && settings.text.fontFamily
-        ? settings.text.fontFamily 
-        : DEFAULT_TOOL_SETTINGS.text.fontFamily,
-    },
-  };
-}
-
-/**
  * 验证 Transformers 模型设置
  */
 function validateTransformersModelSettings(settings: Partial<TransformersModelSettings>): TransformersModelSettings {
@@ -311,8 +225,6 @@ function validateSettings(settings: Partial<Settings>): Settings {
   return {
     version: SETTINGS_VERSION,
     ai: validateAISettings(settings.ai || {}),
-    canvas: validateCanvasSettings(settings.canvas || {}),
-    tools: validateToolSettings(settings.tools || {}),
     app: validateAppSettings(settings.app || {}),
   };
 }

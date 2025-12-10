@@ -360,28 +360,6 @@ func (c *ConfigService) getDefaultSettings() string {
 			CloudEndpointURL: "",
 			CloudToken:       "",
 		},
-		Canvas: types.CanvasSettings{
-			Width:           1080,
-			Height:          1080,
-			Background:      "transparent",
-			BackgroundColor: "#ffffff",
-		},
-		Tools: types.ToolsSettings{
-			Brush: types.BrushSettings{
-				Size:    10,
-				Color:   "#ffffff",
-				Opacity: 1.0,
-			},
-			Eraser: types.EraserSettings{
-				Size: 20,
-			},
-			Text: types.TextSettings{
-				FontSize:    32,
-				Color:       "#ffffff",
-				DefaultText: "Double click to edit",
-				FontFamily:  "Arial",
-			},
-		},
 		App: types.AppSettings{
 			ExportDirectory: getUserPicturesDir(), // 默认导出目录为用户图片目录
 			Transformers: &types.TransformersModelSettings{
