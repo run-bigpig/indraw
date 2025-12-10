@@ -2,6 +2,29 @@
 
 This document records all important updates and changes to Indraw Editor.
 
+## [1.0.4] - 2025-12-10
+
+### 🐛 Bug Fixes
+
+#### Update Service
+- **Fixed Git Command Execution Issue**: Resolved issue where update check service was calling git commands, causing terminal window to flash briefly
+  - Switched to token-free mode for GitHub API access
+  - Removed dependency on gitconfig library that was executing git commands
+  - Improved update service initialization to avoid external command execution
+  - Better error handling when update service initialization fails
+
+### 🔧 Improvements
+
+#### User Interface
+- **Enhanced Release Notes Display**: Improved update log display in settings panel
+  - Integrated react-markdown library for full Markdown support
+  - Added fixed height (200px) with scrollable content for release notes
+  - Enhanced Markdown rendering with custom styled components
+  - Support for all standard Markdown features (headers, lists, code blocks, links, etc.)
+  - Better visual presentation with theme-consistent styling
+
+---
+
 ## [1.0.3] - 2025-12-09
 
 ### ✨ New Features
