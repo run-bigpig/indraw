@@ -2,7 +2,7 @@
 
 This document records all important updates and changes to Indraw Editor.
 
-## [1.1.1] - 2025-01-XX
+## [1.1.1] - 2025-12-10
 
 ### ✨ New Features
 
