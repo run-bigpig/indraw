@@ -1,17 +1,18 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ToolType } from '../types';
-import { MousePointer2, Type, Wand2, Brush, Upload, Eraser, Shapes } from 'lucide-react';
+import { MousePointer2, Type, Wand2, Brush, Upload, Eraser, Shapes, Images } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ToolbarProps {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
   onUploadClick: () => void;
+  onGalleryClick: () => void;
   isProjectCreated?: boolean;
 }
 
-const Toolbar: React.FC<ToolbarProps> = ({ activeTool, setActiveTool, onUploadClick, isProjectCreated = true }) => {
+const Toolbar: React.FC<ToolbarProps> = ({ activeTool, setActiveTool, onUploadClick, onGalleryClick, isProjectCreated = true }) => {
   const { t } = useTranslation(['toolbar', 'shapes']);
 
   // Handle tool change; disable when project does not exist
@@ -24,6 +25,12 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTool, setActiveTool, onUploadCl
   const handleUploadClick = () => {
     if (!isProjectCreated) return;
     onUploadClick();
+  };
+
+  // Handle gallery click; disable when project does not exist
+  const handleGalleryClick = () => {
+    if (!isProjectCreated) return;
+    onGalleryClick();
   };
 
   return (
@@ -45,6 +52,24 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTool, setActiveTool, onUploadCl
         <Upload size={20} />
         <span className="absolute left-full ml-4 px-2 py-1 bg-tech-800 text-xs text-cyan-100 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-tech-700 whitespace-nowrap z-50">
           {!isProjectCreated ? t('disabledTooltip') : t('uploadImage')}
+        </span>
+      </button>
+
+      {/* Image Gallery */}
+      <button
+        onClick={handleGalleryClick}
+        disabled={!isProjectCreated}
+        className={clsx(
+          "p-3 rounded-xl border border-transparent transition-all duration-200 group relative focus:outline-none",
+          !isProjectCreated
+            ? "text-gray-700 opacity-40 cursor-not-allowed"
+            : "text-gray-500 hover:text-cyan-400 hover:bg-tech-800"
+        )}
+        title={!isProjectCreated ? t('disabledTooltip') : t('imageGalleryTooltip')}
+      >
+        <Images size={20} />
+        <span className="absolute left-full ml-4 px-2 py-1 bg-tech-800 text-xs text-cyan-100 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-tech-700 whitespace-nowrap z-50">
+          {!isProjectCreated ? t('disabledTooltip') : t('imageGallery')}
         </span>
       </button>
 

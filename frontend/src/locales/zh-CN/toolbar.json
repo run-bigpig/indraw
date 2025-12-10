@@ -35,5 +35,17 @@
   "disabledTooltip": "请先创建项目",
   "dragDropHint": "拖拽图片到此处上传",
   "onlyImageSupported": "仅支持图片格式",
-  "invalidFileType": "无效的文件类型，仅支持图片"
+  "invalidFileType": "无效的文件类型，仅支持图片",
+  "imageGallery": "图库",
+  "imageGalleryTooltip": "从导出目录导入图片",
+  "galleryNoDirectory": "未设置导出目录",
+  "galleryLoadError": "加载图片失败",
+  "gallerySetDirectoryHint": "请在设置中配置导出目录",
+  "galleryEmpty": "暂无图片",
+  "clickToImport": "点击导入",
+  "galleryReadError": "读取图片失败",
+  "refresh": "刷新",
+  "previewImage": "放大查看",
+  "preview": "查看",
+  "import": "导入"
 }

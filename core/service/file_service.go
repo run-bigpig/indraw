@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -574,6 +576,129 @@ func (f *FileService) SelectDirectory(title string) (string, error) {
 	}
 
 	return dirPath, nil
+}
+
+// ListImagesInDirectory 列出指定目录中的所有图片文件
+// 返回 JSON 格式的文件列表，包含文件名、路径、修改时间等信息
+func (f *FileService) ListImagesInDirectory(dirPath string) (string, error) {
+	if dirPath == "" {
+		return "[]", nil
+	}
+
+	// 检查目录是否存在
+	info, err := os.Stat(dirPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "[]", nil
+		}
+		return "", fmt.Errorf("failed to access directory: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("path is not a directory: %s", dirPath)
+	}
+
+	// 支持的图片扩展名
+	imageExts := map[string]bool{
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".webp": true,
+		".gif":  true,
+		".bmp":  true,
+		".svg":  true,
+	}
+
+	type ImageFile struct {
+		Name     string `json:"name"`
+		Path     string `json:"path"`
+		Size     int64  `json:"size"`
+		Modified int64  `json:"modified"`
+	}
+
+	var images []ImageFile
+
+	// 读取目录
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		fileName := entry.Name()
+		ext := strings.ToLower(filepath.Ext(fileName))
+		if !imageExts[ext] {
+			continue
+		}
+
+		filePath := filepath.Join(dirPath, fileName)
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		images = append(images, ImageFile{
+			Name:     fileName,
+			Path:     filePath,
+			Size:     info.Size(),
+			Modified: info.ModTime().Unix(),
+		})
+	}
+
+	// 按修改时间倒序排序（最新的在前）
+	sort.Slice(images, func(i, j int) bool {
+		return images[i].Modified > images[j].Modified
+	})
+
+	// 序列化为 JSON
+	data, err := json.Marshal(images)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize image list: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// ReadImageFile 读取图片文件并返回 base64 编码的数据
+func (f *FileService) ReadImageFile(filePath string) (string, error) {
+	if filePath == "" {
+		return "", fmt.Errorf("file path is empty")
+	}
+
+	// 读取文件
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// 确定 MIME 类型
+	ext := strings.ToLower(filepath.Ext(filePath))
+	var mimeType string
+	switch ext {
+	case ".png":
+		mimeType = "image/png"
+	case ".jpg", ".jpeg":
+		mimeType = "image/jpeg"
+	case ".webp":
+		mimeType = "image/webp"
+	case ".gif":
+		mimeType = "image/gif"
+	case ".bmp":
+		mimeType = "image/bmp"
+	case ".svg":
+		mimeType = "image/svg+xml"
+	default:
+		mimeType = "image/png"
+	}
+
+	// 转换为 base64
+	base64Data := base64.StdEncoding.EncodeToString(data)
+	dataURL := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
+
+	return dataURL, nil
 }
 
 // AutoSave 自动保存项目数据到临时位置

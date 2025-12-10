@@ -53,6 +53,7 @@ import FullScreenLoading from '@/components/FullScreenLoading';
 import ImageCropModal from '@/components/ImageCropModal';
 import ImageSliceModal from '@/components/ImageSliceModal';
 import ExportOptionsModal, { ExportOptions, ExportFormat } from '@/components/ExportOptionsModal';
+import ImageGalleryModal from '@/components/ImageGalleryModal';
 import Logo from '@/components/Logo';
 import { useSettings } from './src/contexts/SettingsContext';
 import { ExportImage } from './wailsjs/go/core/App';
@@ -228,6 +229,9 @@ export default function App() {
   // Export Options Modal State
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [exportPreviewImage, setExportPreviewImage] = useState<string | undefined>(undefined);
+
+  // Image Gallery Modal State
+  const [showImageGallery, setShowImageGallery] = useState(false);
 
   // Export Message State
   const [exportMessage, setExportMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -970,6 +974,27 @@ export default function App() {
     };
     reader.readAsDataURL(file);
   };
+
+  // 处理从图库选择的图片
+  const handleGalleryImageSelect = useCallback(async (imageDataUrl: string) => {
+    // 获取画布配置
+    const { width: canvasWidth, height: canvasHeight } = projectManager.canvasConfig;
+
+    // 加载图片并计算适配画布的尺寸和位置
+    const layout = await loadAndFitImage(imageDataUrl, canvasWidth, canvasHeight, 1.0);
+
+    addLayer({
+      id: uuidv4(),
+      type: 'image',
+      name: createLayerName('image', t, layers.length),
+      x: layout.x,
+      y: layout.y,
+      width: layout.width,
+      height: layout.height,
+      ...DEFAULT_LAYER_PROPS,
+      src: imageDataUrl,
+    });
+  }, [projectManager.canvasConfig, layers.length, t]);
 
   const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2256,6 +2281,7 @@ Keep high quality and clarity.`;
             }
           }}
           onUploadClick={() => fileInputRef.current?.click()}
+          onGalleryClick={() => setShowImageGallery(true)}
           isProjectCreated={projectManager.isProjectCreated}
         />
 
@@ -2979,6 +3005,14 @@ Keep high quality and clarity.`;
           onCancel={() => setSliceModalData(null)}
         />
       )}
+
+      {/* Image Gallery Modal - 图库模态框 */}
+      <ImageGalleryModal
+        isOpen={showImageGallery}
+        exportDirectory={settings.app.exportDirectory || ''}
+        onSelectImage={handleGalleryImageSelect}
+        onClose={() => setShowImageGallery(false)}
+      />
 
       {/* Export Options Modal */}
       {showExportOptions && (
