@@ -5,6 +5,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown from 'react-markdown';
 import {
   X,
   Settings,
@@ -388,78 +389,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     } catch (error) {
       console.error('Failed to load current version:', error);
     }
-  };
-
-  // 格式化更新日志（简单的 Markdown 转 HTML）
-  const formatReleaseNotes = (notes: string): string => {
-    if (!notes) return '';
-    
-    // 先处理代码块，避免其中的内容被其他规则处理
-    const codeBlocks: string[] = [];
-    let codeBlockIndex = 0;
-    let formatted = notes.replace(/```([\s\S]*?)```/g, (match, code) => {
-      const placeholder = `__CODE_BLOCK_${codeBlockIndex}__`;
-      codeBlocks[codeBlockIndex] = code;
-      codeBlockIndex++;
-      return placeholder;
-    });
-    
-    // 转义 HTML 特殊字符（但保留代码块占位符）
-    formatted = formatted
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    
-    // 恢复代码块
-    codeBlocks.forEach((code, index) => {
-      const escapedCode = code
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>');
-      formatted = formatted.replace(
-        `__CODE_BLOCK_${index}__`,
-        `<pre class="bg-tech-800 p-2 rounded text-[10px] text-cyan-400 font-mono overflow-x-auto my-2 border border-tech-700"><code>${escapedCode}</code></pre>`
-      );
-    });
-    
-    // 处理标题 (# ## ###)
-    formatted = formatted.replace(/^### (.*$)/gim, '<h3 class="text-sm font-semibold text-gray-200 mt-3 mb-1.5">$1</h3>');
-    formatted = formatted.replace(/^## (.*$)/gim, '<h2 class="text-sm font-bold text-gray-100 mt-4 mb-2">$1</h2>');
-    formatted = formatted.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-white mt-4 mb-2">$1</h1>');
-    
-    // 处理粗体 (**text** 或 __text__)
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-200">$1</strong>');
-    formatted = formatted.replace(/__(.*?)__/g, '<strong class="font-semibold text-gray-200">$1</strong>');
-    
-    // 处理斜体 (*text* 或 _text_)
-    formatted = formatted.replace(/\*([^*]+)\*/g, '<em class="italic text-gray-300">$1</em>');
-    formatted = formatted.replace(/_([^_]+)_/g, '<em class="italic text-gray-300">$1</em>');
-    
-    // 处理行内代码 (`code`)
-    formatted = formatted.replace(/`([^`\n]+)`/g, '<code class="bg-tech-800 px-1.5 py-0.5 rounded text-[10px] text-cyan-400 font-mono border border-tech-700">$1</code>');
-    
-    // 处理链接 [text](url)
-    formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 underline">$1</a>');
-    
-    // 处理有序列表 (1. 2. 3.)
-    formatted = formatted.replace(/^(\d+)\. (.+)$/gim, '<li class="ml-5 list-decimal text-gray-300 mb-1">$2</li>');
-    
-    // 处理无序列表 (- 或 * 或 +)
-    formatted = formatted.replace(/^[\*\-\+] (.+)$/gim, '<li class="ml-5 list-disc text-gray-300 mb-1">$1</li>');
-    
-    // 将连续的列表项包裹在 ul 标签中
-    formatted = formatted.replace(/(<li[^>]*>.*?<\/li>\n?)+/g, (match) => {
-      return `<ul class="space-y-1 my-2">${match}</ul>`;
-    });
-    
-    // 处理换行（保留段落间距）
-    formatted = formatted.replace(/\n\n/g, '</p><p class="my-2">');
-    formatted = formatted.replace(/\n/g, '<br>');
-    
-    // 包裹在段落标签中
-    formatted = `<p class="my-2">${formatted}</p>`;
-    
-    return formatted;
   };
 
   // 检查更新
@@ -1884,16 +1813,39 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         </div>
                         <div className="bg-tech-900/50 rounded p-2.5 border border-tech-700/50">
                           <div 
-                            className="text-xs text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none"
+                            className="text-xs text-gray-300 leading-relaxed overflow-y-auto"
                             style={{
-                              whiteSpace: 'pre-wrap',
+                              maxHeight: '200px',
                               wordBreak: 'break-word',
                               fontFamily: 'inherit'
                             }}
-                            dangerouslySetInnerHTML={{
-                              __html: formatReleaseNotes(updateInfo.releaseNotes)
-                            }}
-                          />
+                          >
+                            <ReactMarkdown
+                              components={{
+                                h1: ({node, ...props}) => <h1 className="text-base font-bold text-white mt-4 mb-2" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-sm font-bold text-gray-100 mt-4 mb-2" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-sm font-semibold text-gray-200 mt-3 mb-1.5" {...props} />,
+                                p: ({node, ...props}) => <p className="my-2" {...props} />,
+                                strong: ({node, ...props}) => <strong className="font-semibold text-gray-200" {...props} />,
+                                em: ({node, ...props}) => <em className="italic text-gray-300" {...props} />,
+                                code: ({node, inline, ...props}: any) => 
+                                  inline ? (
+                                    <code className="bg-tech-800 px-1.5 py-0.5 rounded text-[10px] text-cyan-400 font-mono border border-tech-700" {...props} />
+                                  ) : (
+                                    <code className="block bg-tech-800 p-2 rounded text-[10px] text-cyan-400 font-mono overflow-x-auto my-2 border border-tech-700" {...props} />
+                                  ),
+                                pre: ({node, ...props}) => <pre className="bg-tech-800 p-2 rounded text-[10px] text-cyan-400 font-mono overflow-x-auto my-2 border border-tech-700" {...props} />,
+                                a: ({node, ...props}) => <a className="text-cyan-400 hover:text-cyan-300 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                                ul: ({node, ...props}) => <ul className="space-y-1 my-2 ml-5 list-disc" {...props} />,
+                                ol: ({node, ...props}) => <ol className="space-y-1 my-2 ml-5 list-decimal" {...props} />,
+                                li: ({node, ...props}) => <li className="text-gray-300 mb-1" {...props} />,
+                                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-tech-700 pl-3 my-2 italic text-gray-400" {...props} />,
+                                hr: ({node, ...props}) => <hr className="my-3 border-tech-700" {...props} />,
+                              }}
+                            >
+                              {updateInfo.releaseNotes}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1919,16 +1871,39 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         </div>
                         <div className="bg-tech-900/50 rounded p-2.5 border border-tech-700/50">
                           <div 
-                            className="text-xs text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none"
+                            className="text-xs text-gray-300 leading-relaxed overflow-y-auto"
                             style={{
-                              whiteSpace: 'pre-wrap',
+                              maxHeight: '200px',
                               wordBreak: 'break-word',
                               fontFamily: 'inherit'
                             }}
-                            dangerouslySetInnerHTML={{
-                              __html: formatReleaseNotes(updateInfo.releaseNotes)
-                            }}
-                          />
+                          >
+                            <ReactMarkdown
+                              components={{
+                                h1: ({node, ...props}) => <h1 className="text-base font-bold text-white mt-4 mb-2" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-sm font-bold text-gray-100 mt-4 mb-2" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-sm font-semibold text-gray-200 mt-3 mb-1.5" {...props} />,
+                                p: ({node, ...props}) => <p className="my-2" {...props} />,
+                                strong: ({node, ...props}) => <strong className="font-semibold text-gray-200" {...props} />,
+                                em: ({node, ...props}) => <em className="italic text-gray-300" {...props} />,
+                                code: ({node, inline, ...props}: any) => 
+                                  inline ? (
+                                    <code className="bg-tech-800 px-1.5 py-0.5 rounded text-[10px] text-cyan-400 font-mono border border-tech-700" {...props} />
+                                  ) : (
+                                    <code className="block bg-tech-800 p-2 rounded text-[10px] text-cyan-400 font-mono overflow-x-auto my-2 border border-tech-700" {...props} />
+                                  ),
+                                pre: ({node, ...props}) => <pre className="bg-tech-800 p-2 rounded text-[10px] text-cyan-400 font-mono overflow-x-auto my-2 border border-tech-700" {...props} />,
+                                a: ({node, ...props}) => <a className="text-cyan-400 hover:text-cyan-300 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                                ul: ({node, ...props}) => <ul className="space-y-1 my-2 ml-5 list-disc" {...props} />,
+                                ol: ({node, ...props}) => <ol className="space-y-1 my-2 ml-5 list-decimal" {...props} />,
+                                li: ({node, ...props}) => <li className="text-gray-300 mb-1" {...props} />,
+                                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-tech-700 pl-3 my-2 italic text-gray-400" {...props} />,
+                                hr: ({node, ...props}) => <hr className="my-3 border-tech-700" {...props} />,
+                              }}
+                            >
+                              {updateInfo.releaseNotes}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     )}
