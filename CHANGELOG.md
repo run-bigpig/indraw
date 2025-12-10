@@ -2,6 +2,54 @@
 
 This document records all important updates and changes to Indraw Editor.
 
+## [1.1.1] - 2025-01-XX
+
+### ✨ New Features
+
+#### Image Gallery
+- **Image Gallery Feature**: Added image gallery functionality for managing and reusing exported images
+  - Added gallery button (Images icon) in toolbar, positioned below upload button
+  - Automatically reads all image files from export directory (supports PNG, JPG, JPEG, WebP, GIF, BMP, SVG formats)
+  - Image list sorted by modification time (newest first)
+  - Displays image thumbnails, filename, size, and modification time
+  - Supports refreshing image list
+  - Hover to show action buttons (Preview, Import)
+  - Click "Preview" button to view enlarged image
+  - Click "Import" button to import image to current canvas
+  - Can directly import from preview modal
+  - Full internationalization support (Chinese/English)
+
+#### Backend API Enhancements
+- **File Service Extensions**: Added image file management APIs
+  - `ListImagesInDirectory`: Lists all image files in specified directory
+  - `ReadImageFile`: Reads image file and returns base64 encoded data
+  - Supports multiple image format recognition and MIME type handling
+
+### 🔧 Improvements
+
+#### Performance Optimization
+- **Gallery Loading Optimization**: Optimized gallery modal loading performance
+  - Modal displays immediately, image list loads asynchronously to avoid lag
+  - Lazy loading of image previews, loads thumbnails on demand
+  - Preloads previews of first 10 images for better user experience
+
+#### User Experience Improvements
+- **Interaction Optimization**: Improved gallery interaction experience
+  - Removed card click import, only buttons trigger import to avoid accidental operations
+  - Action buttons appear on hover for clearer interface
+  - Preview modal supports full-screen viewing of large images
+  - Optimized button styles and layout
+
+### 🐛 Bug Fixes
+
+- **Fixed Duplicate Import Issue**: Fixed issue where clicking import button triggered import twice
+  - Added event propagation blocking to ensure button clicks don't trigger parent element events
+- **Fixed Dependency Loop Issue**: Fixed infinite update loop in gallery component
+  - Optimized useEffect dependencies to avoid unnecessary re-renders
+  - Refactored loading logic to eliminate dependency cycles
+
+---
+
 ## [1.0.4] - 2025-12-10
 
 ### 🐛 Bug Fixes
