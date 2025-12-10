@@ -35,5 +35,17 @@
   "disabledTooltip": "Please create a project first",
   "dragDropHint": "Drag and drop images here to upload",
   "onlyImageSupported": "Only image files are supported",
-  "invalidFileType": "Invalid file type, only images are supported"
+  "invalidFileType": "Invalid file type, only images are supported",
+  "imageGallery": "Image Gallery",
+  "imageGalleryTooltip": "Import images from export directory",
+  "galleryNoDirectory": "Export directory not set",
+  "galleryLoadError": "Failed to load images",
+  "gallerySetDirectoryHint": "Please configure export directory in settings",
+  "galleryEmpty": "No images",
+  "clickToImport": "Click to import",
+  "galleryReadError": "Failed to read image",
+  "refresh": "Refresh",
+  "previewImage": "Preview Image",
+  "preview": "Preview",
+  "import": "Import"
 }

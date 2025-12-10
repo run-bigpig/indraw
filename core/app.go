@@ -142,6 +142,16 @@ func (a *App) SelectDirectory(title string) (string, error) {
 	return a.fileService.SelectDirectory(title)
 }
 
+// ListImagesInDirectory 列出指定目录中的所有图片文件
+func (a *App) ListImagesInDirectory(dirPath string) (string, error) {
+	return a.fileService.ListImagesInDirectory(dirPath)
+}
+
+// ReadImageFile 读取图片文件并返回 base64 编码的数据
+func (a *App) ReadImageFile(filePath string) (string, error) {
+	return a.fileService.ReadImageFile(filePath)
+}
+
 // CreateProject 创建新项目
 func (a *App) CreateProject(name string, parentDir string, canvasConfigJSON string) (string, error) {
 	return a.fileService.CreateProject(name, parentDir, canvasConfigJSON)
