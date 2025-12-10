@@ -8,26 +8,26 @@ import (
 	"runtime"
 
 	"github.com/blang/semver"
-	"github.com/rhysd/go-github-selfupdate/selfupdate"
+	"github.com/run-bigpig/go-github-selfupdate/selfupdate"
 )
 
 // UpdateService 更新检测服务
 // 负责从 GitHub Releases 检测和下载更新
 type UpdateService struct {
-	ctx           context.Context
-	repoOwner     string // GitHub 仓库所有者
-	repoName      string // GitHub 仓库名称
+	ctx            context.Context
+	repoOwner      string // GitHub 仓库所有者
+	repoName       string // GitHub 仓库名称
 	currentVersion string // 当前版本号
 }
 
 // UpdateInfo 更新信息
 type UpdateInfo struct {
-	HasUpdate    bool   `json:"hasUpdate"`
-	LatestVersion string `json:"latestVersion"`
+	HasUpdate      bool   `json:"hasUpdate"`
+	LatestVersion  string `json:"latestVersion"`
 	CurrentVersion string `json:"currentVersion"`
-	ReleaseURL   string `json:"releaseUrl"`
-	ReleaseNotes string `json:"releaseNotes"`
-	Error        string `json:"error,omitempty"`
+	ReleaseURL     string `json:"releaseUrl"`
+	ReleaseNotes   string `json:"releaseNotes"`
+	Error          string `json:"error,omitempty"`
 }
 
 // NewUpdateService 创建更新服务实例
@@ -46,31 +46,7 @@ func (u *UpdateService) Startup(ctx context.Context) {
 
 // CheckForUpdate 检查是否有可用更新
 func (u *UpdateService) CheckForUpdate() (UpdateInfo, error) {
-	// 重定向标准输出和错误输出，避免弹出终端窗口（Windows 平台）
-	// 保存原始的 stdout 和 stderr
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
-	
-	// 打开空设备文件用于重定向输出
-	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	if err == nil {
-		os.Stdout = devNull
-		os.Stderr = devNull
-		defer func() {
-			devNull.Close()
-			os.Stdout = oldStdout
-			os.Stderr = oldStderr
-		}()
-	} else {
-		// 如果无法打开 DevNull，至少尝试恢复
-		defer func() {
-			os.Stdout = oldStdout
-			os.Stderr = oldStderr
-		}()
-	}
-
 	repo := fmt.Sprintf("%s/%s", u.repoOwner, u.repoName)
-	
 	latest, found, err := selfupdate.DetectLatest(repo)
 	if err != nil {
 		return UpdateInfo{
@@ -104,7 +80,7 @@ func (u *UpdateService) CheckForUpdate() (UpdateInfo, error) {
 
 	// 使用 semver 比较版本
 	hasUpdate := latest.Version.GT(currentVer)
-	
+
 	info := UpdateInfo{
 		HasUpdate:      hasUpdate,
 		CurrentVersion: u.currentVersion,
@@ -144,7 +120,6 @@ func (u *UpdateService) GetCurrentVersion() string {
 // 注意：在 Wails 应用中，更新可能需要特殊处理
 func (u *UpdateService) Update() error {
 	repo := fmt.Sprintf("%s/%s", u.repoOwner, u.repoName)
-	
 	latest, found, err := selfupdate.DetectLatest(repo)
 	if err != nil {
 		return fmt.Errorf("检测更新失败: %w", err)
@@ -186,4 +161,3 @@ func GetExecutableName() string {
 	}
 	return fmt.Sprintf("indraw-%s-%s%s", runtime.GOOS, runtime.GOARCH, ext)
 }
-

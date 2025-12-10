@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	cloud.google.com/go/auth v0.17.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/rhysd/go-github-selfupdate v1.2.3
+	github.com/run-bigpig/go-github-selfupdate v1.0.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/crypto v0.45.0
@@ -55,6 +55,7 @@ require (
 	go.opentelemetry.io/otel v1.36.0 // indirect
 	go.opentelemetry.io/otel/metric v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
